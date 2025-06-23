@@ -1,0 +1,152 @@
+name: terraform
+  
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  
+jobs:
+  terraform-workflow:
+    runs-on: ubuntu-latest
+    # 60 minutes timeout to prevent lockup
+    timeout-minutes: 60
+  
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+      issues: write
+  
+    strategy:
+      matrix:
+        # specify the directory of main.tf (called side) in tf_working_dir
+        tf_working_dir:
+          - enter_your_terraform_directory_here
+  
+    steps:
+      - uses: actions/checkout@v4
+        name: Checkout
+        id: checkout
+      # Workload Identity Federation
+      # https://cloud.google.com/iam/docs/using-workload-identity-federation#generate-automatic
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v2'
+        with:
+        #   workload_identity_provider: 'projects/${{ vars.GOOGLE_CLOUD_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ vars.WORKLOAD_IDENTITY_POOL }}/providers/${{ vars.WORKLOAD_IDENTITY_PROVIDER }}'
+          workload_identity_provider: 'projects/207161571323/locations/global/workloadIdentityPools/github-test/providers/github'
+  
+      # https://github.com/marketplace/actions/setup-tfcmt      
+      - uses: shmokmt/actions-setup-tfcmt@v2
+        name: Setup tfcmt
+  
+      # https://github.com/marketplace/actions/setup-github-comment
+      - uses: shmokmt/actions-setup-github-comment@v2
+        name: Setup github-comment
+        
+      # https://github.com/actions/setup-node
+      # https://github.com/hashicorp/setup-terraform/issues/84
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+  
+      - uses: hashicorp/setup-terraform@v3
+        name: Setup terraform
+        with:
+          terraform_version: "1.12.2"
+  
+      - name: Terraform fmt
+        id: fmt
+        run: |
+          cd ${{ matrix.tf_working_dir }}
+          terraform fmt -recursive
+        continue-on-error: true
+      
+      - name: Terraform Init
+        id: init
+        run: |
+          cd ${{ matrix.tf_working_dir }}
+          terraform init -upgrade
+  
+      - name: Terraform Validate
+        id: validate
+        run: |
+          cd ${{ matrix.tf_working_dir }}
+          terraform validate
+  
+      # execute terraform plan when pull request to main branch
+      - name: Terraform Plan
+        id: plan
+        if: github.event_name == 'pull_request'
+        run: |
+          cd ${{ matrix.tf_working_dir }}
+          export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          tfcmt -var target:$(basename ${{ matrix.tf_working_dir }}) plan -- terraform plan --parallelism=50
+          github-comment hide -condition 'Comment.Body contains "No changes."'
+        continue-on-error: true
+  
+      # stop workflow if terraform status is failure
+      - name: Terraform Plan Status
+        id: status
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
+  
+      # Get PR number for apply comment
+      - name: Get PR number
+        id: get_pr
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          # Get PR number from the commit message or GitHub API
+          PR_NUMBER=$(gh pr list --state merged --base main --limit 50 --json number,mergeCommit | jq -r ".[] | select(.mergeCommit.oid == \"${{ github.sha }}\") | .number")
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "Found PR number: $PR_NUMBER"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # execute terraform apply when push to main branch
+      - name: Terraform Apply
+        id: apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          cd ${{ matrix.tf_working_dir }}
+          export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          
+          # Post apply start notification
+          echo "::notice title=Terraform Apply Started::Starting terraform apply for $(basename ${{ matrix.tf_working_dir }})"
+          echo "## 🚀 Terraform Apply Started" >> $GITHUB_STEP_SUMMARY
+          echo "Starting terraform apply for **$(basename ${{ matrix.tf_working_dir }})**" >> $GITHUB_STEP_SUMMARY
+          echo "Timestamp: $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Post apply start comment to PR if PR number is available
+          if [ -n "${{ steps.get_pr.outputs.pr_number }}" ]; then
+            gh pr comment ${{ steps.get_pr.outputs.pr_number }} --body "🚀 **Terraform Apply Started** for \`$(basename ${{ matrix.tf_working_dir }})\`
+
+          Started at: \`$(date)\`
+          Workflow: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          fi
+          
+          # Run terraform apply with tfcmt
+          # For apply, we'll use tfcmt to post detailed logs
+          if [ -n "${{ steps.get_pr.outputs.pr_number }}" ]; then
+            # Post to the original PR
+            tfcmt -var target:$(basename ${{ matrix.tf_working_dir }}) -pr ${{ steps.get_pr.outputs.pr_number }} apply -- terraform apply -auto-approve -input=false --parallelism=50
+          else
+            # Fallback: just run apply without posting to PR
+            terraform apply -auto-approve -input=false --parallelism=50
+          fi
+          
+          # Post apply completion notification
+          echo "::notice title=Terraform Apply Completed::Terraform apply completed successfully for $(basename ${{ matrix.tf_working_dir }})"
+          echo "## ✅ Terraform Apply Completed" >> $GITHUB_STEP_SUMMARY
+          echo "Terraform apply completed successfully for **$(basename ${{ matrix.tf_working_dir }})**" >> $GITHUB_STEP_SUMMARY
+          echo "Completion timestamp: $(date)" >> $GITHUB_STEP_SUMMARY
+
+      # stop workflow if terraform apply fails
+      - name: Terraform Apply Status
+        id: apply-status
+        if: steps.apply.outcome == 'failure'
+        run: exit 1
