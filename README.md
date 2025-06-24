@@ -88,6 +88,11 @@ This template includes Terraform configuration for Google Cloud deployment:
 - **State Management**: GCS backend with versioning and lifecycle policies
 
 ### Setup Instructions
+1. Generate Auth.js secret
+```bash
+npx auth secret
+```
+
 1. Copy `.env.template` to `.env.local` and configure:
    ```bash
    GOOGLE_CLOUD_PROJECT_ID=your-project-id
@@ -96,6 +101,7 @@ This template includes Terraform configuration for Google Cloud deployment:
    WORKLOAD_IDENTITY_PROVIDER=github
    GITHUB_REPO=your-repo-name
    GITHUB_OWNER=your-github-username
+   AUTH_SECRET=
    ```
 
 2. Run the initialization script:
