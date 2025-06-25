@@ -1,8 +1,5 @@
-'use client';
-
-import { useState } from 'react';
+import { auth } from '@/auth';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Card,
   CardContent,
@@ -13,18 +10,19 @@ import {
 import { Target, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { CalendarIcon } from '@radix-ui/react-icons';
+import { GoogleSignInButton, SignOutButton } from '@/components/auth-buttons';
 
-export default function HomePage() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+export default async function HomePage() {
+  const session = await auth();
 
-  if (!isLoggedIn) {
-    return <LoginPage onLogin={() => setIsLoggedIn(true)} />;
+  if (!session) {
+    return <LoginPage />;
   }
 
-  return <DashboardPage />;
+  return <DashboardPage user={session.user} />;
 }
 
-function LoginPage({ onLogin }: { onLogin: () => void }) {
+function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
@@ -38,18 +36,9 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Input type="email" placeholder="メールアドレス" />
-            <Input type="password" placeholder="パスワード" />
-          </div>
-          <Button onClick={onLogin} className="w-full">
-            ログイン
-          </Button>
+          <GoogleSignInButton />
           <div className="text-center text-sm text-muted-foreground">
-            アカウントをお持ちでない方は{' '}
-            <button className="text-indigo-600 hover:underline">
-              新規登録
-            </button>
+            Googleアカウントでログインして始めましょう
           </div>
         </CardContent>
       </Card>
@@ -57,7 +46,7 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
   );
 }
 
-function DashboardPage() {
+function DashboardPage({ user }: { user: any }) {
   const goals = [
     {
       id: 1,
@@ -79,13 +68,23 @@ function DashboardPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 px-4 py-3">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">My OKR</h1>
-          <Link href="/goals/new">
-            <Button size="sm">
-              <Target className="w-4 h-4 mr-2" />
-              Add New OKR
-            </Button>
-          </Link>
+          <div className="flex items-center space-x-4">
+            <h1 className="text-xl font-bold text-gray-900">My OKR</h1>
+            {user?.name && (
+              <span className="text-sm text-gray-600">
+                {user.name}さん、こんにちは
+              </span>
+            )}
+          </div>
+          <div className="flex items-center space-x-2">
+            <Link href="/goals/new">
+              <Button size="sm">
+                <Target className="w-4 h-4 mr-2" />
+                Add New OKR
+              </Button>
+            </Link>
+            <SignOutButton />
+          </div>
         </div>
       </header>
 
