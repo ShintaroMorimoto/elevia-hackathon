@@ -192,7 +192,7 @@ export async function updateGoal(
   }
 }
 
-export async function deleteGoal(goalId: string, userId: string): Promise<ActionResult<void>> {
+export async function deleteGoal(goalId: string, userId: string): Promise<ActionResult<undefined>> {
   try {
     if (!goalId || !userId) {
       return {
@@ -222,6 +222,7 @@ export async function deleteGoal(goalId: string, userId: string): Promise<Action
 
     return {
       success: true,
+      data: undefined,
     };
   } catch (error) {
     console.error('Error deleting goal:', error);

@@ -3,7 +3,7 @@
 import { db } from '@/lib/db';
 import { goals } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { Agent } from '@mastra/core';
+// import { Agent } from '@mastra/core';
 import type { ActionResult } from './goals';
 
 export interface ChatMessage {
@@ -120,35 +120,48 @@ ${chatContext}
 5. JSON形式のみで応答（説明文は不要）
 `;
 
-    // Generate OKR using AI
-    const agent = new Agent({
-      name: 'okr-generator',
-      instructions: 'You are an expert in goal achievement and OKR methodology.',
-      model: {
-        provider: 'openai',
-        name: 'gpt-4',
-      },
-    });
+    // Generate OKR using AI (Mock for now)
+    // TODO: Integrate with Mastra/AI service
+    const mockOkrPlan: OKRPlan = {
+      yearly: [
+        {
+          year: 2025,
+          objective: `${goal.title}の基盤を構築する`,
+          keyResults: [
+            { description: '必要なスキルと知識を習得する', targetValue: 100, currentValue: 0 },
+            { description: '具体的な行動計画を策定する', targetValue: 100, currentValue: 0 },
+          ],
+        },
+        {
+          year: 2026,
+          objective: `${goal.title}の実行段階に入る`,
+          keyResults: [
+            { description: '目標の50%を達成する', targetValue: 50, currentValue: 0 },
+            { description: '必要なリソースを確保する', targetValue: 100, currentValue: 0 },
+          ],
+        },
+      ],
+      quarterly: [
+        {
+          year: 2025,
+          quarter: 1,
+          objective: '目標達成のための準備を開始する',
+          keyResults: [
+            { description: '情報収集と計画策定を完了する', targetValue: 100, currentValue: 0 },
+          ],
+        },
+        {
+          year: 2025,
+          quarter: 2,
+          objective: '具体的なアクションを開始する',
+          keyResults: [
+            { description: '第一段階の目標を達成する', targetValue: 25, currentValue: 0 },
+          ],
+        },
+      ],
+    };
 
-    const response = await agent.generate(prompt);
-
-    if (!response?.text) {
-      return {
-        success: false,
-        error: 'Failed to generate OKR plan',
-      };
-    }
-
-    // Parse AI response
-    let okrPlan: OKRPlan;
-    try {
-      okrPlan = JSON.parse(response.text);
-    } catch {
-      return {
-        success: false,
-        error: 'Failed to parse AI response',
-      };
-    }
+    let okrPlan: OKRPlan = mockOkrPlan;
 
     // Validate response structure
     if (!okrPlan.yearly || !okrPlan.quarterly) {

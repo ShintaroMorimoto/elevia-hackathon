@@ -391,8 +391,8 @@ export async function updateKeyResult(
     // Calculate achievement rate if current value is being updated
     let achievementRate = updateData.currentValue ? undefined : updateData.achievementRate;
     if (updateData.currentValue !== undefined && updateData.targetValue !== undefined) {
-      const current = parseFloat(updateData.currentValue);
-      const target = parseFloat(updateData.targetValue);
+      const current = parseFloat(updateData.currentValue || '0');
+      const target = parseFloat(updateData.targetValue || '0');
       if (!isNaN(current) && !isNaN(target) && target > 0) {
         achievementRate = ((current / target) * 100).toFixed(2);
       }
@@ -429,7 +429,7 @@ export async function updateKeyResult(
   }
 }
 
-export async function deleteYearlyOkr(okrId: string): Promise<ActionResult<void>> {
+export async function deleteYearlyOkr(okrId: string): Promise<ActionResult<undefined>> {
   try {
     if (!okrId || okrId.trim() === '') {
       return {
@@ -459,6 +459,7 @@ export async function deleteYearlyOkr(okrId: string): Promise<ActionResult<void>
 
     return {
       success: true,
+      data: undefined,
     };
   } catch (error) {
     console.error('Error deleting yearly OKR:', error);
@@ -469,7 +470,7 @@ export async function deleteYearlyOkr(okrId: string): Promise<ActionResult<void>
   }
 }
 
-export async function deleteQuarterlyOkr(okrId: string): Promise<ActionResult<void>> {
+export async function deleteQuarterlyOkr(okrId: string): Promise<ActionResult<undefined>> {
   try {
     if (!okrId || okrId.trim() === '') {
       return {
@@ -499,6 +500,7 @@ export async function deleteQuarterlyOkr(okrId: string): Promise<ActionResult<vo
 
     return {
       success: true,
+      data: undefined,
     };
   } catch (error) {
     console.error('Error deleting quarterly OKR:', error);
@@ -509,7 +511,7 @@ export async function deleteQuarterlyOkr(okrId: string): Promise<ActionResult<vo
   }
 }
 
-export async function deleteKeyResult(krId: string): Promise<ActionResult<void>> {
+export async function deleteKeyResult(krId: string): Promise<ActionResult<undefined>> {
   try {
     if (!krId || krId.trim() === '') {
       return {
@@ -539,6 +541,7 @@ export async function deleteKeyResult(krId: string): Promise<ActionResult<void>>
 
     return {
       success: true,
+      data: undefined,
     };
   } catch (error) {
     console.error('Error deleting key result:', error);

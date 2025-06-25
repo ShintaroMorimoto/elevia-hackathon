@@ -3,7 +3,7 @@
 import { db } from '@/lib/db';
 import { goals } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { Agent } from '@mastra/core';
+// import { Agent } from '@mastra/core';
 import type { ActionResult } from './goals';
 import type { Goal } from '@/lib/db/schema';
 
@@ -94,35 +94,22 @@ ${conversationContext}
 5. JSON形式のみで応答（説明文は不要）
 `;
 
-    // Generate next question using AI
-    const agent = new Agent({
-      name: 'conversation-coach',
-      instructions: 'You are an expert conversation coach for goal achievement.',
-      model: {
-        provider: 'openai',
-        name: 'gpt-4',
-      },
-    });
-
-    const response = await agent.generate(prompt);
-
-    if (!response?.text) {
-      return {
-        success: false,
-        error: 'Failed to generate next question',
-      };
-    }
-
-    // Parse AI response
-    let questionData: NextQuestionData;
-    try {
-      questionData = JSON.parse(response.text);
-    } catch {
-      return {
-        success: false,
-        error: 'Failed to parse AI response',
-      };
-    }
+    // Generate next question using AI (Mock for now)
+    // TODO: Integrate with Mastra/AI service
+    const mockQuestions = [
+      'なぜこの目標を達成したいのですか？',
+      'これまでにどのような経験がありますか？',
+      'どのような課題が予想されますか？',
+      '目標達成のために必要なリソースは何ですか？',
+      'いつまでに達成したいですか？',
+    ];
+    
+    const questionIndex = chatHistory.length % mockQuestions.length;
+    const questionData: NextQuestionData = {
+      question: mockQuestions[questionIndex],
+      type: 'motivation',
+      depth: Math.min(chatHistory.length + 1, 5),
+    };
 
     return {
       success: true,
@@ -175,33 +162,15 @@ ${conversationContext}
 JSON形式のみで応答してください。
 `;
 
-    const agent = new Agent({
-      name: 'conversation-analyzer',
-      instructions: 'You are an expert at analyzing conversation depth and completeness.',
-      model: {
-        provider: 'openai',
-        name: 'gpt-4',
-      },
-    });
-
-    const response = await agent.generate(prompt);
-
-    if (!response?.text) {
-      return {
-        success: false,
-        error: 'Failed to analyze conversation depth',
-      };
-    }
-
-    let analysisData: ConversationAnalysis;
-    try {
-      analysisData = JSON.parse(response.text);
-    } catch {
-      return {
-        success: false,
-        error: 'Failed to parse analysis response',
-      };
-    }
+    // Mock analysis for now
+    // TODO: Integrate with Mastra/AI service
+    const analysisData: ConversationAnalysis = {
+      currentDepth: Math.min(chatHistory.length, 5),
+      maxDepth: 5,
+      isComplete: chatHistory.length >= 5,
+      completionPercentage: Math.min((chatHistory.length / 5) * 100, 100),
+      missingAspects: chatHistory.length < 5 ? ['具体的な行動計画', '期間とスケジュール'] : [],
+    };
 
     return {
       success: true,
@@ -259,33 +228,22 @@ ${conversationContext}
 JSON形式のみで応答してください。
 `;
 
-    const agent = new Agent({
-      name: 'conversation-summarizer',
-      instructions: 'You are an expert at summarizing goal-oriented conversations.',
-      model: {
-        provider: 'openai',
-        name: 'gpt-4',
-      },
-    });
-
-    const response = await agent.generate(prompt);
-
-    if (!response?.text) {
-      return {
-        success: false,
-        error: 'Failed to generate conversation summary',
-      };
-    }
-
-    let summaryData: ConversationSummary;
-    try {
-      summaryData = JSON.parse(response.text);
-    } catch {
-      return {
-        success: false,
-        error: 'Failed to parse summary response',
-      };
-    }
+    // Mock summary for now
+    // TODO: Integrate with Mastra/AI service
+    const summaryData: ConversationSummary = {
+      userMotivation: `${goal.title}を通じて成長したい`,
+      keyInsights: [
+        '目標に対する強い動機がある',
+        '計画的にアプローチしようとしている',
+        '必要なリソースを理解している',
+      ],
+      readinessLevel: Math.min(chatHistory.length + 3, 10),
+      recommendedActions: [
+        '具体的なスケジュールを立てる',
+        '必要なスキルを習得する',
+        '進捗を定期的に確認する',
+      ],
+    };
 
     return {
       success: true,
