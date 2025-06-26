@@ -1,9 +1,9 @@
-import { Mastra } from '@mastra/core/mastra';
+import { Mastra } from '@mastra/core';
 import { PinoLogger } from '@mastra/loggers';
 import { LibSQLStore } from '@mastra/libsql';
 import { conversationAgent } from './agents/conversation-agent';
 import { planningAgent } from './agents/planning-agent';
-import { okrGenerationWorkflow } from './workflows/okr-generation-workflow';
+// import { okrGenerationWorkflow } from './workflows/okr-generation-workflow';
 
 export const mastra = new Mastra({
   agents: {
@@ -11,7 +11,7 @@ export const mastra = new Mastra({
     planningAgent,
   },
   workflows: {
-    okrGenerationWorkflow,
+    // okrGenerationWorkflow, // 一時的に無効化（型エラー修正中）
   },
   storage: new LibSQLStore({
     url: process.env.DATABASE_URL || 'file:./mastra.db',

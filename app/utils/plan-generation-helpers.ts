@@ -91,7 +91,7 @@ export async function generatePlanWithMastra(
   const savedYearlyOKRs = [];
 
   // Save yearly OKRs to database
-  for (const yearlyOKR of generatedPlan.yearly) {
+  for (const yearlyOKR of generatedPlan.okrPlan.yearly) {
     const yearlyResult = await createYearlyOkr({
       goalId,
       targetYear: yearlyOKR.year,
