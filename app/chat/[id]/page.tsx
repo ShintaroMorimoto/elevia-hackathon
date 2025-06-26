@@ -8,6 +8,8 @@ import { Bot, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeftIcon, PaperPlaneIcon, PersonIcon } from "@radix-ui/react-icons"
+import { useSession } from "next-auth/react"
+import { initializeChatWithMastra, handleUserMessage, type ChatMessage } from "@/app/utils/chat-helpers"
 
 interface Message {
   id: string
@@ -20,29 +22,18 @@ interface Message {
 
 export default function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "ai",
-      content:
-        "こんにちは！「5年後に1億円稼ぐ」という壮大な夢、ワクワクしますね。最高の計画を一緒に作るために、いくつか質問させてください。",
-      timestamp: new Date(),
-      type: "question",
-    },
-    {
-      id: "2",
-      role: "ai",
-      content:
-        "最初の質問です。あなたがその夢を目指す、一番の「動機」は何ですか？例えば、自由な時間が欲しい、家族のため、社会に貢献したい、など自由に教えてください。",
-      timestamp: new Date(),
-      type: "question",
-    },
-  ])
+  const { data: session, status } = useSession()
+  const [goalId, setGoalId] = useState<string>("")
+  const [_goalTitle, setGoalTitle] = useState<string>("")
+  const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState("")
   const [isTyping, setIsTyping] = useState(false)
-  const [currentStep, setCurrentStep] = useState(1)
-  const [totalSteps] = useState(5)
-  const [showCreatePlanButton, setShowCreatePlanButton] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [chatSessionId, setChatSessionId] = useState<string>("")
+  const [conversationComplete, setConversationComplete] = useState(false)
+  const [conversationDepth, setConversationDepth] = useState(0)
+  const [maxDepth] = useState(5)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -53,10 +44,63 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     scrollToBottom()
   }, [messages])
 
-  const handleSendMessage = async (content: string) => {
-    if (!content.trim()) return
+  // Initialize chat session with Mastra integration
+  useEffect(() => {
+    const initializeChat = async () => {
+      try {
+        if (status === 'loading') return
+        
+        if (status === 'unauthenticated' || !session?.user?.id) {
+          router.push('/')
+          return
+        }
 
-    // Add user message
+        const resolvedParams = await params
+        const paramGoalId = resolvedParams.id
+        setGoalId(paramGoalId)
+
+        // Initialize chat with Mastra
+        const chatInit = await initializeChatWithMastra(paramGoalId, session.user.id)
+        
+        setChatSessionId(chatInit.sessionId)
+        // Save session ID for plan generation
+        localStorage.setItem(`chatSessionId_${paramGoalId}`, chatInit.sessionId)
+        setGoalTitle(chatInit.welcomeMessage.split('「')[1]?.split('」')[0] || '')
+
+        // Set initial messages
+        const welcomeMessage: Message = {
+          id: Date.now().toString(),
+          role: "ai",
+          content: chatInit.welcomeMessage,
+          timestamp: new Date(),
+          type: "question",
+        }
+
+        const firstQuestion: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "ai", 
+          content: chatInit.firstQuestion,
+          timestamp: new Date(),
+          type: "question",
+        }
+
+        setMessages([welcomeMessage, firstQuestion])
+        setIsLoading(false)
+
+      } catch (error) {
+        console.error('Error initializing chat:', error)
+        setError('チャットの初期化に失敗しました')
+        setIsLoading(false)
+      }
+    }
+
+    initializeChat()
+  }, [params, session, status, router])
+
+  const handleSendMessage = async (content: string) => {
+    if (!content.trim() || !chatSessionId || !goalId || !session?.user?.id) return
+
+    // Add user message to UI immediately
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
@@ -68,55 +112,50 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
     setInputValue("")
     setIsTyping(true)
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse = generateAIResponse(content, currentStep)
-      setMessages((prev) => [...prev, aiResponse])
-      setIsTyping(false)
+    try {
+      // Convert UI messages to ChatMessage format for helpers
+      const currentChatHistory: ChatMessage[] = messages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }))
 
-      if (currentStep < totalSteps) {
-        setCurrentStep((prev) => prev + 1)
-      } else {
-        setShowCreatePlanButton(true)
+      // Add the new user message to history
+      currentChatHistory.push({ role: 'user', content: content.trim() })
+
+      // Handle message with Mastra
+      const result = await handleUserMessage(
+        chatSessionId,
+        goalId,
+        session.user.id,
+        content.trim(),
+        currentChatHistory
+      )
+
+      // Add AI response to UI
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "ai",
+        content: result.aiResponse,
+        timestamp: new Date(),
+        type: "question",
       }
-    }, 1500)
-  }
 
-  const generateAIResponse = (userInput: string, step: number): Message => {
-    const responses = [
-      {
-        content:
-          "なるほど、「時間や場所に縛られない自由な生き方を手に入れたい」という気持ちが強い、という理解で合っていますか？",
-        type: "confirmation" as const,
-        options: ["はい、その通りです", "いいえ、少し違います"],
-      },
-      {
-        content:
-          "素晴らしい動機ですね！次に、現在のあなたのスキルや経験について教えてください。どんな分野で働いていますか？",
-        type: "question" as const,
-      },
-      {
-        content: "その目標を達成するために、どんな「手段」に興味がありますか？",
-        type: "suggestion" as const,
-        options: ["起業・独立", "副業", "投資", "転職"],
-      },
-      {
-        content: "1億円を稼いだ後、どんな生活を送りたいですか？具体的にイメージしてみてください。",
-        type: "question" as const,
-      },
-      {
-        content: "最後の質問です。この目標達成のために、どのくらいの時間を週に投資できますか？",
-        type: "question" as const,
-      },
-    ]
+      setMessages((prev) => [...prev, aiMessage])
+      setConversationDepth(result.conversationDepth)
+      setConversationComplete(result.isComplete)
 
-    return {
-      id: Date.now().toString(),
-      role: "ai",
-      content: responses[step - 1]?.content || "ありがとうございます！十分な情報が集まりました。",
-      timestamp: new Date(),
-      type: responses[step - 1]?.type,
-      options: responses[step - 1]?.options,
+      if (result.isComplete) {
+        // Show create plan button when conversation is complete
+        setTimeout(() => {
+          setConversationComplete(true)
+        }, 1000)
+      }
+
+    } catch (error) {
+      console.error('Error handling message:', error)
+      setError('メッセージの処理に失敗しました')
+    } finally {
+      setIsTyping(false)
     }
   }
 
@@ -125,7 +164,33 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   }
 
   const handleCreatePlan = () => {
-    router.push("/plan-generation/1")
+    router.push(`/plan-generation/${goalId}`)
+  }
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">チャットを初期化中...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button onClick={() => window.location.reload()}>
+            再試行
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -141,14 +206,14 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
             <div>
               <h1 className="text-lg font-semibold">AIヒアリング</h1>
               <p className="text-sm text-gray-600">
-                ({currentStep}/{totalSteps})
+                ({conversationDepth}/{maxDepth})
               </p>
             </div>
           </div>
           <div className="w-16 h-2 bg-gray-200 rounded-full">
             <div
               className="h-2 bg-indigo-600 rounded-full transition-all duration-300"
-              style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+              style={{ width: `${(conversationDepth / maxDepth) * 100}%` }}
             />
           </div>
         </div>
@@ -229,7 +294,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       </main>
 
       <footer className="bg-white border-t border-gray-200 p-4">
-        {showCreatePlanButton ? (
+        {conversationComplete ? (
           <Button onClick={handleCreatePlan} className="w-full">
             <Sparkles className="w-4 h-4 mr-2" />
             この内容で計画を作成する

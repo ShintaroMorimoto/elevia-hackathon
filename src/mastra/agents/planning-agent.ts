@@ -21,10 +21,7 @@ export const planningAgent = new Agent({
     - 進捗を追跡できる明確な指標を定義
     - ユーザーの対話履歴から得た洞察を反映
   `,
-  model: vertex('gemini-2.5-flash-preview-05-20', {
-    project: process.env.GOOGLE_CLOUD_PROJECT_ID || '',
-    location: process.env.GOOGLE_VERTEX_LOCATION || '',
-  }),
+  model: vertex('gemini-2.5-flash-preview-05-20'),
   tools: {
     generateOKRTool,
     analyzeChatHistoryTool,

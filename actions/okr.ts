@@ -551,3 +551,113 @@ export async function deleteKeyResult(krId: string): Promise<ActionResult<undefi
     };
   }
 }
+
+export async function getYearlyOKRs(goalId: string): Promise<ActionResult<YearlyOkr[]>> {
+  try {
+    if (!goalId || goalId.trim() === '') {
+      return {
+        success: false,
+        error: 'Goal ID is required',
+      };
+    }
+
+    const result = await db
+      .select()
+      .from(yearlyOkrs)
+      .where(eq(yearlyOkrs.goalId, goalId))
+      .orderBy(yearlyOkrs.targetYear, yearlyOkrs.sortOrder);
+
+    return {
+      success: true,
+      data: result,
+    };
+  } catch (error) {
+    console.error('Error fetching yearly OKRs:', error);
+    return {
+      success: false,
+      error: 'Failed to fetch yearly OKRs',
+    };
+  }
+}
+
+export async function getQuarterlyOKRs(goalId: string): Promise<ActionResult<QuarterlyOkr[]>> {
+  try {
+    if (!goalId || goalId.trim() === '') {
+      return {
+        success: false,
+        error: 'Goal ID is required',
+      };
+    }
+
+    // Get quarterly OKRs by joining with yearly OKRs to filter by goal
+    const result = await db
+      .select({
+        id: quarterlyOkrs.id,
+        yearlyOkrId: quarterlyOkrs.yearlyOkrId,
+        objective: quarterlyOkrs.objective,
+        targetYear: quarterlyOkrs.targetYear,
+        targetQuarter: quarterlyOkrs.targetQuarter,
+        progressPercentage: quarterlyOkrs.progressPercentage,
+        sortOrder: quarterlyOkrs.sortOrder,
+        createdAt: quarterlyOkrs.createdAt,
+        updatedAt: quarterlyOkrs.updatedAt,
+      })
+      .from(quarterlyOkrs)
+      .innerJoin(yearlyOkrs, eq(quarterlyOkrs.yearlyOkrId, yearlyOkrs.id))
+      .where(eq(yearlyOkrs.goalId, goalId))
+      .orderBy(quarterlyOkrs.targetYear, quarterlyOkrs.targetQuarter, quarterlyOkrs.sortOrder);
+
+    return {
+      success: true,
+      data: result,
+    };
+  } catch (error) {
+    console.error('Error fetching quarterly OKRs:', error);
+    return {
+      success: false,
+      error: 'Failed to fetch quarterly OKRs',
+    };
+  }
+}
+
+export async function getKeyResults(goalId: string): Promise<ActionResult<KeyResult[]>> {
+  try {
+    if (!goalId || goalId.trim() === '') {
+      return {
+        success: false,
+        error: 'Goal ID is required',
+      };
+    }
+
+    // Get key results by joining with yearly OKRs (and optionally quarterly OKRs) to filter by goal
+    const result = await db
+      .select({
+        id: keyResults.id,
+        yearlyOkrId: keyResults.yearlyOkrId,
+        quarterlyOkrId: keyResults.quarterlyOkrId,
+        description: keyResults.description,
+        targetValue: keyResults.targetValue,
+        currentValue: keyResults.currentValue,
+        unit: keyResults.unit,
+        achievementRate: keyResults.achievementRate,
+        sortOrder: keyResults.sortOrder,
+        createdAt: keyResults.createdAt,
+        updatedAt: keyResults.updatedAt,
+      })
+      .from(keyResults)
+      .innerJoin(yearlyOkrs, eq(keyResults.yearlyOkrId, yearlyOkrs.id))
+      .where(eq(yearlyOkrs.goalId, goalId))
+      .orderBy(keyResults.sortOrder);
+
+    return {
+      success: true,
+      data: result,
+    };
+  } catch (error) {
+    console.error('Error fetching key results:', error);
+    return {
+      success: false,
+      error: 'Failed to fetch key results',
+    };
+  }
+}

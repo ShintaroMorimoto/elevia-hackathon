@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { Target, Edit } from 'lucide-react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import {
   ArrowLeftIcon,
   CalendarIcon,
@@ -14,187 +16,91 @@ import {
   ChevronRightIcon,
   PlusIcon,
 } from '@radix-ui/react-icons';
+import {
+  loadPlanData,
+  toggleOKRCompletion,
+  updateOKRProgress,
+  type PlanData,
+} from '@/app/utils/plan-detail-helpers';
 
-interface Milestone {
-  id: string;
-  title: string;
-  completed: boolean;
-  type: 'yearly' | 'monthly';
-  year?: number;
-  month?: number;
-}
+export default function PlanDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const router = useRouter();
+  const { data: session, status } = useSession();
+  const [goalId, setGoalId] = useState<string>('');
+  const [planData, setPlanData] = useState<PlanData | null>(null);
+  const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set());
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
-export default function PlanDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const [expandedYears, setExpandedYears] = useState<Set<number>>(
-    new Set([2024]),
-  );
-  const [milestones, setMilestones] = useState<Milestone[]>([
-    // 2024年
-    {
-      id: '2024',
-      title: '基盤構築の年',
-      completed: false,
-      type: 'yearly',
-      year: 2024,
-    },
-    {
-      id: '2024-1',
-      title: 'ビジネスアイデアの具体化と市場調査',
-      completed: true,
-      type: 'monthly',
-      year: 2024,
-      month: 1,
-    },
-    {
-      id: '2024-2',
-      title: '必要なスキルの洗い出しと学習計画策定',
-      completed: true,
-      type: 'monthly',
-      year: 2024,
-      month: 2,
-    },
-    {
-      id: '2024-3',
-      title: '副業として小規模ビジネスを開始',
-      completed: false,
-      type: 'monthly',
-      year: 2024,
-      month: 3,
-    },
-    {
-      id: '2024-4',
-      title: '初回売上10万円を達成',
-      completed: false,
-      type: 'monthly',
-      year: 2024,
-      month: 4,
-    },
+  // Load plan data from database
+  useEffect(() => {
+    const loadPlan = async () => {
+      try {
+        if (status === 'loading') return;
 
-    // 2025年
-    {
-      id: '2025',
-      title: '事業拡大の年',
-      completed: false,
-      type: 'yearly',
-      year: 2025,
-    },
-    {
-      id: '2025-1',
-      title: '月収100万円を安定して達成',
-      completed: false,
-      type: 'monthly',
-      year: 2025,
-      month: 1,
-    },
-    {
-      id: '2025-6',
-      title: 'チーム構築開始（初回採用）',
-      completed: false,
-      type: 'monthly',
-      year: 2025,
-      month: 6,
-    },
-    {
-      id: '2025-12',
-      title: '年収1000万円を達成',
-      completed: false,
-      type: 'monthly',
-      year: 2025,
-      month: 12,
-    },
+        if (status === 'unauthenticated' || !session?.user?.id) {
+          router.push('/');
+          return;
+        }
 
-    // 2026年
-    {
-      id: '2026',
-      title: 'スケールアップの年',
-      completed: false,
-      type: 'yearly',
-      year: 2026,
-    },
-    {
-      id: '2026-6',
-      title: '事業の自動化システム構築',
-      completed: false,
-      type: 'monthly',
-      year: 2026,
-      month: 6,
-    },
-    {
-      id: '2026-12',
-      title: '年収3000万円を達成',
-      completed: false,
-      type: 'monthly',
-      year: 2026,
-      month: 12,
-    },
+        const resolvedParams = await params;
+        const paramGoalId = resolvedParams.id;
+        setGoalId(paramGoalId);
 
-    // 2027年
-    {
-      id: '2027',
-      title: '多角化の年',
-      completed: false,
-      type: 'yearly',
-      year: 2027,
-    },
-    {
-      id: '2027-6',
-      title: '新規事業領域への参入',
-      completed: false,
-      type: 'monthly',
-      year: 2027,
-      month: 6,
-    },
-    {
-      id: '2027-12',
-      title: '年収5000万円を達成',
-      completed: false,
-      type: 'monthly',
-      year: 2027,
-      month: 12,
-    },
+        // Load plan data from database
+        const loadedPlanData = await loadPlanData(paramGoalId, session.user.id);
+        setPlanData(loadedPlanData);
 
-    // 2028年
-    {
-      id: '2028',
-      title: '投資拡大の年',
-      completed: false,
-      type: 'yearly',
-      year: 2028,
-    },
-    {
-      id: '2028-6',
-      title: '投資ポートフォリオの構築',
-      completed: false,
-      type: 'monthly',
-      year: 2028,
-      month: 6,
-    },
-    {
-      id: '2028-12',
-      title: '年収7000万円を達成',
-      completed: false,
-      type: 'monthly',
-      year: 2028,
-      month: 12,
-    },
+        // Expand the current year by default
+        const currentYear = new Date().getFullYear();
+        setExpandedYears(new Set([currentYear]));
 
-    // 2029年
-    {
-      id: '2029',
-      title: '目標達成の年',
-      completed: false,
-      type: 'yearly',
-      year: 2029,
-    },
-    {
-      id: '2029-12',
-      title: '年収1億円を達成！',
-      completed: false,
-      type: 'monthly',
-      year: 2029,
-      month: 12,
-    },
-  ]);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error loading plan data:', error);
+        setError('計画データの読み込みに失敗しました');
+        setIsLoading(false);
+      }
+    };
+
+    loadPlan();
+  }, [params, session, status, router]);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">計画を読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button onClick={() => window.location.reload()}>再試行</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!planData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-gray-600">計画データが見つかりません</p>
+      </div>
+    );
+  }
 
   const toggleYear = (year: number) => {
     const newExpanded = new Set(expandedYears);
@@ -206,22 +112,45 @@ export default function PlanDetailPage({ params }: { params: Promise<{ id: strin
     setExpandedYears(newExpanded);
   };
 
-  const toggleMilestone = (id: string) => {
-    setMilestones((prev) =>
-      prev.map((milestone) =>
-        milestone.id === id
-          ? { ...milestone, completed: !milestone.completed }
-          : milestone,
-      ),
-    );
+  const handleToggleOKRCompletion = async (
+    okrId: string,
+    currentStatus: boolean,
+    okrType: 'yearly' | 'quarterly',
+  ) => {
+    try {
+      await toggleOKRCompletion(okrId, currentStatus, okrType);
+
+      // Reload plan data to reflect changes
+      const updatedPlanData = await loadPlanData(
+        goalId,
+        session?.user?.id || '',
+      );
+      setPlanData(updatedPlanData);
+    } catch (error) {
+      console.error('Error toggling OKR completion:', error);
+      setError('OKRステータスの更新に失敗しました');
+    }
   };
 
-  const completedCount = milestones.filter((m) => m.completed).length;
-  const totalCount = milestones.length;
-  const progressPercentage = Math.round((completedCount / totalCount) * 100);
+  const handleProgressUpdate = async (
+    keyResultId: string,
+    newCurrentValue: number,
+    targetValue: number,
+  ) => {
+    try {
+      await updateOKRProgress(keyResultId, newCurrentValue, targetValue);
 
-  const yearlyMilestones = milestones.filter((m) => m.type === 'yearly');
-  const monthlyMilestones = milestones.filter((m) => m.type === 'monthly');
+      // Reload plan data to reflect changes
+      const updatedPlanData = await loadPlanData(
+        goalId,
+        session?.user?.id || '',
+      );
+      setPlanData(updatedPlanData);
+    } catch (error) {
+      console.error('Error updating progress:', error);
+      setError('進捗の更新に失敗しました');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -234,11 +163,11 @@ export default function PlanDetailPage({ params }: { params: Promise<{ id: strin
           </Link>
           <div className="flex-1">
             <h1 className="text-lg font-bold text-gray-900">
-              5年後に1億円稼ぐ
+              {planData.goal.title}
             </h1>
             <div className="flex items-center text-sm text-gray-600">
               <CalendarIcon className="w-4 h-4 mr-1" />
-              2029年12月31日まで
+              {new Date(planData.goal.deadline).toLocaleDateString('ja-JP')}まで
             </div>
           </div>
         </div>
@@ -253,53 +182,54 @@ export default function PlanDetailPage({ params }: { params: Promise<{ id: strin
                 全体の進捗
               </span>
               <span className="text-lg font-bold text-indigo-600">
-                {progressPercentage}%
+                {planData.totalProgress}%
               </span>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Progress value={progressPercentage} className="mb-2" />
-            <p className="text-sm text-gray-600">
-              {completedCount} / {totalCount} のOKRが完了
-            </p>
+            <Progress value={planData.totalProgress} className="mb-2" />
+            <p className="text-sm text-gray-600">全体の進捗状況</p>
           </CardContent>
         </Card>
 
         <div className="space-y-4">
-          {yearlyMilestones.map((yearMilestone) => {
-            const year = yearMilestone.year!;
+          {planData.yearlyOKRs.map((yearlyOKR) => {
+            const year = yearlyOKR.year;
             const isExpanded = expandedYears.has(year);
-            const yearMonthlyMilestones = monthlyMilestones.filter(
-              (m) => m.year === year,
-            );
-            const yearCompletedCount = yearMonthlyMilestones.filter(
-              (m) => m.completed,
+            const quarterlyOKRs = yearlyOKR.quarterlyOKRs;
+            const yearCompletedCount = quarterlyOKRs.filter(
+              (q) => q.progressPercentage >= 100,
             ).length;
-            const yearTotalCount = yearMonthlyMilestones.length;
+            const yearTotalCount = quarterlyOKRs.length;
             const yearProgress =
               yearTotalCount > 0
                 ? Math.round((yearCompletedCount / yearTotalCount) * 100)
                 : 0;
 
             return (
-              <Card key={yearMilestone.id}>
+              <Card key={yearlyOKR.id}>
                 <CardContent className="p-0">
-                  <div
-                    className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                  <button
+                    type="button"
+                    className="w-full p-4 text-left hover:bg-gray-50 transition-colors"
                     onClick={() => toggleYear(year)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <Checkbox
-                          checked={yearMilestone.completed}
+                          checked={yearlyOKR.progressPercentage >= 100}
                           onCheckedChange={() =>
-                            toggleMilestone(yearMilestone.id)
+                            handleToggleOKRCompletion(
+                              yearlyOKR.id,
+                              yearlyOKR.progressPercentage >= 100,
+                              'yearly',
+                            )
                           }
                           onClick={(e) => e.stopPropagation()}
                         />
                         <div>
                           <h3 className="font-semibold text-gray-900">
-                            {year}年: {yearMilestone.title}
+                            {year}年: {yearlyOKR.objective}
                           </h3>
                           {yearTotalCount > 0 && (
                             <p className="text-sm text-gray-600">
@@ -329,30 +259,56 @@ export default function PlanDetailPage({ params }: { params: Promise<{ id: strin
                         <Progress value={yearProgress} className="h-1" />
                       </div>
                     )}
-                  </div>
+                  </button>
 
-                  {isExpanded && yearMonthlyMilestones.length > 0 && (
+                  {isExpanded && quarterlyOKRs.length > 0 && (
                     <div className="border-t border-gray-200">
-                      {yearMonthlyMilestones.map((monthMilestone) => (
+                      {quarterlyOKRs.map((quarterlyOKR) => (
                         <div
-                          key={monthMilestone.id}
+                          key={quarterlyOKR.id}
                           className="p-4 pl-12 border-b border-gray-100 last:border-b-0"
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-3">
                               <Checkbox
-                                checked={monthMilestone.completed}
+                                checked={quarterlyOKR.progressPercentage >= 100}
                                 onCheckedChange={() =>
-                                  toggleMilestone(monthMilestone.id)
+                                  handleToggleOKRCompletion(
+                                    quarterlyOKR.id,
+                                    quarterlyOKR.progressPercentage >= 100,
+                                    'quarterly',
+                                  )
                                 }
                               />
                               <div>
                                 <p className="font-medium text-gray-900">
-                                  {monthMilestone.title}
+                                  {quarterlyOKR.objective}
                                 </p>
                                 <p className="text-sm text-gray-600">
-                                  {monthMilestone.month}月
+                                  Q{quarterlyOKR.quarter}
                                 </p>
+                                {quarterlyOKR.keyResults.length > 0 && (
+                                  <div className="mt-2 space-y-1">
+                                    {quarterlyOKR.keyResults.map(
+                                      (keyResult) => (
+                                        <div
+                                          key={keyResult.id}
+                                          className="text-xs text-gray-500"
+                                        >
+                                          {keyResult.result}:{' '}
+                                          {keyResult.currentValue}/
+                                          {keyResult.targetValue}(
+                                          {Math.round(
+                                            (keyResult.currentValue /
+                                              keyResult.targetValue) *
+                                              100,
+                                          )}
+                                          %)
+                                        </div>
+                                      ),
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </div>
                             <Button variant="ghost" size="sm">

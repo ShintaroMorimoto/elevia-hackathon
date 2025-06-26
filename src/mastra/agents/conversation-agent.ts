@@ -21,10 +21,7 @@ export const conversationAgent = new Agent({
     - 実現可能で現実的なアプローチを提案する
     - ポジティブで励みになるフィードバックを提供する
   `,
-  model: vertex('gemini-2.5-flash-preview-05-20', {
-    project: process.env.GOOGLE_CLOUD_PROJECT_ID || '',
-    location: process.env.GOOGLE_VERTEX_LOCATION || '',
-  }),
+  model: vertex('gemini-2.5-flash-preview-05-20'),
   tools: {
     goalAnalysisTool,
     generateQuestionTool,
