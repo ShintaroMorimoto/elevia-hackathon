@@ -24,7 +24,7 @@ interface Milestone {
   month?: number;
 }
 
-export default function PlanDetailPage({ params }: { params: { id: string } }) {
+export default function PlanDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [expandedYears, setExpandedYears] = useState<Set<number>>(
     new Set([2024]),
   );

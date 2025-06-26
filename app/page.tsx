@@ -11,6 +11,8 @@ import { Target, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { CalendarIcon } from '@radix-ui/react-icons';
 import { GoogleSignInButton, SignOutButton } from '@/components/auth-buttons';
+import { getGoals } from '@/actions/goals';
+import type { Goal } from '@/lib/db/schema';
 
 export default async function HomePage() {
   const session = await auth();
@@ -19,7 +21,7 @@ export default async function HomePage() {
     return <LoginPage />;
   }
 
-  return <DashboardPage user={session.user} />;
+  return <DashboardPage user={session.user} userId={session.user?.id || ''} />;
 }
 
 function LoginPage() {
@@ -46,23 +48,10 @@ function LoginPage() {
   );
 }
 
-function DashboardPage({ user }: { user: any }) {
-  const goals = [
-    {
-      id: 1,
-      title: '5年後に1億円稼ぐ',
-      deadline: '2029年12月31日',
-      progress: 15,
-      status: '対話中',
-    },
-    {
-      id: 2,
-      title: '世界一周旅行を実現する',
-      deadline: '2026年6月30日',
-      progress: 45,
-      status: '計画実行中',
-    },
-  ];
+async function DashboardPage({ user, userId }: { user: any; userId: string }) {
+  // Fetch actual goals from database
+  const goalsResult = await getGoals(userId);
+  const goals = goalsResult.success ? goalsResult.data : [];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -90,7 +79,7 @@ function DashboardPage({ user }: { user: any }) {
 
       <main className="p-4 space-y-4">
         <div className="grid gap-4">
-          {goals.map((goal) => (
+          {goals.map((goal: Goal) => (
             <Card
               key={goal.id}
               className="cursor-pointer hover:shadow-md transition-shadow"
@@ -103,38 +92,36 @@ function DashboardPage({ user }: { user: any }) {
                   </h3>
                   <span
                     className={`text-xs px-2 py-1 rounded-full ${
-                      goal.status === '対話中'
+                      goal.status === 'active'
                         ? 'bg-blue-100 text-blue-800'
                         : 'bg-green-100 text-green-800'
                     }`}
                   >
-                    {goal.status}
+                    {goal.status === 'active' ? 'アクティブ' : goal.status}
                   </span>
                 </div>
                 <div className="flex items-center text-sm text-gray-600 mb-3">
                   <CalendarIcon className="w-4 h-4 mr-1" />
-                  {goal.deadline}
+                  {goal.dueDate}
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">進捗</span>
-                    <span className="font-medium">{goal.progress}%</span>
+                    <span className="font-medium">{goal.progressPercentage}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div
                       className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${goal.progress}%` }}
+                      style={{ width: `${goal.progressPercentage}%` }}
                     />
                   </div>
                 </div>
-                {goal.status === '対話中' && (
-                  <Link href={`/chat/${goal.id}`}>
-                    <Button variant="outline" size="sm" className="w-full mt-3">
-                      <MessageCircle className="w-4 h-4 mr-2" />
-                      対話を続ける
-                    </Button>
-                  </Link>
-                )}
+                <Link href={`/chat/${goal.id}`}>
+                  <Button variant="outline" size="sm" className="w-full mt-3">
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    AI対話を開始
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           ))}

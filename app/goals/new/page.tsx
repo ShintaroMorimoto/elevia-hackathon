@@ -2,7 +2,7 @@
 
 import type React from 'react';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,24 +12,92 @@ import { Target } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeftIcon, CalendarIcon } from '@radix-ui/react-icons';
+import { createGoal } from '@/actions/goals';
+import { createChatSession } from '@/actions/chat';
+import { useSession } from 'next-auth/react';
 
 export default function NewGoalPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [goal, setGoal] = useState('');
   const [deadline, setDeadline] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (status === 'loading') return; // Still loading
+
+    if (status === 'unauthenticated') {
+      router.push('/'); // Redirect to login page
+      return;
+    }
+  }, [status, router]);
+
+  // Show loading while session is being checked
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">認証情報を確認中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render form if not authenticated
+  if (status === 'unauthenticated' || !session?.user) {
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!goal.trim() || !deadline) return;
 
+    // Check if user is authenticated
+    if (!session?.user?.id) {
+      setError('ログインが必要です');
+      return;
+    }
+
     setIsSubmitting(true);
+    setError('');
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      // Use actual user ID from session
+      const userId = session.user.id;
+      
+      // Create goal in database
+      const goalResult = await createGoal({
+        userId: userId,
+        title: goal.trim(),
+        description: goal.trim(),
+        dueDate: deadline,
+        status: 'active',
+      });
 
-    // Redirect to chat page
-    router.push('/chat/1');
+      if (!goalResult.success) {
+        throw new Error(goalResult.error);
+      }
+
+      // Create chat session for this goal
+      const chatResult = await createChatSession({
+        goalId: goalResult.data.id,
+        status: 'active',
+      });
+
+      if (!chatResult.success) {
+        throw new Error(chatResult.error);
+      }
+
+      // Redirect to chat page
+      router.push(`/chat/${goalResult.data.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'エラーが発生しました');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -81,6 +149,12 @@ export default function NewGoalPage() {
                   required
                 />
               </div>
+
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
+              )}
 
               <Button
                 type="submit"

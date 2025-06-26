@@ -302,7 +302,7 @@ export function functionName(paramName: ParamType): ReturnType {
 - NEVER: Manually modify Terraform state files
 
 ### YOU MUST Rules (Required Standards)
-- YOU MUST: Write code with TDD(Red-Green-Refactor)
+- YOU MUST: Write code with t-wada's TDD(Red-Green-Refactor)
 - YOU MUST: Verify existing tests pass before making changes
 - YOU MUST: Run CI/CD checks before marking tasks complete
 - YOU MUST: Follow semantic versioning for releases

@@ -18,7 +18,7 @@ interface Message {
   options?: string[]
 }
 
-export default function ChatPage({ params }: { params: { id: string } }) {
+export default function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
   const [messages, setMessages] = useState<Message[]>([
     {

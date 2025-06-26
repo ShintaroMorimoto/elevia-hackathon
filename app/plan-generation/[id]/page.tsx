@@ -10,7 +10,7 @@ import { ArrowRightIcon } from '@radix-ui/react-icons';
 export default function PlanGenerationPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
