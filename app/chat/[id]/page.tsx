@@ -9,7 +9,8 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeftIcon, PaperPlaneIcon, PersonIcon } from "@radix-ui/react-icons"
 import { useSession } from "next-auth/react"
-import { initializeChatWithMastra, handleUserMessage, type ChatMessage } from "@/app/utils/chat-helpers"
+import { initializeChatWithMastra, handleUserMessage } from "@/app/utils/chat-helpers"
+import type { ChatMessage } from "@/types/mastra"
 
 interface Message {
   id: string

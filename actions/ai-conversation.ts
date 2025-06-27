@@ -4,7 +4,6 @@ import { db } from '@/lib/db';
 import { goals } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { RuntimeContext } from '@mastra/core/di';
-import { mastra } from '@/src/mastra';
 import {
   generateQuestionTool,
   goalAnalysisTool,
@@ -12,32 +11,12 @@ import {
 import { analyzeChatHistoryTool } from '@/src/mastra/tools/okr-tools';
 import type { ActionResult } from './goals';
 import type { Goal } from '@/lib/db/schema';
-
-export interface ChatMessage {
-  role: string;
-  content: string;
-}
-
-export interface NextQuestionData {
-  question: string;
-  type: string;
-  depth: number;
-}
-
-export interface ConversationAnalysis {
-  currentDepth: number;
-  maxDepth: number;
-  isComplete: boolean;
-  completionPercentage: number;
-  missingAspects: string[];
-}
-
-export interface ConversationSummary {
-  userMotivation: string;
-  keyInsights: string[];
-  readinessLevel: number;
-  recommendedActions: string[];
-}
+import type {
+  ChatMessage,
+  NextQuestionData,
+  ConversationAnalysis,
+  ConversationSummary,
+} from '@/types/mastra';
 
 export async function generateNextQuestion(
   goalId: string,

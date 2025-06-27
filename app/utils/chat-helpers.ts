@@ -4,6 +4,7 @@
 import { createChatSession, addChatMessage } from '@/actions/chat';
 import { generateNextQuestion } from '@/actions/ai-conversation';
 import { getGoal } from '@/actions/goals';
+import type { ChatMessage } from '@/types/mastra';
 
 export interface ChatInitResult {
   sessionId: string;
@@ -28,11 +29,6 @@ export interface Goal {
   id: string;
   title: string;
   userId: string;
-}
-
-export interface ChatMessage {
-  role: string;
-  content: string;
 }
 
 export async function initializeChatWithMastra(

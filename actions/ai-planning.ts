@@ -4,7 +4,6 @@ import { db } from '@/lib/db';
 import { goals } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { RuntimeContext } from '@mastra/core/di';
-import { mastra } from '@/src/mastra';
 import {
   generateOKRTool,
   analyzeChatHistoryTool,
@@ -12,48 +11,14 @@ import {
 import { goalAnalysisTool } from '@/src/mastra/tools/goal-tools';
 import { createYearlyOkr, createQuarterlyOkr, createKeyResult } from './okr';
 import type { ActionResult } from './goals';
-
-export interface ChatMessage {
-  role: string;
-  content: string;
-}
-
-export interface KeyResult {
-  description: string;
-  targetValue: number;
-  currentValue: number;
-}
-
-export interface YearlyOKR {
-  year: number;
-  objective: string;
-  keyResults: KeyResult[];
-}
-
-export interface QuarterlyOKR {
-  year: number;
-  quarter: number;
-  objective: string;
-  keyResults: KeyResult[];
-}
-
-export interface OKRPlan {
-  yearly: YearlyOKR[];
-  quarterly: QuarterlyOKR[];
-}
-
-export interface GeneratedPlan {
-  success: boolean;
-  planId: string;
-  okrPlan: OKRPlan;
-  analysis: {
-    userMotivation: string;
-    keyInsights: string[];
-    readinessLevel: number;
-    recommendedActions: string[];
-    completionPercentage: number;
-  };
-}
+import type {
+  ChatMessage,
+  KeyResult,
+  YearlyOKR,
+  QuarterlyOKR,
+  OKRPlan,
+  GeneratedPlan,
+} from '@/types/mastra';
 
 export async function generateOKRPlan(
   goalId: string,
@@ -86,6 +51,7 @@ export async function generateOKRPlan(
     const goal = goalResult[0];
 
     // TEMPORARY: ワークフローが無効化されているため、個別ツールを直接使用
+    // RuntimeContextは型エラー回避のため一時的に再追加
     const runtimeContext = new RuntimeContext();
 
     // Step 1: 対話履歴の分析
