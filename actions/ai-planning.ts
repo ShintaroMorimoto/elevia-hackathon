@@ -57,7 +57,8 @@ export async function generateOKRPlan(
       console.log('❌ 既存OKRが存在するため、新規作成を拒否します');
       return {
         success: false,
-        error: '既存のOKR計画が存在します。新しい計画を作成するには、既存の計画を削除してから再実行してください。',
+        error:
+          '既存のOKR計画が存在します。新しい計画を作成するには、既存の計画を削除してから再実行してください。',
       };
     }
 
@@ -199,6 +200,7 @@ async function saveOKRsToDatabase(
           description: keyResult.description,
           targetValue: keyResult.targetValue.toString(),
           currentValue: keyResult.currentValue.toString(),
+          unit: keyResult.unit || '',
         });
 
         if (keyResultData.success) {
@@ -238,6 +240,7 @@ async function saveOKRsToDatabase(
               description: keyResult.description,
               targetValue: keyResult.targetValue.toString(),
               currentValue: keyResult.currentValue.toString(),
+              unit: keyResult.unit || '',
             });
 
             if (keyResultData.success) {
