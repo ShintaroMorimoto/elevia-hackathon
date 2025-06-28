@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { goals } from '@/lib/db/schema';
+import { goals, yearlyOkrs } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { RuntimeContext } from '@mastra/core/di';
 import {
@@ -11,14 +11,7 @@ import {
 import { goalAnalysisTool } from '@/src/mastra/tools/goal-tools';
 import { createYearlyOkr, createQuarterlyOkr, createKeyResult } from './okr';
 import type { ActionResult } from './goals';
-import type {
-  ChatMessage,
-  KeyResult,
-  YearlyOKR,
-  QuarterlyOKR,
-  OKRPlan,
-  GeneratedPlan,
-} from '@/types/mastra';
+import type { ChatMessage, OKRPlan, GeneratedPlan } from '@/types/mastra';
 
 export async function generateOKRPlan(
   goalId: string,
@@ -49,6 +42,31 @@ export async function generateOKRPlan(
     }
 
     const goal = goalResult[0];
+
+    // まず既存のOKRをチェック
+    const existingOKRs = await db
+      .select()
+      .from(yearlyOkrs)
+      .where(eq(yearlyOkrs.goalId, goalId));
+
+    // console.log('🔍 DEBUG: 既存のyearly OKRs:', existingOKRs);
+    // console.log('🔍 DEBUG: 既存の年一覧:', existingOKRs.map((o) => o.targetYear));
+
+    // 既存OKRがある場合は新規作成を拒否（安全な方式）
+    if (existingOKRs.length > 0) {
+      console.log('❌ 既存OKRが存在するため、新規作成を拒否します');
+      return {
+        success: false,
+        error: '既存のOKR計画が存在します。新しい計画を作成するには、既存の計画を削除してから再実行してください。',
+      };
+    }
+
+    // 年の重複チェック（念のため）
+    const existingYears = existingOKRs.map((o) => o.targetYear);
+    const uniqueYears = new Set(existingYears);
+    if (existingYears.length !== uniqueYears.size) {
+      console.warn('⚠️ データベースに年の重複が検出されました:', existingYears);
+    }
 
     // TEMPORARY: ワークフローが無効化されているため、個別ツールを直接使用
     // RuntimeContextは型エラー回避のため一時的に再追加
@@ -153,11 +171,19 @@ async function saveOKRsToDatabase(
   goalId: string,
   okrPlan: OKRPlan,
 ): Promise<OKRPlan> {
+  console.log('🔍 DEBUG: 保存するOKRプラン:', okrPlan);
+  console.log('🔍 DEBUG: yearly OKRs数:', okrPlan.yearly.length);
+  console.log(
+    '🔍 DEBUG: yearly年一覧:',
+    okrPlan.yearly.map((y) => y.year),
+  );
+
   const savedYearlyOKRs = [];
   const savedQuarterlyOKRs = [];
 
   // Save yearly OKRs first
   for (const yearlyOKR of okrPlan.yearly) {
+    console.log('🔍 DEBUG: 保存中のyearly OKR:', yearlyOKR);
     const yearlyResult = await createYearlyOkr({
       goalId,
       targetYear: yearlyOKR.year,
@@ -194,7 +220,6 @@ async function saveOKRsToDatabase(
       const relatedQuarterlyOKRs = okrPlan.quarterly.filter(
         (qOKR) => qOKR.year === yearlyOKR.year,
       );
-
 
       for (const quarterlyOKR of relatedQuarterlyOKRs) {
         const quarterlyResult = await createQuarterlyOkr({

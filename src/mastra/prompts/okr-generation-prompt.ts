@@ -1,9 +1,11 @@
-import type { AIOKRGenerationRequest } from "../schemas/okr-schemas";
+import type { AIOKRGenerationRequest } from '../schemas/okr-schemas';
 
 /**
  * Create comprehensive OKR generation prompt for AI
  */
-export function createOKRGenerationPrompt(request: AIOKRGenerationRequest): string {
+export function createOKRGenerationPrompt(
+  request: AIOKRGenerationRequest,
+): string {
   return `
 あなたはOKR（Objectives and Key Results）の専門家です。
 以下の情報を基に、各年の具体的で実現可能なOKRを生成してください。
@@ -14,9 +16,12 @@ export function createOKRGenerationPrompt(request: AIOKRGenerationRequest): stri
 - 期間: ${request.totalPeriod.years}年（${request.totalPeriod.months}ヶ月）
 
 【年次詳細】
-${request.yearlyBreakdown.map(y => 
-  `- ${y.year}年: ${y.monthsInYear}ヶ月${y.isPartialYear ? `（${y.startMonth}月-${y.endMonth}月）` : ''}`
-).join('\n')}
+${request.yearlyBreakdown
+  .map(
+    (y) =>
+      `- ${y.year}年: ${y.monthsInYear}ヶ月${y.isPartialYear ? `（${y.startMonth}月-${y.endMonth}月）` : ''}`,
+  )
+  .join('\n')}
 
 【ユーザーインサイト】
 - 動機: ${request.chatInsights.motivation}
@@ -82,11 +87,17 @@ ${request.yearlyBreakdown.map(y =>
 /**
  * Create validation prompt for generated OKR
  */
-export function createOKRValidationPrompt(generatedOKR: any): string {
+export function createOKRValidationPrompt(generatedOKR: object): string {
   return `
 以下のOKRプランを評価し、改善点があれば指摘してください：
 
 ${JSON.stringify(generatedOKR, null, 2)}
+
+【重要制約】
+- 改善版を提案する場合、同じ年（year）に複数のObjectiveを作成しないでください
+- 各年は必ず1つのObjectiveのみとしてください
+- より詳細にしたい場合は、Key Resultsを充実させてください
+- 年の重複は絶対に避けてください
 
 評価観点：
 1. 目標の具体性と測定可能性
@@ -94,6 +105,7 @@ ${JSON.stringify(generatedOKR, null, 2)}
 3. 現実的な達成可能性
 4. リスク分析の妥当性
 5. マイルストーンの適切性
+6. 年の一意性（重複なし）
 
 改善が必要な場合は修正されたOKRを同じJSON形式で返してください。
 問題がない場合は "APPROVED" と返してください。

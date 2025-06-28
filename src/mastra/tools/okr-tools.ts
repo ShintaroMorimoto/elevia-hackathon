@@ -66,11 +66,25 @@ export const generateOKRTool = createTool({
     };
 
     try {
+      console.log('🔍 DEBUG: AI期間計算結果:', period);
+      console.log('🔍 DEBUG: yearlyBreakdown:', period.yearlyBreakdown);
+      
       // Generate AI-powered OKRs
       const aiResult = await generateAIOKRTool.execute({
         context: aiRequest,
         runtimeContext,
       });
+      
+      console.log('🔍 DEBUG: AI生成成功:', aiResult);
+      
+      // AI生成結果の年重複チェック
+      const aiYears = aiResult.yearlyOKRs.map(okr => okr.year);
+      const aiUniqueYears = new Set(aiYears);
+      if (aiYears.length !== aiUniqueYears.size) {
+        console.warn('⚠️ AI生成結果に年の重複が検出されました:', aiYears);
+        console.warn('重複した年:', aiYears.filter((year, index) => aiYears.indexOf(year) !== index));
+        throw new Error('AI生成結果に年の重複があるため、フォールバックに切り替えます');
+      }
 
       // Convert AI result to legacy format for backward compatibility
       const yearlyOKRs = aiResult.yearlyOKRs.map(yearly => ({
@@ -92,9 +106,12 @@ export const generateOKRTool = createTool({
         keyMilestones: yearly.keyMilestones,
       }));
 
-      // Generate quarterly OKRs from AI yearly data
+      // Generate quarterly OKRs from AI yearly data  
       const quarterlyOKRs = [];
+      console.log('🔍 DEBUG: 四半期OKR生成開始 - yearly OKRs数:', aiResult.yearlyOKRs.length);
+      
       for (const yearly of aiResult.yearlyOKRs) {
+        console.log('🔍 DEBUG: 四半期OKR生成中 - 年:', yearly.year);
         // Generate 4 quarters for each year (simplified for now)
         const milestonesPerQuarter = Math.ceil(yearly.keyMilestones.length / 4);
         
@@ -118,6 +135,16 @@ export const generateOKRTool = createTool({
           }
         }
       }
+      
+      // 四半期OKRの重複チェック
+      const quarterlyYearQuarters = quarterlyOKRs.map(q => `${q.year}-Q${q.quarter}`);
+      const uniqueQuarterlyYearQuarters = new Set(quarterlyYearQuarters);
+      if (quarterlyYearQuarters.length !== uniqueQuarterlyYearQuarters.size) {
+        console.warn('⚠️ 四半期OKRに重複が検出されました:', quarterlyYearQuarters);
+      }
+
+      console.log('🔍 DEBUG: 最終的な yearly OKRs年一覧:', yearlyOKRs.map(y => y.year));
+      console.log('🔍 DEBUG: 最終的な quarterly OKRs年一覧:', quarterlyOKRs.map(q => `${q.year}-Q${q.quarter}`));
 
       return {
         yearly: yearlyOKRs,
@@ -132,7 +159,21 @@ export const generateOKRTool = createTool({
       };
 
     } catch (error) {
-      console.error('AI OKR generation failed, falling back to simple generation:', error);
+      console.error('❌ AI OKR generation failed, falling back to simple generation:', error);
+      console.log('🔍 DEBUG: フォールバック実行 - period.yearlyBreakdown:', period.yearlyBreakdown);
+      
+      // フォールバック用の年重複チェック
+      const fallbackYears = period.yearlyBreakdown.map(y => y.year);
+      const fallbackUniqueYears = new Set(fallbackYears);
+      if (fallbackYears.length !== fallbackUniqueYears.size) {
+        console.error('🚨 期間計算でも年の重複が発生:', fallbackYears);
+        // 重複を除去
+        const uniqueBreakdown = period.yearlyBreakdown.filter(
+          (item, index, arr) => arr.findIndex(x => x.year === item.year) === index
+        );
+        console.log('🔧 重複除去後:', uniqueBreakdown.map(x => x.year));
+        period.yearlyBreakdown = uniqueBreakdown;
+      }
       
       // Fallback to simplified month-based generation
       const dueDate = new Date(goalDueDate);

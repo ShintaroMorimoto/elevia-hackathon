@@ -2,10 +2,6 @@
 // TDD Green phase - minimal implementation to make tests pass
 
 import { generateOKRPlan } from '@/actions/ai-planning';
-import {
-  createYearlyOkr,
-  createKeyResult,
-} from '@/actions/okr';
 import { getGoal } from '@/actions/goals';
 import { getChatMessages } from '@/actions/chat';
 
@@ -83,42 +79,20 @@ export async function generatePlanWithMastra(
   // Generate OKR plan using Mastra
   const planResult = await generateOKRPlan(goalId, userId, chatHistory);
   if (!planResult.success) {
-    throw new Error('AI generation failed');
+    // 既存OKRが存在する場合の特別なエラー処理
+    if (planResult.error?.includes('既存のOKR計画が存在します')) {
+      throw new Error('EXISTING_PLAN_FOUND');
+    }
+    throw new Error(planResult.error || 'AI generation failed');
   }
 
   const generatedPlan = planResult.data;
-  const savedYearlyOKRs = [];
 
-  // Save yearly OKRs to database
-  for (const yearlyOKR of generatedPlan.okrPlan.yearly) {
-    const yearlyResult = await createYearlyOkr({
-      goalId,
-      targetYear: yearlyOKR.year,
-      objective: yearlyOKR.objective,
-    });
-
-    if (!yearlyResult.success) {
-      throw new Error('Failed to save yearly OKR');
-    }
-
-    const yearlyId = yearlyResult.data.id;
-
-    // Save key results for yearly OKR
-    for (const keyResult of yearlyOKR.keyResults) {
-      await createKeyResult({
-        yearlyOkrId: yearlyId,
-        description: keyResult.description,
-        targetValue: keyResult.targetValue.toString(),
-        currentValue: keyResult.currentValue.toString(),
-      });
-    }
-
-    savedYearlyOKRs.push(yearlyOKR);
-  }
-
+  // 注意: OKRの保存は ai-planning.ts の saveOKRsToDatabase で既に完了している
+  // ここでは重複保存を避けるため、生成されたプランデータのみを返す
   return {
     success: true,
     planId: goalId,
-    yearlyOKRs: savedYearlyOKRs,
+    yearlyOKRs: generatedPlan.okrPlan.yearly,
   };
 }

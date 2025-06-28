@@ -34,6 +34,9 @@ export const generateAIOKRTool = createTool({
 3. 現実的で測定可能な目標を設定
 4. ユーザーの状況を考慮したパーソナライズ
 5. 段階的で継続的な成長計画を作成
+6. 【重要】各年につき1つのObjectiveのみ生成する
+7. 【重要】同じ年（year）の重複したOKRは絶対に作成しない
+8. 【重要】年の一意性を必ず保つ
         `,
       });
       
@@ -82,9 +85,23 @@ export const generateAIOKRTool = createTool({
           const improvedResponse = JSON.parse(
             validationResponse.text.replace(/```json\n?/g, "").replace(/```\n?/g, "")
           );
+          
+          // Check for year duplicates in improved response
+          const years = improvedResponse.yearlyOKRs?.map((okr: any) => okr.year) || [];
+          const uniqueYears = new Set(years);
+          
+          if (years.length !== uniqueYears.size) {
+            // Year duplicates detected, fall back to original response
+            console.warn('年の重複が検出されたため、改善版を採用せず元の結果を返します');
+            console.warn('重複した年:', years.filter((year: number, index: number) => years.indexOf(year) !== index));
+            return validatedResponse;
+          }
+          
+          // No duplicates, use improved response
           return aiOKRGenerationResponseSchema.parse(improvedResponse);
-        } catch {
+        } catch (parseError) {
           // If validation parsing fails, return original validated response
+          console.warn('改善版のパースに失敗したため、元の結果を返します:', parseError);
           return validatedResponse;
         }
       }
