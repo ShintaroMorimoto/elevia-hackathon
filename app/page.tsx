@@ -10,7 +10,7 @@ import {
 import { Target } from 'lucide-react';
 import Link from 'next/link';
 import { GoogleSignInButton, SignOutButton } from '@/components/auth-buttons';
-import { getGoals } from '@/actions/goals';
+import { getGoalsWithProgress } from '@/actions/goals';
 import { GoalCard } from '@/components/goal-card';
 import type { Goal } from '@/lib/db/schema';
 
@@ -63,8 +63,8 @@ interface DashboardPageProps {
 }
 
 async function DashboardPage({ user, userId }: DashboardPageProps) {
-  // Fetch actual goals from database
-  const goalsResult = await getGoals(userId);
+  // Fetch actual goals from database with calculated progress
+  const goalsResult = await getGoalsWithProgress(userId);
   const goals = goalsResult.success ? goalsResult.data : [];
 
   return (
@@ -80,12 +80,6 @@ async function DashboardPage({ user, userId }: DashboardPageProps) {
             )}
           </div>
           <div className="flex items-center space-x-2">
-            <Link href="/goals/new">
-              <Button size="sm">
-                <Target className="w-4 h-4 mr-2" />
-                Add New OKR
-              </Button>
-            </Link>
             <SignOutButton />
           </div>
         </div>
@@ -98,17 +92,31 @@ async function DashboardPage({ user, userId }: DashboardPageProps) {
           ))}
         </div>
 
-        <Card className="border-dashed border-2 border-gray-300">
-          <CardContent className="p-6 text-center">
-            <Target className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-gray-600 mb-4">
-              新しいOKRを追加して、AIと一緒に計画を立てましょう
-            </p>
-            <Link href="/goals/new">
-              <Button>OKRを追加する</Button>
-            </Link>
-          </CardContent>
-        </Card>
+        {goals.length === 0 ? (
+          <Card className="border-dashed border-2 border-gray-300">
+            <CardContent className="p-6 text-center">
+              <Target className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+              <p className="text-gray-600 mb-4">
+                新しいOKRを追加して、AIと一緒に計画を立てましょう
+              </p>
+              <Link href="/goals/new">
+                <Button>OKRを追加する</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-dashed border-2 border-gray-300">
+            <CardContent className="p-6 text-center">
+              <Target className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+              <p className="text-gray-600 mb-4">
+                現在のOKRを削除してから、新しいOKRを追加できます
+              </p>
+              <p className="text-sm text-gray-500">
+                ※ 一度に管理できるOKRは1つまでです
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </main>
     </div>
   );

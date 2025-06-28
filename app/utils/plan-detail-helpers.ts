@@ -202,6 +202,17 @@ export async function loadPlanData(
   };
 }
 
+// New function to calculate goal progress for dashboard
+export async function calculateGoalProgress(goalId: string, userId: string): Promise<number> {
+  try {
+    const planData = await loadPlanData(goalId, userId);
+    return planData.totalProgress;
+  } catch (error) {
+    console.error('Error calculating goal progress:', error);
+    return 0;
+  }
+}
+
 export async function updateOKRProgress(
   keyResultId: string,
   newCurrentValue: number,

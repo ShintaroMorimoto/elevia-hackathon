@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { goals } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import type { NewGoal, Goal } from '@/lib/db/schema';
+import { calculateGoalProgress } from '@/app/utils/plan-detail-helpers';
 
 export type ActionResult<T = any> = {
   success: true;
@@ -100,6 +101,45 @@ export async function getGoals(userId: string): Promise<ActionResult<Goal[]>> {
     return {
       success: false,
       error: 'Failed to fetch goals',
+    };
+  }
+}
+
+export async function getGoalsWithProgress(userId: string): Promise<ActionResult<Goal[]>> {
+  try {
+    if (!userId) {
+      return {
+        success: false,
+        error: 'User ID is required',
+      };
+    }
+
+    const result = await db
+      .select()
+      .from(goals)
+      .where(eq(goals.userId, userId))
+      .orderBy(goals.createdAt);
+
+    // Calculate actual progress for each goal
+    const goalsWithProgress = await Promise.all(
+      result.map(async (goal) => {
+        const actualProgress = await calculateGoalProgress(goal.id, userId);
+        return {
+          ...goal,
+          progressPercentage: actualProgress.toString(),
+        };
+      })
+    );
+
+    return {
+      success: true,
+      data: goalsWithProgress,
+    };
+  } catch (error) {
+    console.error('Error fetching goals with progress:', error);
+    return {
+      success: false,
+      error: 'Failed to fetch goals with progress',
     };
   }
 }
