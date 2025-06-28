@@ -67,7 +67,7 @@ export default function NewGoalPage() {
     try {
       // Use actual user ID from session
       const userId = session.user.id;
-      
+
       // Create goal in database
       const goalResult = await createGoal({
         userId: userId,

@@ -2,7 +2,10 @@
 // TDD Green phase - minimal implementation to make tests pass
 
 import { createChatSession, addChatMessage } from '@/actions/chat';
-import { generateNextQuestion, analyzeConversationDepth } from '@/actions/ai-conversation';
+import {
+  generateNextQuestion,
+  analyzeConversationDepth,
+} from '@/actions/ai-conversation';
 import { getGoal } from '@/actions/goals';
 import type { ChatMessage } from '@/types/mastra';
 
@@ -19,7 +22,10 @@ export interface MessageResult {
   // AI駆動動的フロー制御の結果
   informationSufficiency?: number;
   conversationQuality?: 'low' | 'medium' | 'high';
-  suggestedNextAction?: 'continue_conversation' | 'proceed_to_planning' | 'clarify_goal';
+  suggestedNextAction?:
+    | 'continue_conversation'
+    | 'proceed_to_planning'
+    | 'clarify_goal';
   reasoning?: string;
 }
 
@@ -41,21 +47,23 @@ const initializationTracker = new Map<string, boolean>();
 
 export async function initializeChatWithMastra(
   goalId: string,
-  userId: string
+  userId: string,
 ): Promise<ChatInitResult> {
   const trackingKey = `${goalId}-${userId}`;
-  
+
   console.log('🚀 initializeChatWithMastra called:', {
     goalId: goalId.substring(0, 8) + '...',
     userId: userId.substring(0, 8) + '...',
     trackingKey,
     alreadyInitializing: initializationTracker.get(trackingKey),
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 
   // 重複初期化チェック
   if (initializationTracker.get(trackingKey)) {
-    console.log('⚠️ initializeChatWithMastra: Already initializing this goal+user combination, throwing error');
+    console.log(
+      '⚠️ initializeChatWithMastra: Already initializing this goal+user combination, throwing error',
+    );
     throw new Error('Chat initialization already in progress');
   }
 
@@ -92,7 +100,7 @@ export async function initializeChatWithMastra(
 
     console.log('✅ initializeChatWithMastra completed successfully:', {
       sessionId: sessionResult.data.id.substring(0, 8) + '...',
-      questionGenerated: !!questionResult.data.question
+      questionGenerated: !!questionResult.data.question,
     });
 
     const result = {
@@ -114,7 +122,7 @@ export async function handleUserMessage(
   goalId: string,
   userId: string,
   userMessage: string,
-  chatHistory: ChatMessage[]
+  chatHistory: ChatMessage[],
 ): Promise<MessageResult> {
   // Save user message to database
   await addChatMessage({
@@ -127,27 +135,33 @@ export async function handleUserMessage(
   // Add user message to chat history
   const updatedHistory = [
     ...chatHistory,
-    { role: 'user', content: userMessage }
+    { role: 'user', content: userMessage },
   ];
 
   // 並列でAI分析と質問生成を実行
   console.log('🔍 Debug: Starting AI analysis and question generation...');
   console.log('📝 Chat history length:', updatedHistory.length);
   console.log('🎯 Goal ID:', goalId, 'User ID:', userId);
-  
+
   const [questionResult, analysisResult] = await Promise.all([
     generateNextQuestion(goalId, userId, updatedHistory),
-    analyzeConversationDepth(updatedHistory, { id: goalId, userId } as any)
+    analyzeConversationDepth(updatedHistory, { id: goalId, userId } as any),
   ]);
 
-  console.log('🔍 Question Result:', questionResult.success ? 'SUCCESS' : 'FAILED');
-  console.log('🔍 Analysis Result:', analysisResult.success ? 'SUCCESS' : 'FAILED');
-  
+  console.log(
+    '🔍 Question Result:',
+    questionResult.success ? 'SUCCESS' : 'FAILED',
+  );
+  console.log(
+    '🔍 Analysis Result:',
+    analysisResult.success ? 'SUCCESS' : 'FAILED',
+  );
+
   if (!questionResult.success) {
     console.error('❌ Question generation failed:', questionResult.error);
     throw new Error('Failed to generate AI response');
   }
-  
+
   if (!analysisResult.success) {
     console.error('❌ Analysis failed:', analysisResult.error);
   }
@@ -162,28 +176,34 @@ export async function handleUserMessage(
 
   // AI分析結果から動的フロー制御の値を取得
   const analysis = analysisResult.success ? analysisResult.data : null;
-  
+
   console.log('📊 Analysis data:', analysis);
   console.log('🤖 Question data:', questionResult.data);
-  
+
   const result = {
     aiResponse: questionResult.data.question,
     conversationDepth: questionResult.data.depth + 1,
-    isComplete: questionResult.data.shouldComplete || (analysis?.isReadyToProceed ?? false),
+    isComplete:
+      questionResult.data.shouldComplete ||
+      (analysis?.isReadyToProceed ?? false),
     // AI駆動動的フロー制御の結果
     informationSufficiency: analysis?.informationSufficiency ?? 0.3,
     conversationQuality: analysis?.conversationQuality ?? 'medium',
-    suggestedNextAction: analysis?.suggestedNextAction ?? 'continue_conversation',
-    reasoning: analysis?.reasoning ?? questionResult.data.reasoning ?? '会話を続けて、より詳しい情報を集めましょう',
+    suggestedNextAction:
+      analysis?.suggestedNextAction ?? 'continue_conversation',
+    reasoning:
+      analysis?.reasoning ??
+      questionResult.data.reasoning ??
+      '会話を続けて、より詳しい情報を集めましょう',
   };
-  
+
   console.log('📤 Returning result:', result);
   return result;
 }
 
 export async function isConversationComplete(
   chatHistory: ChatMessage[],
-  _goal: Goal
+  _goal: Goal,
 ): Promise<ConversationStatus> {
   const maxDepth = 5;
   const currentDepth = Math.floor(chatHistory.length / 2); // Rough estimate

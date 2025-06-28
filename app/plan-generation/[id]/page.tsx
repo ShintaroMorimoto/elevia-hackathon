@@ -7,7 +7,10 @@ import { Sparkles, CheckCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { ArrowRightIcon } from '@radix-ui/react-icons';
-import { initializePlanGeneration, generatePlanWithMastra } from '@/app/utils/plan-generation-helpers';
+import {
+  initializePlanGeneration,
+  generatePlanWithMastra,
+} from '@/app/utils/plan-generation-helpers';
 
 export default function PlanGenerationPage({
   params,
@@ -36,7 +39,7 @@ export default function PlanGenerationPage({
     const initializePlan = async () => {
       try {
         if (status === 'loading') return;
-        
+
         if (status === 'unauthenticated' || !session?.user?.id) {
           router.push('/');
           return;
@@ -54,8 +57,12 @@ export default function PlanGenerationPage({
         }
 
         // Initialize plan generation data
-        const planInit = await initializePlanGeneration(paramGoalId, session.user.id, sessionId);
-        
+        const planInit = await initializePlanGeneration(
+          paramGoalId,
+          session.user.id,
+          sessionId,
+        );
+
         // Start actual plan generation process
         setTimeout(async () => {
           try {
@@ -63,9 +70,9 @@ export default function PlanGenerationPage({
               paramGoalId,
               session.user?.id || '',
               planInit.goalData,
-              planInit.chatHistory
+              planInit.chatHistory,
             );
-            
+
             setGeneratedPlanId(generatedPlan.planId);
             setIsComplete(true);
             setIsLoading(false);
@@ -90,7 +97,7 @@ export default function PlanGenerationPage({
   // Step animation effect
   useEffect(() => {
     if (isLoading || isComplete) return;
-    
+
     const interval = setInterval(() => {
       setCurrentStep((prev) => {
         if (prev < steps.length - 1) {
@@ -127,9 +134,7 @@ export default function PlanGenerationPage({
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center p-4">
         <div className="text-center">
           <p className="text-red-600 mb-4">{error}</p>
-          <Button onClick={() => window.location.reload()}>
-            再試行
-          </Button>
+          <Button onClick={() => window.location.reload()}>再試行</Button>
         </div>
       </div>
     );

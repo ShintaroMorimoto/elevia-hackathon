@@ -72,7 +72,7 @@ export default function ChatPage({
   useEffect(() => {
     const abortController = new AbortController();
     let initializationAttempted = false;
-    
+
     const initializeChat = async () => {
       try {
         console.log('🔍 initializeChat called:', {
@@ -81,7 +81,7 @@ export default function ChatPage({
           sessionStatus: status,
           hasUserId: !!session?.user?.id,
           aborted: abortController.signal.aborted,
-          attemptedThisRun: initializationAttempted
+          attemptedThisRun: initializationAttempted,
         });
 
         // AbortSignalチェック
@@ -92,7 +92,9 @@ export default function ChatPage({
 
         // 重複初期化防止（このuseEffect内での実行チェック）
         if (initializationAttempted) {
-          console.log('🛡️ Already attempted initialization in this useEffect run');
+          console.log(
+            '🛡️ Already attempted initialization in this useEffect run',
+          );
           return;
         }
 
@@ -117,7 +119,7 @@ export default function ChatPage({
         initializationAttempted = true;
         // グローバルフラグを設定（他のuseEffectからの重複防止）
         initializationRef.current = true;
-        
+
         const resolvedParams = await params;
         const paramGoalId = resolvedParams.id;
         setGoalId(paramGoalId);
@@ -196,7 +198,9 @@ export default function ChatPage({
 
     // クリーンアップ関数でAbortController実行
     return () => {
-      console.log('🧹 Cleaning up chat initialization, aborting any pending operations');
+      console.log(
+        '🧹 Cleaning up chat initialization, aborting any pending operations',
+      );
       abortController.abort();
       // Strict Modeでの2回目の実行を防ぐため、初期化が完了していない場合のみリセット
       if (!isInitialized) {
@@ -524,23 +528,25 @@ export default function ChatPage({
           </Button>
         </div>
 
-        {/* 計画作成ボタン - AI分析に基づく動的表示 */}
+        {/* 手動計画作成ボタン - 常時表示 */}
         <Button
           onClick={handleCreatePlan}
           className={`w-full ${
             suggestedNextAction === 'proceed_to_planning' ||
             informationSufficiency >= 0.6
               ? 'bg-indigo-600 hover:bg-indigo-700'
-              : 'bg-gray-400 hover:bg-gray-500'
+              : 'bg-yellow-600 hover:bg-yellow-700'
           }`}
-          disabled={informationSufficiency < 0.3}
+          disabled={informationSufficiency < 0.2}
         >
           <Sparkles className="w-4 h-4 mr-2" />
           {suggestedNextAction === 'proceed_to_planning'
             ? '計画を作成する（推奨）'
             : informationSufficiency >= 0.6
               ? 'この内容で計画を作成する'
-              : `計画作成まで ${Math.round((0.6 - informationSufficiency) * 100)}% `}
+              : informationSufficiency >= 0.2
+                ? 'この内容でとりあえず計画作成'
+                : '情報不足のため作成不可'}
         </Button>
       </footer>
     </div>
