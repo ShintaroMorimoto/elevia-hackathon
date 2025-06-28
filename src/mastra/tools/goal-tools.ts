@@ -4,7 +4,7 @@ import { db } from '@/lib/db';
 import { goals } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { vertex } from '@ai-sdk/google-vertex';
-import { generateText, generateObject } from 'ai';
+import { generateObject } from 'ai';
 
 export const goalAnalysisTool = createTool({
   id: 'analyze-goal',
@@ -224,10 +224,40 @@ export const generateQuestionTool = createTool({
         .filter((msg) => msg.role === 'ai' || msg.role === 'assistant')
         .map((msg) => msg.content);
 
+      const userAnswers = chatHistory
+        .filter((msg) => msg.role === 'user')
+        .map((msg) => msg.content);
+
+      // 重複検出：過去の質問タイプを分析
+      const previousQuestionTypes = new Set<string>();
+      const recentQuestionTypes = new Set<string>();
+      
+      // 最近の質問のタイプを推定（簡易的な方法）
+      previousQuestions.forEach((question, index) => {
+        if (question.includes('なぜ') || question.includes('動機') || question.includes('理由')) {
+          previousQuestionTypes.add('motivation');
+          if (index >= previousQuestions.length - 2) recentQuestionTypes.add('motivation');
+        }
+        if (question.includes('経験') || question.includes('これまで') || question.includes('過去')) {
+          previousQuestionTypes.add('experience');
+          if (index >= previousQuestions.length - 2) recentQuestionTypes.add('experience');
+        }
+        if (question.includes('リソース') || question.includes('資金') || question.includes('スキル') || question.includes('人脈')) {
+          previousQuestionTypes.add('resources');
+          if (index >= previousQuestions.length - 2) recentQuestionTypes.add('resources');
+        }
+        if (question.includes('障害') || question.includes('困難') || question.includes('課題')) {
+          previousQuestionTypes.add('obstacles');
+          if (index >= previousQuestions.length - 2) recentQuestionTypes.add('obstacles');
+        }
+      });
+
       console.log('🔍 Question generation inputs:');
       console.log('- Goal title:', goalTitle);
       console.log('- Chat history length:', chatHistory.length);
       console.log('- Previous questions count:', previousQuestions.length);
+      console.log('- Previous question types:', Array.from(previousQuestionTypes));
+      console.log('- Recent question types:', Array.from(recentQuestionTypes));
       console.log('- Current depth:', currentDepth);
 
       // 構造化出力用のZodスキーマ
@@ -250,16 +280,40 @@ export const generateQuestionTool = createTool({
         should_complete: z.boolean().describe('対話を完了すべきかどうか'),
       });
 
-      // シンプルなプロンプトで構造化出力
-      const prompt = `あなたは目標達成支援コーチです。以下の情報をもとに、次の質問を生成してください。
+      // 対話履歴を含むプロンプト
+      const conversationContext = chatHistory.length > 0 
+        ? `\n\n過去の対話履歴:\n${chatHistory.map((msg, i) => `${i + 1}. ${msg.role}: ${msg.content}`).join('\n')}`
+        : '';
+
+      // 重複回避の指示
+      const avoidanceGuidance = previousQuestionTypes.size > 0
+        ? `\n\n重複回避:\n- 既に聞いたタイプ: ${Array.from(previousQuestionTypes).join(', ')}\n- 最近聞いたタイプ: ${Array.from(recentQuestionTypes).join(', ')}\n- 上記と異なる角度や詳細から質問してください`
+        : '';
+
+      // ユーザー回答の要約
+      const userResponsesSummary = userAnswers.length > 0
+        ? `\n\nユーザーの回答概要:\n${userAnswers.map((answer, i) => `回答${i + 1}: ${answer.slice(0, 100)}${answer.length > 100 ? '...' : ''}`).join('\n')}`
+        : '';
+
+      const prompt = `あなたは目標達成支援コーチです。以下の情報をもとに、効果的なOKR作成のための次の質問を生成してください。
 
 目標: "${goalTitle}"
-対話数: ${chatHistory.length}
-過去の質問数: ${previousQuestions.length}
+対話数: ${chatHistory.length}${conversationContext}${avoidanceGuidance}${userResponsesSummary}
 
-${chatHistory.length === 0 ? '初回の質問では、まず動機や理由について聞いてください。' : ''}
-${chatHistory.length === 1 ? '2回目の質問では、関連する経験や背景について聞いてください。' : ''}
-${chatHistory.length >= 2 ? 'これまでの対話を踏まえ、リソースや障害について深掘りしてください。' : ''}`;
+重要な原則:
+1. 過去の質問と重複しないようにする
+2. ユーザーの回答内容を踏まえて、不足している情報を特定する
+3. 以下の8つの観点をバランスよく探る：
+   - motivation: なぜその目標を達成したいのか
+   - experience: 関連する過去の経験
+   - resources: 利用可能なリソース（時間、お金、スキル、人脈）
+   - timeline: 具体的なスケジュールと期限
+   - obstacles: 予想される困難や障害
+   - values: 価値観と優先順位
+   - details: 目標の具体的な詳細
+   - context: 現在の状況や環境
+
+同じタイプの質問を繰り返さず、ユーザーの回答から得られた情報を活用して、より深い洞察を得るための質問を生成してください。特に最近聞いたタイプは避けて、新しい角度から質問してください。`;
 
       console.log('🔍 Generated prompt length:', prompt.length);
 
@@ -292,46 +346,108 @@ ${chatHistory.length >= 2 ? 'これまでの対話を踏まえ、リソースや
       console.error('❌ AI question generation failed:', error);
       console.log('🔄 Using enhanced fallback strategy...');
 
-      // 強化されたフォールバック: 会話の深度に応じた質問
-      const generateFallbackQuestion = () => {
-        // 初回: 動機を聞く
-        if (currentDepth === 0) {
-          return {
+      // 過去の質問タイプを再取得（フォールバック内でも重複回避）
+      const previousQuestions = chatHistory
+        .filter((msg) => msg.role === 'ai' || msg.role === 'assistant')
+        .map((msg) => msg.content);
+
+      const askedTypes = new Set<string>();
+      previousQuestions.forEach((question) => {
+        if (question.includes('なぜ') || question.includes('動機') || question.includes('理由')) {
+          askedTypes.add('motivation');
+        }
+        if (question.includes('経験') || question.includes('これまで') || question.includes('過去')) {
+          askedTypes.add('experience');
+        }
+        if (question.includes('リソース') || question.includes('資金') || question.includes('スキル')) {
+          askedTypes.add('resources');
+        }
+        if (question.includes('障害') || question.includes('困難') || question.includes('課題')) {
+          askedTypes.add('obstacles');
+        }
+        if (question.includes('いつ') || question.includes('期限') || question.includes('スケジュール')) {
+          askedTypes.add('timeline');
+        }
+        if (question.includes('価値観') || question.includes('優先') || question.includes('大切')) {
+          askedTypes.add('values');
+        }
+      });
+
+      // 強化されたフォールバック: 未使用タイプを優先
+      const generateFallbackQuestion = (): {
+        question: string;
+        type: 'motivation' | 'experience' | 'resources' | 'timeline' | 'obstacles' | 'values' | 'details' | 'context';
+        reasoning: string;
+      } => {
+        const questionOptions: Array<{
+          type: 'motivation' | 'experience' | 'resources' | 'timeline' | 'obstacles' | 'values' | 'details' | 'context';
+          question: string;
+          reasoning: string;
+        }> = [
+          {
+            type: 'motivation',
             question: `なぜ「${goalTitle}」を達成したいのですか？あなたにとってどのような意味がありますか？`,
-            type: 'motivation' as const,
-            reasoning: '初回の質問で動機を探るフォールバック',
-          };
-        }
-        // 2回目: 経験を聞く
-        if (currentDepth === 1) {
-          return {
+            reasoning: '動機を探るフォールバック',
+          },
+          {
+            type: 'experience',
             question: `「${goalTitle}」に関連して、これまでにどのような経験や取り組みをされたことがありますか？`,
-            type: 'experience' as const,
-            reasoning: '2回目の質問で経験を探るフォールバック',
+            reasoning: '経験を探るフォールバック',
+          },
+          {
+            type: 'resources',
+            question: `「${goalTitle}」を達成するために、現在利用できるリソース（時間、資金、スキルなど）はありますか？`,
+            reasoning: 'リソース確認のフォールバック',
+          },
+          {
+            type: 'timeline',
+            question: `「${goalTitle}」を達成するために、どのようなスケジュールを考えていますか？`,
+            reasoning: 'タイムライン確認のフォールバック',
+          },
+          {
+            type: 'obstacles',
+            question: `「${goalTitle}」を達成する過程で、最も大きな障害や困難になりそうなことは何ですか？`,
+            reasoning: '障害確認のフォールバック',
+          },
+          {
+            type: 'values',
+            question: `「${goalTitle}」を達成する上で、あなたにとって最も大切にしたい価値観は何ですか？`,
+            reasoning: '価値観確認のフォールバック',
+          },
+          {
+            type: 'context',
+            question: `「${goalTitle}」を目指すようになった現在の状況や環境について教えてください。`,
+            reasoning: '状況確認のフォールバック',
+          },
+          {
+            type: 'details',
+            question: `「${goalTitle}」について、もう少し詳しく教えてください。`,
+            reasoning: '詳細確認のフォールバック',
+          },
+        ];
+
+        // 未使用のタイプを優先
+        const unusedOptions = questionOptions.filter(option => !askedTypes.has(option.type));
+        
+        if (unusedOptions.length > 0) {
+          // 未使用のタイプからランダムに選択
+          const selected = unusedOptions[Math.floor(Math.random() * unusedOptions.length)];
+          console.log(`🔄 Selected unused type: ${selected.type}`);
+          return {
+            question: selected.question,
+            type: selected.type,
+            reasoning: selected.reasoning,
           };
-        }
-        // 3回目以降: リソースや障害を聞く
-        if (currentDepth >= 2) {
-          const questions = [
-            {
-              question: `「${goalTitle}」を達成するために、現在利用できるリソース（時間、資金、スキルなど）はありますか？`,
-              type: 'resources' as const,
-              reasoning: 'リソース確認のフォールバック',
-            },
-            {
-              question: `「${goalTitle}」を達成する過程で、最も大きな障害や困難になりそうなことは何ですか？`,
-              type: 'obstacles' as const,
-              reasoning: '障害確認のフォールバック',
-            },
-          ];
-          return questions[(currentDepth - 2) % questions.length];
         }
 
-        // デフォルト
+        // すべて使用済みの場合は、深度に応じて選択
+        const fallbackIndex = currentDepth % questionOptions.length;
+        const selected = questionOptions[fallbackIndex];
+        console.log(`🔄 All types used, selecting by depth: ${selected.type}`);
         return {
-          question: `「${goalTitle}」について、もう少し詳しく教えてください。`,
-          type: 'details' as const,
-          reasoning: 'デフォルトフォールバック',
+          question: selected.question,
+          type: selected.type,
+          reasoning: `${selected.reasoning}（全タイプ使用済み、深度${currentDepth}による選択）`,
         };
       };
 
