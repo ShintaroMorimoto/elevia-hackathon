@@ -1,6 +1,7 @@
 'use client';
 
 import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { CalendarIcon } from '@radix-ui/react-icons';
 import { Trash2 } from 'lucide-react';
@@ -22,7 +23,7 @@ export function GoalCard({ goal }: GoalCardProps) {
   const router = useRouter();
 
   const handleCardClick = () => {
-    window.location.href = `/plan/${goal.id}`;
+    router.push(`/plan/${goal.id}`);
   };
 
   const handleDeleteClick = (e: React.MouseEvent) => {
@@ -41,8 +42,8 @@ export function GoalCard({ goal }: GoalCardProps) {
       const result = await deleteGoal(goal.id, session.user.id);
       if (result.success) {
         setIsDeleteDialogOpen(false);
-        // Refresh the page to update the goals list
-        router.refresh();
+        // Navigate to home page instead of refresh to prevent navigation to deleted goal
+        router.push('/');
       } else {
         console.error('Failed to delete goal:', result.error);
         // You might want to show a toast notification here
@@ -54,39 +55,97 @@ export function GoalCard({ goal }: GoalCardProps) {
     }
   };
 
+  const progressPercentage = parseFloat(goal.progressPercentage || '0');
+
+  const getProgressGradient = (progress: number) => {
+    if (progress <= 25) return 'bg-gradient-dawn';
+    if (progress <= 75) return 'bg-gradient-sunrise';
+    return 'bg-gradient-daylight';
+  };
+
+  const getCardGradient = (progress: number) => {
+    if (progress >= 100) return 'progress-100';
+    if (progress >= 50) return 'progress-50';
+    return '';
+  };
+
   return (
     <Card
-      className="cursor-pointer hover:shadow-md transition-shadow"
+      className={cn(
+        'cursor-pointer transition-all duration-500 hover:scale-[1.02] group relative overflow-hidden',
+        getCardGradient(progressPercentage),
+      )}
       onClick={handleCardClick}
     >
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <h3 className="font-semibold text-gray-900 flex-1">
+      {/* Journey Background Effect */}
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500">
+        <div className="absolute inset-0 bg-gradient-hero" />
+      </div>
+
+      <CardContent className="p-6 relative z-10">
+        <div className="flex items-start justify-between mb-4">
+          <h3 className="font-bold text-neutral-900 flex-1 text-lg leading-tight">
             {goal.title}
           </h3>
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
             onClick={handleDeleteClick}
-            className="h-8 w-8 p-0 text-gray-500 hover:text-red-600 hover:bg-red-50"
+            className="h-10 w-10 text-neutral-500 hover:text-red-500 hover:bg-red-50/80 hover:scale-110 transition-all duration-200"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-5 h-5" />
           </Button>
         </div>
-        <div className="flex items-center text-sm text-gray-600 mb-3">
-          <CalendarIcon className="w-4 h-4 mr-1" />
-          {goal.dueDate}
+
+        <div className="flex items-center text-sm text-neutral-600 mb-4">
+          <CalendarIcon className="w-4 h-4 mr-2 text-primary-sunrise" />
+          <span className="font-medium">{goal.dueDate}</span>
         </div>
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">進捗</span>
-            <span className="font-medium">{parseFloat(goal.progressPercentage || '0').toFixed(0)}%</span>
+
+        {/* Enhanced Progress Section */}
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-medium text-neutral-600">
+              目標への進捗
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-bold text-neutral-800">
+                {Math.round(progressPercentage)}%
+              </span>
+              {progressPercentage >= 100 && (
+                <div className="w-2 h-2 rounded-full bg-gradient-daylight animate-glow" />
+              )}
+            </div>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-indigo-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${Math.min(100, Math.max(0, parseFloat(goal.progressPercentage || '0')))}%` }}
-            />
+
+          {/* Journey Progress Bar */}
+          <div className="relative">
+            <div className="w-full bg-neutral-200/60 rounded-full h-3 overflow-hidden">
+              <div
+                className={cn(
+                  'h-3 rounded-full transition-all duration-1000 ease-out relative overflow-hidden',
+                  getProgressGradient(progressPercentage),
+                )}
+                style={{
+                  width: `${Math.min(100, Math.max(0, progressPercentage))}%`,
+                }}
+              >
+                {/* Shimmer effect for active progress */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer bg-[length:200%_100%]" />
+              </div>
+            </div>
+
+            {/* Milestone markers */}
+            <div className="absolute top-0 left-1/4 w-px h-3 bg-white/50" />
+            <div className="absolute top-0 left-2/4 w-px h-3 bg-white/50" />
+            <div className="absolute top-0 left-3/4 w-px h-3 bg-white/50" />
+          </div>
+
+          {/* Progress Labels */}
+          <div className="flex justify-between text-xs text-neutral-500 px-1">
+            <span>開始</span>
+            <span>成長中</span>
+            <span>達成</span>
           </div>
         </div>
       </CardContent>

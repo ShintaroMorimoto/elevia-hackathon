@@ -1,1 +1,116 @@
 @import "tailwindcss";
+
+/* CSS カスタムプロパティでテーマ変数定義 */
+:root {
+  /* Primary Colors - Horizon Journey Theme */
+  --color-dawn: #1a1f3a;
+  --color-sunrise: #ff6b6b;
+  --color-daylight: #ffd93d;
+  --color-sky: #6bcf7f;
+  
+  /* Accent Colors */
+  --color-purple: #a78bfa;
+  --color-pink: #f472b6;
+  --color-teal: #2dd4bf;
+  
+  /* Gradient Variables */
+  --gradient-hero: linear-gradient(135deg, #1a1f3a 0%, #ff6b6b 25%, #ffd93d 50%, #6bcf7f 75%, #a78bfa 100%);
+  --gradient-dawn: linear-gradient(135deg, #1a1f3a 0%, #ff6b6b 50%, #ffd93d 100%);
+  --gradient-sunrise: linear-gradient(135deg, #ff6b6b 0%, #ffd93d 50%, #6bcf7f 100%);
+  --gradient-progress: linear-gradient(90deg, #ff6b6b 0%, #ffd93d 50%, #6bcf7f 100%);
+}
+
+/* Base Styles */
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  line-height: 1.6;
+  color: theme('colors.neutral.800');
+  background: linear-gradient(135deg, #fafafa 0%, #f4f4f5 100%);
+  min-height: 100vh;
+}
+
+/* Glass Morphism Utility */
+.glass {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+}
+
+/* Progress States */
+.progress-0 {
+  background: var(--gradient-dawn);
+}
+
+.progress-50 {
+  background: var(--gradient-sunrise);
+}
+
+.progress-100 {
+  background: var(--gradient-daylight);
+}
+
+/* Button Hover Effects */
+.btn-glow:hover {
+  box-shadow: 0 0 20px rgba(255, 107, 107, 0.4);
+  transform: translateY(-2px);
+  transition: all 0.3s ease;
+}
+
+/* Card Hover Effects */
+.card-float:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+/* Shimmer Effect for Loading */
+.shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+/* Celebration Animation */
+.celebration {
+  animation: celebration 0.6s ease-in-out;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: theme('colors.neutral.100');
+}
+
+::-webkit-scrollbar-thumb {
+  background: theme('colors.neutral.400');
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: theme('colors.neutral.500');
+}
+
+/* Focus States */
+.focus-ring:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.3);
+}
+
+/* Responsive Typography */
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+  
+  h1 {
+    font-size: 1.75rem;
+  }
+  
+  h2 {
+    font-size: 1.5rem;
+  }
+}
