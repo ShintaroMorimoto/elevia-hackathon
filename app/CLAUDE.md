@@ -811,6 +811,162 @@ if (!session?.user?.id) {
 
 ---
 
+## UI/UXデザイン修正ルール（2025年12月28日更新）
+
+### 🎨 **Horizon Journeyデザインシステム適用ルール**
+
+今回のUI刷新で確立されたデザイン原則とベストプラクティスを以下にまとめます。これらのルールは必ず守ってください。
+
+#### 1. **視認性とコントラストの原則**
+
+##### 🚫 **絶対にやってはいけないこと**
+```typescript
+// ❌ 白いアイコンや白いテキストを背景色に対して使用する
+<Target className="w-8 h-8 text-white" />  // sunrise背景で見えない
+<Sparkles className="w-10 h-10 text-white" />  // daylight背景で見えない
+
+// ❌ 透明度の高い背景で重要なテキストを隠す
+{isProcessing && <Overlay />}
+<MainCard>重要なコンテンツ</MainCard>  // 同時表示で透けて見える
+```
+
+##### ✅ **必ず守るべき原則**
+```typescript
+// ✅ sunrise/daylight背景にはneutral-800テキストを使用
+<Target className="w-8 h-8 text-neutral-800" />
+<Sparkles className="w-10 h-10 text-neutral-800" />
+
+// ✅ 条件分岐で一つのコンテンツのみ表示
+{isProcessing ? (
+  <ProcessingOverlay />
+) : (
+  <MainCard />
+)}
+```
+
+#### 2. **編集可能要素の視覚的ヒント**
+
+##### 🎯 **クリック可能な数値・テキストの表示ルール**
+```typescript
+// ✅ 破線ボーダーで編集可能性を示唆
+className="text-primary-sunrise hover:text-primary-daylight font-semibold 
+           border border-dashed border-primary-sunrise/30 
+           hover:border-primary-sunrise/60 
+           px-2 py-1 rounded hover:bg-primary-sunrise/10 transition-colors"
+
+// ✅ ツールチップで操作説明
+title="クリックして実績値・目標値を編集"
+```
+
+#### 3. **待機状態の視覚的フィードバック**
+
+##### 💭 **ローディング・処理中表示の原則**
+```typescript
+// ✅ アニメーション + 説明テキストを併用
+<div className="flex items-center space-x-2">
+  <div className="flex space-x-1">
+    {/* バウンスアニメーション */}
+    <div className="w-2 h-2 bg-primary-sunrise rounded-full animate-bounce" />
+    <div className="w-2 h-2 bg-primary-sunrise rounded-full animate-bounce" 
+         style={{ animationDelay: '0.1s' }} />
+    <div className="w-2 h-2 bg-primary-sunrise rounded-full animate-bounce" 
+         style={{ animationDelay: '0.2s' }} />
+  </div>
+  <span className="text-sm text-neutral-600 ml-2">AIが返答を準備中...</span>
+</div>
+```
+
+#### 4. **レイアウトと構造の原則**
+
+##### 🔄 **二重表示・重複表示の防止**
+```typescript
+// ❌ 複数の条件で同時表示（透過で見える）
+{!isComplete && <ProgressSteps />}
+{isComplete && <CompletionMessage />}
+
+// ✅ 排他的な条件分岐
+{isComplete ? (
+  <CompletionMessage />
+) : (
+  <ProgressSteps />
+)}
+```
+
+#### 5. **カラーパレット統一ルール**
+
+##### 🎨 **Horizon Journey色の使用指針**
+```typescript
+// ✅ プライマリカラーの適切な使用
+const horizonColors = {
+  dawn: '#1a1f3a',      // 深い操作・重要なアクション
+  sunrise: '#ff6b6b',   // メインアクション・編集可能要素
+  daylight: '#ffd93d',  // ホバー状態・明るいアクション
+  sky: '#6bcf7f',       // 成功状態・完了状態
+  neutral: '#18181b-#fafafa'  // テキスト・背景
+};
+
+// ❌ 一貫性のない色の混在
+className="text-blue-600 hover:text-green-800"  // NG
+
+// ✅ 統一されたカラーパレット
+className="text-primary-sunrise hover:text-primary-daylight"  // OK
+```
+
+### 📋 **実装チェックリスト**
+
+#### デザイン修正時の必須確認項目
+
+##### ✅ **視認性チェック**
+- [ ] sunrise/daylight背景にwhiteテキスト/アイコンを使用していないか
+- [ ] neutral-800テキストで十分なコントラストが確保されているか
+- [ ] 重要な情報が透過効果で隠れていないか
+
+##### ✅ **UXチェック**
+- [ ] クリック可能な要素に適切な視覚的ヒントがあるか（破線ボーダー等）
+- [ ] ローディング状態に分かりやすい説明テキストがあるか
+- [ ] 条件分岐で二重表示が発生していないか
+
+##### ✅ **カラー統一性チェック**
+- [ ] blue/green/indigo等の非統一色が残っていないか
+- [ ] Horizon Journeyパレット（dawn/sunrise/daylight/sky）を使用しているか
+- [ ] ホバー状態で一貫した色遷移になっているか
+
+### 🔧 **よくある修正パターン**
+
+#### パターン1: アイコンの視認性修正
+```typescript
+// Before
+<Target className="w-8 h-8 text-white" />
+
+// After  
+<Target className="w-8 h-8 text-neutral-800" />
+```
+
+#### パターン2: 編集ボタンの視覚的改善
+```typescript
+// Before
+<button className="text-blue-600 hover:text-blue-800">編集</button>
+
+// After
+<button className="text-primary-sunrise hover:text-primary-daylight 
+                   border border-dashed border-primary-sunrise/30 
+                   hover:border-primary-sunrise/60">編集</button>
+```
+
+#### パターン3: 二重表示の修正
+```typescript
+// Before
+{!isComplete && <ProgressContent />}
+{isComplete && <CompletionContent />}
+
+// After
+{isComplete ? <CompletionContent /> : <ProgressContent />}
+```
+
+このルールセットに従うことで、Horizon Journeyデザインテーマに完全に統一された、視認性とユーザビリティの高いUIを維持できます。
+
+---
+
 ## Phase 5: OKR管理最適化実装 (2025年6月28日)
 
 ### 🎯 **実装概要**

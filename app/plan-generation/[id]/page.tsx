@@ -343,11 +343,11 @@ export default function PlanGenerationPage({
             <div className="mb-8">
               {isComplete ? (
                 <div className="w-20 h-20 bg-gradient-daylight rounded-full flex items-center justify-center mx-auto mb-6 shadow-glow-accent animate-celebration">
-                  <CheckCircle className="w-10 h-10 text-white" />
+                  <CheckCircle className="w-10 h-10 text-neutral-800" />
                 </div>
               ) : (
                 <div className="w-20 h-20 bg-gradient-sunrise rounded-full flex items-center justify-center mx-auto mb-6 shadow-glow-primary">
-                  <Sparkles className="w-10 h-10 text-white animate-pulse" />
+                  <Sparkles className="w-10 h-10 text-neutral-800 animate-pulse" />
                 </div>
               )}
 
