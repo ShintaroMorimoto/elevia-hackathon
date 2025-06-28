@@ -20,6 +20,74 @@ const quarterlyOKRSchema = z.object({
   keyResults: z.array(keyResultSchema),
 });
 
+/**
+ * Generates meaningful quarterly Key Results based on yearly KRs and quarterly milestones
+ */
+function generateQuarterlyKeyResults(
+  yearlyKeyResults: Array<{
+    description: string;
+    targetValue: number;
+    unit?: string;
+    measurementMethod?: string;
+    frequency?: string;
+    baselineValue?: number;
+  }>,
+  quarter: number,
+  quarterMilestones: Array<{ month: number; milestone: string }>
+): Array<{ description: string; targetValue: number; currentValue: number }> {
+  const quarterlyKeyResults = [];
+  
+  // Generate Key Results based on yearly KRs, adapted for this quarter
+  for (const yearlyKR of yearlyKeyResults) {
+    // Calculate quarterly target (25% of yearly target, but ensure minimum of 1)
+    const quarterlyTarget = Math.max(1, Math.ceil(yearlyKR.targetValue / 4));
+    
+    // Create quarterly-specific description
+    let quarterlyDescription = '';
+    
+    // If the yearly KR mentions specific metrics, adapt them for the quarter
+    if (yearlyKR.description.includes('年間') || yearlyKR.description.includes('年次')) {
+      quarterlyDescription = yearlyKR.description
+        .replace('年間', `Q${quarter}`)
+        .replace('年次', `Q${quarter}`);
+    } else if (yearlyKR.description.includes('達成') || yearlyKR.description.includes('完成')) {
+      // For achievement-based KRs, focus on quarterly progress
+      quarterlyDescription = `Q${quarter}: ${yearlyKR.description}の${quarter === 1 ? '基盤構築' : quarter === 2 ? '本格推進' : quarter === 3 ? '加速実行' : '完成・評価'}`;
+    } else {
+      // Default: add quarterly context to the description
+      quarterlyDescription = `Q${quarter}: ${yearlyKR.description}の段階的推進`;
+    }
+    
+    quarterlyKeyResults.push({
+      description: quarterlyDescription,
+      targetValue: quarterlyTarget,
+      currentValue: 0,
+    });
+  }
+  
+  // Add milestone-specific Key Results if we have specific milestones
+  if (quarterMilestones.length > 0) {
+    quarterlyKeyResults.push({
+      description: `Q${quarter}の重要マイルストーン達成: ${quarterMilestones.length}件`,
+      targetValue: quarterMilestones.length,
+      currentValue: 0,
+    });
+  }
+  
+  // Ensure we have at least 2-3 meaningful Key Results per quarter
+  if (quarterlyKeyResults.length === 0) {
+    // Fallback: create basic quarterly Key Results
+    quarterlyKeyResults.push({
+      description: `Q${quarter}の目標達成率`,
+      targetValue: 75, // 75% quarterly achievement target
+      currentValue: 0,
+    });
+  }
+  
+  // Limit to maximum 4 Key Results per quarter for clarity
+  return quarterlyKeyResults.slice(0, 4);
+}
+
 export const generateOKRTool = createTool({
   id: 'generate-okr',
   description: '目標に基づいてOKRプランを生成する',
@@ -122,15 +190,20 @@ export const generateOKRTool = createTool({
           );
           
           if (quarterMilestones.length > 0) {
+            // Generate meaningful Key Results for this quarter
+            console.log(`🔍 DEBUG: Q${quarter}用のKey Results生成中 - 年次Key Results数:`, yearly.keyResults.length);
+            const quarterlyKeyResults = generateQuarterlyKeyResults(
+              yearly.keyResults,
+              quarter,
+              quarterMilestones
+            );
+            console.log(`🔍 DEBUG: Q${quarter}で生成されたKey Results:`, quarterlyKeyResults);
+            
             quarterlyOKRs.push({
               year: yearly.year,
               quarter,
               objective: `Q${quarter}: ${quarterMilestones.map(m => m.milestone).join(', ')}`,
-              keyResults: [{
-                description: `Q${quarter}のマイルストーンを達成する`,
-                targetValue: 100,
-                currentValue: 0,
-              }],
+              keyResults: quarterlyKeyResults,
             });
           }
         }
