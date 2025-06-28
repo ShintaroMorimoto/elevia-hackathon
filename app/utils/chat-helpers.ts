@@ -2,7 +2,7 @@
 // TDD Green phase - minimal implementation to make tests pass
 
 import { createChatSession, addChatMessage } from '@/actions/chat';
-import { generateNextQuestion } from '@/actions/ai-conversation';
+import { generateNextQuestion, analyzeConversationDepth } from '@/actions/ai-conversation';
 import { getGoal } from '@/actions/goals';
 import type { ChatMessage } from '@/types/mastra';
 
@@ -16,6 +16,11 @@ export interface MessageResult {
   aiResponse: string;
   conversationDepth: number;
   isComplete: boolean;
+  // AI駆動動的フロー制御の結果
+  informationSufficiency?: number;
+  conversationQuality?: 'low' | 'medium' | 'high';
+  suggestedNextAction?: 'continue_conversation' | 'proceed_to_planning' | 'clarify_goal';
+  reasoning?: string;
 }
 
 export interface ConversationStatus {
@@ -87,10 +92,26 @@ export async function handleUserMessage(
     { role: 'user', content: userMessage }
   ];
 
-  // Generate AI response
-  const questionResult = await generateNextQuestion(goalId, userId, updatedHistory);
+  // 並列でAI分析と質問生成を実行
+  console.log('🔍 Debug: Starting AI analysis and question generation...');
+  console.log('📝 Chat history length:', updatedHistory.length);
+  console.log('🎯 Goal ID:', goalId, 'User ID:', userId);
+  
+  const [questionResult, analysisResult] = await Promise.all([
+    generateNextQuestion(goalId, userId, updatedHistory),
+    analyzeConversationDepth(updatedHistory, { id: goalId, userId } as any)
+  ]);
+
+  console.log('🔍 Question Result:', questionResult.success ? 'SUCCESS' : 'FAILED');
+  console.log('🔍 Analysis Result:', analysisResult.success ? 'SUCCESS' : 'FAILED');
+  
   if (!questionResult.success) {
+    console.error('❌ Question generation failed:', questionResult.error);
     throw new Error('Failed to generate AI response');
+  }
+  
+  if (!analysisResult.success) {
+    console.error('❌ Analysis failed:', analysisResult.error);
   }
 
   // Save AI message to database
@@ -101,11 +122,25 @@ export async function handleUserMessage(
     messageOrder: updatedHistory.length,
   });
 
-  return {
+  // AI分析結果から動的フロー制御の値を取得
+  const analysis = analysisResult.success ? analysisResult.data : null;
+  
+  console.log('📊 Analysis data:', analysis);
+  console.log('🤖 Question data:', questionResult.data);
+  
+  const result = {
     aiResponse: questionResult.data.question,
     conversationDepth: questionResult.data.depth + 1,
-    isComplete: false, // Never auto-complete, let user decide
+    isComplete: questionResult.data.shouldComplete || (analysis?.isReadyToProceed ?? false),
+    // AI駆動動的フロー制御の結果
+    informationSufficiency: analysis?.informationSufficiency ?? 0.3,
+    conversationQuality: analysis?.conversationQuality ?? 'medium',
+    suggestedNextAction: analysis?.suggestedNextAction ?? 'continue_conversation',
+    reasoning: analysis?.reasoning ?? questionResult.data.reasoning ?? '会話を続けて、より詳しい情報を集めましょう',
   };
+  
+  console.log('📤 Returning result:', result);
+  return result;
 }
 
 export async function isConversationComplete(

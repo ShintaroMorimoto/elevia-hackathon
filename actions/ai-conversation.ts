@@ -14,7 +14,9 @@ import type { Goal } from '@/lib/db/schema';
 import type {
   ChatMessage,
   NextQuestionData,
+  DynamicNextQuestionData,
   ConversationAnalysis,
+  DynamicConversationAnalysis,
   ConversationSummary,
 } from '@/types/mastra';
 
@@ -22,10 +24,13 @@ export async function generateNextQuestion(
   goalId: string,
   userId: string,
   chatHistory: ChatMessage[],
-): Promise<ActionResult<NextQuestionData>> {
+): Promise<ActionResult<DynamicNextQuestionData>> {
   try {
+    console.log('🚀 generateNextQuestion called with:', { goalId, userId, historyLength: chatHistory.length });
+    
     // Validation
     if (!goalId || !userId) {
+      console.error('❌ Validation failed: Missing goalId or userId');
       return {
         success: false,
         error: 'Goal ID and User ID are required',
@@ -47,9 +52,12 @@ export async function generateNextQuestion(
     }
 
     const goal = goalResult[0];
+    console.log('✅ Goal found:', goal.title);
+    
     const runtimeContext = new RuntimeContext();
 
     // 対話の深さを分析
+    console.log('🔍 Executing goalAnalysisTool...');
     const analysisResult = await goalAnalysisTool.execute({
       context: {
         goalId,
@@ -58,8 +66,10 @@ export async function generateNextQuestion(
       },
       runtimeContext,
     });
+    console.log('📊 Analysis result:', analysisResult);
 
     // 次の質問を生成
+    console.log('🤖 Executing generateQuestionTool...');
     const questionResult = await generateQuestionTool.execute({
       context: {
         goalTitle: goal.title,
@@ -70,6 +80,7 @@ export async function generateNextQuestion(
       },
       runtimeContext,
     });
+    console.log('❓ Question result:', questionResult);
 
     return {
       success: true,
@@ -87,7 +98,7 @@ export async function generateNextQuestion(
 export async function analyzeConversationDepth(
   chatHistory: ChatMessage[],
   goal: Goal,
-): Promise<ActionResult<ConversationAnalysis>> {
+): Promise<ActionResult<DynamicConversationAnalysis>> {
   try {
     const runtimeContext = new RuntimeContext();
     const result = await goalAnalysisTool.execute({

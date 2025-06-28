@@ -1,6 +1,10 @@
 import { Agent } from '@mastra/core/agent';
 import { vertex } from '@ai-sdk/google-vertex';
 import { generateOKRTool, analyzeChatHistoryTool } from '../tools/okr-tools';
+import { config } from 'dotenv';
+
+// 環境変数を読み込み
+config({ path: '../../.env.local' });
 
 export const planningAgent = new Agent({
   name: 'OKR Planning Agent',

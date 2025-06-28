@@ -17,7 +17,7 @@ export interface ChatMessage {
 }
 
 /**
- * 次の質問データの型定義
+ * 次の質問データの型定義（レガシー対応）
  */
 export interface NextQuestionData {
   question: string;
@@ -26,7 +26,16 @@ export interface NextQuestionData {
 }
 
 /**
- * 対話分析結果の型定義
+ * AI駆動動的質問データの型定義
+ */
+export interface DynamicNextQuestionData extends NextQuestionData {
+  reasoning: string;
+  shouldComplete: boolean;
+  confidence: number;
+}
+
+/**
+ * 対話分析結果の型定義（レガシー対応）
  */
 export interface ConversationAnalysis {
   currentDepth: number;
@@ -34,6 +43,18 @@ export interface ConversationAnalysis {
   isComplete: boolean;
   completionPercentage: number;
   missingAspects: string[];
+}
+
+/**
+ * AI駆動動的対話分析結果の型定義
+ */
+export interface DynamicConversationAnalysis extends ConversationAnalysis {
+  informationSufficiency: number;
+  isReadyToProceed: boolean;
+  missingCriticalInfo: string[];
+  conversationQuality: 'low' | 'medium' | 'high';
+  suggestedNextAction: 'continue_conversation' | 'proceed_to_planning' | 'clarify_goal';
+  reasoning: string;
 }
 
 /**
