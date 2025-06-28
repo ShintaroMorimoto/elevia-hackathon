@@ -35,6 +35,7 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
   const [conversationComplete, setConversationComplete] = useState(false)
   const [conversationDepth, setConversationDepth] = useState(0)
   const [maxDepth] = useState(5)
+  const [showSuggestion, setShowSuggestion] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -145,10 +146,10 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
       setConversationDepth(result.conversationDepth)
       setConversationComplete(result.isComplete)
 
-      if (result.isComplete) {
-        // Show create plan button when conversation is complete
+      // Show suggestion after sufficient conversation depth
+      if (result.conversationDepth >= 3 && !showSuggestion) {
         setTimeout(() => {
-          setConversationComplete(true)
+          setShowSuggestion(true)
         }, 1000)
       }
 
@@ -291,34 +292,69 @@ export default function ChatPage({ params }: { params: Promise<{ id: string }> }
           </div>
         )}
 
+        {/* AIからの提案表示 */}
+        {showSuggestion && (
+          <div className="flex justify-start mb-4">
+            <div className="flex max-w-[85%]">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 mr-2 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-blue-600" />
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800 mb-3">
+                  💡 十分な情報が集まりました！いつでも計画作成に進むことができます。
+                  もちろん、さらに詳しくお聞かせいただいても構いません。
+                </p>
+                <div className="flex space-x-2">
+                  <Button 
+                    onClick={handleCreatePlan} 
+                    size="sm" 
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Sparkles className="w-3 h-3 mr-1" />
+                    計画を作成する
+                  </Button>
+                  <Button 
+                    onClick={() => setShowSuggestion(false)} 
+                    variant="ghost" 
+                    size="sm"
+                    className="text-blue-600 hover:text-blue-800"
+                  >
+                    会話を続ける
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </main>
 
-      <footer className="bg-white border-t border-gray-200 p-4">
-        {conversationComplete ? (
-          <Button onClick={handleCreatePlan} className="w-full">
-            <Sparkles className="w-4 h-4 mr-2" />
-            この内容で計画を作成する
+      <footer className="bg-white border-t border-gray-200 p-4 space-y-3">
+        {/* チャット入力フォーム - 常に表示 */}
+        <div className="flex space-x-2">
+          <Input
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder="テキストで回答を入力..."
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault()
+                handleSendMessage(inputValue)
+              }
+            }}
+            disabled={isTyping}
+          />
+          <Button onClick={() => handleSendMessage(inputValue)} disabled={!inputValue.trim() || isTyping} size="icon">
+            <PaperPlaneIcon className="w-4 h-4" />
           </Button>
-        ) : (
-          <div className="flex space-x-2">
-            <Input
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="テキストで回答を入力..."
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault()
-                  handleSendMessage(inputValue)
-                }
-              }}
-              disabled={isTyping}
-            />
-            <Button onClick={() => handleSendMessage(inputValue)} disabled={!inputValue.trim() || isTyping} size="icon">
-              <PaperPlaneIcon className="w-4 h-4" />
-            </Button>
-          </div>
-        )}
+        </div>
+        
+        {/* 計画作成ボタン - 常に表示 */}
+        <Button onClick={handleCreatePlan} className="w-full" variant="secondary">
+          <Sparkles className="w-4 h-4 mr-2" />
+          この内容で計画を作成する
+        </Button>
       </footer>
     </div>
   )

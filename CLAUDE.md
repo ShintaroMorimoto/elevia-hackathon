@@ -2,6 +2,31 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Security and Quality Standards
+### NEVER Rules (Non-negotiable)
+- NEVER: Delete production data without explicit confirmation
+- NEVER: Hardcode API keys, passwords, or secrets
+- NEVER: Commit code with failing tests or linting errors
+- NEVER: Push directly to main/master branch
+- NEVER: Skip security reviews for authentication/authorization code
+- NEVER: Use "any" type in TypeScript production code
+- NEVER: Store secrets in Terraform state files
+- NEVER: Use service account keys - use Workload Identity Federation
+- NEVER: Manually modify Terraform state files
+
+### YOU MUST Rules (Required Standards)
+- YOU MUST: Write code with t-wada's TDD(Red-Green-Refactor)
+- YOU MUST: Verify existing tests pass before making changes
+- YOU MUST: Verify lint pass before making changes
+- YOU MUST: Run CI/CD checks before marking tasks complete
+- YOU MUST: Follow semantic versioning for releases
+- YOU MUST: Document breaking changes
+- YOU MUST: Use feature branches for all development
+- YOU MUST: Add comprehensive documentation to all public APIs
+- YOU MUST: Implement error handling
+- YOU MUST: Run `terraform plan` before applying infrastructure changes
+- YOU MUST: Use remote state backend for Terraform state management
+- YOU MUST: Follow Terraform best practices from `terraform/CLAUDE.md`
 
 ## Project Overview - OKR 達成サポートツール
 ### サービス名
@@ -289,30 +314,7 @@ export function functionName(paramName: ParamType): ReturnType {
 - Utility Types: Use built-in types (Partial, Pick, Omit)
 
 
-## Security and Quality Standards
-### NEVER Rules (Non-negotiable)
-- NEVER: Delete production data without explicit confirmation
-- NEVER: Hardcode API keys, passwords, or secrets
-- NEVER: Commit code with failing tests or linting errors
-- NEVER: Push directly to main/master branch
-- NEVER: Skip security reviews for authentication/authorization code
-- NEVER: Use "any" type in TypeScript production code
-- NEVER: Store secrets in Terraform state files
-- NEVER: Use service account keys - use Workload Identity Federation
-- NEVER: Manually modify Terraform state files
 
-### YOU MUST Rules (Required Standards)
-- YOU MUST: Write code with t-wada's TDD(Red-Green-Refactor)
-- YOU MUST: Verify existing tests pass before making changes
-- YOU MUST: Run CI/CD checks before marking tasks complete
-- YOU MUST: Follow semantic versioning for releases
-- YOU MUST: Document breaking changes
-- YOU MUST: Use feature branches for all development
-- YOU MUST: Add comprehensive documentation to all public APIs
-- YOU MUST: Implement error handling
-- YOU MUST: Run `terraform plan` before applying infrastructure changes
-- YOU MUST: Use remote state backend for Terraform state management
-- YOU MUST: Follow Terraform best practices from `terraform/CLAUDE.md`
 
 ## Documentation and Workflows
 

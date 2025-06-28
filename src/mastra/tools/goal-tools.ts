@@ -83,36 +83,72 @@ export const generateQuestionTool = createTool({
       'timeline',
       'obstacles',
       'values',
+      'details',
+      'context',
     ]),
     depth: z.number(),
   }),
   execute: async ({ context }) => {
     const { goalTitle, chatHistory, currentDepth } = context;
 
-    // 質問タイプの決定
+    // 前回の回答を分析して、より文脈に沿った質問を生成
+    const lastUserMessage = chatHistory
+      .filter(msg => msg.role === 'user')
+      .pop()?.content || '';
+
+    // 質問タイプの決定（より柔軟に）
     const questionTypes = [
       'motivation',
-      'experience',
+      'experience', 
       'resources',
       'timeline',
       'obstacles',
       'values',
+      'details',
+      'context'
     ] as const;
-    const typeIndex = Math.min(currentDepth, questionTypes.length - 1);
-    const type = questionTypes[typeIndex];
 
-    // 質問の生成（実際にはAIモデルを使用してより適切な質問を生成する）
-    const questions = {
-      motivation: `なぜ「${goalTitle}」を達成したいのですか？この目標があなたにとって重要な理由を教えてください。`,
-      experience: `「${goalTitle}」に関連して、これまでにどのような経験がありますか？`,
-      resources: `「${goalTitle}」を達成するために必要なリソース（時間、スキル、資金など）はありますか？`,
-      timeline: `いつまでに「${goalTitle}」を達成したいですか？具体的なスケジュールを教えてください。`,
-      obstacles: `「${goalTitle}」を達成する上で、どのような課題や障害が予想されますか？`,
-      values: `「${goalTitle}」は、あなたの価値観やライフスタイルとどのように関連していますか？`,
-    };
+    // 深度に基づく基本的な質問選択
+    let type: typeof questionTypes[number];
+    let question: string;
+
+    if (currentDepth === 0) {
+      type = 'motivation';
+      question = `なぜ「${goalTitle}」を達成したいのですか？この目標があなたにとって重要な理由を教えてください。`;
+    } else if (currentDepth === 1) {
+      type = 'experience';
+      question = `「${goalTitle}」に関連して、これまでにどのような経験や取り組みをされたことがありますか？`;
+    } else {
+      // より高い深度では、前回の回答に基づいて動的に質問を選択
+      if (lastUserMessage.toLowerCase().includes('時間') || lastUserMessage.toLowerCase().includes('期限')) {
+        type = 'timeline';
+        question = `具体的なスケジュールについて、もう少し詳しく教えてください。どのようなペースで進めていきたいですか？`;
+      } else if (lastUserMessage.toLowerCase().includes('経験') || lastUserMessage.toLowerCase().includes('やった')) {
+        type = 'details';
+        question = `その経験から学んだことや、今回活かせそうなポイントはありますか？`;
+      } else if (lastUserMessage.toLowerCase().includes('困難') || lastUserMessage.toLowerCase().includes('難しい')) {
+        type = 'obstacles';
+        question = `その困難を乗り越えるために、どのような準備や対策が必要だと思いますか？`;
+      } else if (lastUserMessage.toLowerCase().includes('お金') || lastUserMessage.toLowerCase().includes('資金')) {
+        type = 'resources';
+        question = `予算以外にも、時間やスキル面でのリソースはいかがでしょうか？`;
+      } else {
+        // デフォルトの質問パターン
+        const fallbackQuestions = [
+          { type: 'context' as const, question: `「${goalTitle}」を達成した後、あなたの生活はどのように変わると思いますか？` },
+          { type: 'values' as const, question: `この目標は、あなたの価値観や人生観とどのように関連していますか？` },
+          { type: 'obstacles' as const, question: `目標達成の過程で、最も大きな課題になりそうなことは何ですか？` },
+          { type: 'resources' as const, question: `目標達成のために、新たに身につけたいスキルや知識はありますか？` }
+        ];
+        const randomIndex = currentDepth % fallbackQuestions.length;
+        const selected = fallbackQuestions[randomIndex];
+        type = selected.type;
+        question = selected.question;
+      }
+    }
 
     return {
-      question: questions[type],
+      question,
       type,
       depth: currentDepth + 1,
     };

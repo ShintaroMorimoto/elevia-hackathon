@@ -1,321 +1,596 @@
-# Mastra統合 修正完了レポート
+# Mastra AI システム - 技術ドキュメント
 
-## 📅 作成日: 2025年12月28日 | 最終更新: 2025年6月27日
+## 概要
 
-## 🎯 概要
+このディレクトリには、**Elevia** プロジェクトのAI機能を担当するMastraフレームワークの実装が含まれています。Mastraは、AIエージェント、ツール、ワークフローを統合的に管理するフレームワークで、目標達成支援のためのAI機能を提供します。
 
-このドキュメントは、Mastra統合における型エラーと実装上の問題を包括的に分析し、修正を完了したレポートです。**Phase 2まで完了**し、型統一・ワークフロー再有効化・RuntimeContext問題を解決し、完全に動作する状態を実現しました。
+### 主な機能
+- **対話エージェント**: ユーザーとの自然な対話を通じて目標の詳細を聞き出す
+- **計画エージェント**: 収集した情報を基に具体的なOKRプランを生成する
+- **動的質問生成**: ユーザーの回答に応じて文脈に沿った質問を生成
+- **OKR生成**: 年次・四半期レベルの具体的で測定可能なOKRを自動生成
 
-## ✅ **Phase 1 緊急修正 - 完了（2025/12/28）**
+## アーキテクチャ
 
-### 🚀 **修正済み項目**
+```
+src/mastra/
+├── agents/           # AIエージェント (Vertex AI Gemini統合)
+├── tools/            # カスタムツール (Zodスキーマ + DB連携)
+├── workflows/        # ワークフロー (複数ステップの処理)
+└── index.ts          # Mastraインスタンス設定
+```
 
-#### 1. ✅ ビルドエラー解決
-- **問題**: TypeScriptコンパイルエラー（7件）によりビルド失敗
-- **解決策**: ワークフローを一時的に無効化し、個別ツール実行（Server Actions）を使用
-- **結果**: ✅ ビルド成功 - `pnpm build` 完全通過
+### コンポーネント間の関係
 
-#### 2. ✅ AI機能の復旧
-- **実装**: `actions/ai-planning.ts`で個別ツール実行パターンを実装
-- **動作確認**: RuntimeContext追加により、以下のツールが正常動作
-  - `analyzeChatHistoryTool.execute()`
-  - `goalAnalysisTool.execute()`  
-  - `generateOKRTool.execute()`
+```mermaid
+graph TD
+    A[Server Actions] --> B[Mastra Instance]
+    B --> C[Agents]
+    B --> D[Tools]
+    B --> E[Workflows]
+    
+    C --> F[conversationAgent]
+    C --> G[planningAgent]
+    
+    D --> H[goalAnalysisTool]
+    D --> I[generateQuestionTool]
+    D --> J[generateOKRTool]
+    D --> K[analyzeChatHistoryTool]
+    
+    E --> L[okrGenerationWorkflow]
+    
+    F --> H
+    F --> I
+    G --> J
+    G --> K
+```
 
-#### 3. ✅ 型整合性の修正
-- **修正ファイル**:
-  - `app/utils/plan-generation-helpers.ts`: `generatedPlan.okrPlan.yearly`の型修正
-  - `actions/ai-planning.ts`: `GeneratedPlan`インターフェースの統一
-  - `src/mastra/index.ts`: ワークフローの一時的無効化
+## Agents（AIエージェント）
 
-## ✅ **Phase 2 型統一・ワークフロー再有効化 - 完了（2025/6/27）**
+### 1. conversationAgent (`agents/conversation-agent.ts`)
 
-### 🚀 **新規実装項目**
+目標達成支援のための対話専用エージェントです。
 
-#### 1. ✅ 共通型定義ファイルの作成
-- **実装**: `types/mastra.ts`を新規作成
-- **内容**: ChatMessage, KeyResult, YearlyOKR, QuarterlyOKR, OKRPlan, GeneratedPlan等を統一
-- **バリデーション**: 15のテストケースでvalidate関数も実装
-- **結果**: 重複した型定義を完全に削除、保守性向上
-
-#### 2. ✅ 既存コードの型定義統一
-- **修正ファイル**:
-  - `actions/ai-planning.ts`: 重複型定義削除、共通型インポート
-  - `actions/ai-conversation.ts`: 重複型定義削除、共通型インポート
-  - `app/utils/chat-helpers.ts`: ChatMessage型を共通型に統一
-- **結果**: 型の一貫性を確保、TypeScriptエラー完全解決
-
-#### 3. ✅ RuntimeContext問題の検証と解決
-- **検証**: 5つのテストケースでRuntimeContextがオプショナルであることを確認
-- **対応**: 型エラー回避のため適切にRuntimeContextを維持
-- **実装**: `test/mastra/runtime-context.test.ts`でテスト基盤構築
-
-#### 4. ✅ ワークフローの段階的再有効化
-- **問題**: 複雑な3ステップワークフローで型エラー発生
-- **解決策**: シンプルな単一ステップワークフローを新規作成
-- **実装**: `src/mastra/workflows/okr-generation-workflow-simple.ts`
-- **特徴**: 並列実行でパフォーマンス向上、型安全性確保
-- **結果**: `src/mastra/index.ts`でワークフロー再有効化成功
-
-### 📊 **現在の動作状況**
-
-| 機能 | 状況 | 実装方法 |
-|------|------|----------|
-| 🔧 ビルド | ✅ 成功 | TypeScript完全通過 |
-| 🤖 AI対話分析 | ✅ 動作 | Server Actions + 個別ツール |
-| 📋 OKR生成 | ✅ 動作 | Server Actions + 個別ツール |
-| 💾 データベース保存 | ✅ 動作 | Yearly OKR + Key Results |
-| 🔄 ワークフロー | ✅ **再有効化** | シンプルワークフローで動作 |
-| 📈 型統一 | ✅ **完了** | 共通型定義ファイルで統一 |
-
-## 🎯 **現在の作成・更新ファイル一覧**
-
-### ✅ 新規作成ファイル
-- `types/mastra.ts` - 共通型定義ファイル（15テスト付き）
-- `test/types/mastra.test.ts` - 型定義テストスイート
-- `src/mastra/workflows/okr-generation-workflow-simple.ts` - シンプルワークフロー
-- `test/mastra/runtime-context.test.ts` - RuntimeContextテスト（5テスト）
-- `test/mastra/workflow-simple.test.ts` - ワークフローテスト（2テスト）
-
-### 🔄 更新済みファイル
-- `actions/ai-planning.ts` - 型統一、RuntimeContext調整
-- `actions/ai-conversation.ts` - 型統一、RuntimeContext調整
-- `app/utils/chat-helpers.ts` - ChatMessage型統一
-- `src/mastra/index.ts` - ワークフロー再有効化（okrGenerationWorkflowSimple使用）
-
-## 🔍 解決済みの問題
-
-### 1. ✅ **型定義の重複問題**
-
-#### 修正前の問題
-- ChatMessage, KeyResult, YearlyOKRなどの型が複数ファイルで重複定義
-- 型の不整合によるTypeScriptエラー発生
-- 保守性の低下
-
-#### ✅ 修正後の状態
-- `types/mastra.ts`で型を一元管理
-- 重複定義を完全に削除
-- バリデーション関数も統合
-
-### 2. ✅ **RuntimeContextの型エラー**
-
-#### 修正前の問題
 ```typescript
-// エラー: Property 'runtimeContext' is missing
-const result = await analyzeChatHistoryTool.execute({
-  context: { chatHistory },
+export const conversationAgent = new Agent({
+  name: 'Goal Conversation Agent',
+  description: '目標達成支援のための対話エージェント',
+  model: vertex('gemini-2.5-flash-preview-05-20'),
+  tools: {
+    goalAnalysisTool,
+    generateQuestionTool,
+  },
 });
 ```
 
-#### ✅ 修正後の状態
+**役割:**
+- ユーザーの目標について詳細な情報を引き出す
+- 動機、経験、リソース、障害などを探る
+- 自然な会話の流れを保ちながら建設的な質問を行う
+
+**使用場面:**
+- チャット画面での質問生成 (`actions/ai-conversation.ts`)
+- 対話の深度分析
+
+### 2. planningAgent (`agents/planning-agent.ts`)
+
+OKR計画を生成する専門エージェントです。
+
 ```typescript
-// 正常動作: RuntimeContextを適切に追加
-const runtimeContext = new RuntimeContext();
-const result = await analyzeChatHistoryTool.execute({
-  context: { chatHistory },
-  runtimeContext,
+export const planningAgent = new Agent({
+  name: 'OKR Planning Agent',
+  description: 'OKR計画を生成する専門エージェント',
+  model: vertex('gemini-2.5-flash-preview-05-20'),
+  tools: {
+    generateOKRTool,
+    analyzeChatHistoryTool,
+  },
 });
 ```
 
-### 3. ✅ **ワークフローの型不一致問題**
+**役割:**
+- 収集した情報を基に具体的なOKRプランを生成
+- 年次目標と四半期目標の整合性を保つ
+- 定量的で測定可能なKey Resultsを設定
 
-#### 修正前の問題
-- 複雑な3ステップワークフローで型エラー多発
-- 入力スキーマの不一致
-- `.map()`メソッドの誤用
+**使用場面:**
+- 計画生成画面でのOKR作成 (`actions/ai-planning.ts`)
 
-#### ✅ 修正後の状態
-- シンプルな単一ステップワークフローで型安全性確保
-- 並列実行（Promise.all）でパフォーマンス向上
-- 統一された入力スキーマ使用
+## Tools（カスタムツール）
 
-### 4. ✅ **ビルドエラーの解決**
+### 1. goalAnalysisTool (`tools/goal-tools.ts`)
 
-#### 修正前の問題
-- TypeScript型エラー7件でビルド失敗
-- `pnpm build`が通らない状態
+ユーザーの目標を分析し、対話の深度を評価するツールです。
 
-#### ✅ 修正後の状態
-- TypeScriptエラーゼロ
-- `pnpm build`完全通過
-- 本番デプロイ可能な状態
-
-## 📊 影響分析
-
-### ビルドへの影響
-- ✅ TypeScriptコンパイルエラー解決済み
-- ✅ `okr-generation-workflow.ts`が一時的に無効化
-- ✅ `ai-planning.ts`で個別ツール実行に変更
-
-### 機能への影響
-- ✅ AI計画生成機能が個別ツール実行で正常動作
-- ✅ 個別のツール実行（Server Actions経由）は正常動作
-- ✅ UI-DB統合は影響なし
-
-## 🛠️ 技術的な改善実績
-
-### ✅ **テスト駆動開発（TDD）の実践**
-
-#### Red-Green-Refactorサイクル
-1. **Red**: 型定義テストを先に作成（15テスト）
-2. **Green**: 共通型定義ファイル実装でテスト通過
-3. **Refactor**: 既存コードの型統一とリファクタリング
-
-#### テスト統計
-- **型定義テスト**: 15テスト（バリデーション関数含む）
-- **RuntimeContextテスト**: 5テスト（Mastraツール動作確認）
-- **ワークフローテスト**: 2テスト（シンプルワークフロー検証）
-- **合計新規テスト**: 22テスト
-
-### ✅ **アーキテクチャの改善**
-
-#### 型安全性の向上
 ```typescript
-// Before: 重複定義でエラー多発
-interface ChatMessage { ... } // actions/ai-planning.ts
-interface ChatMessage { ... } // actions/ai-conversation.ts
-interface ChatMessage { ... } // app/utils/chat-helpers.ts
-
-// After: 統一された型定義
-import type { ChatMessage } from '@/types/mastra';
+export const goalAnalysisTool = createTool({
+  id: 'analyze-goal',
+  description: 'ユーザーの目標を分析し、深掘り質問を生成する',
+  inputSchema: z.object({
+    goalId: z.string(),
+    userId: z.string(),
+    chatHistory: z.array(z.object({
+      role: z.string(),
+      content: z.string(),
+    })),
+  }),
+  outputSchema: z.object({
+    currentDepth: z.number(),
+    maxDepth: z.number(),
+    isComplete: z.boolean(),
+    completionPercentage: z.number(),
+    missingAspects: z.array(z.string()),
+  }),
+});
 ```
 
-#### パフォーマンス最適化
-```typescript
-// Before: 順次実行（遅い）
-const chatAnalysis = await analyzeChatHistoryTool.execute({...});
-const goalAnalysis = await goalAnalysisTool.execute({...});
-const okrPlan = await generateOKRTool.execute({...});
+**機能:**
+- 対話の深さを数値化（0-5の範囲）
+- 不足している観点を特定
+- 完了度をパーセンテージで算出
 
-// After: 並列実行（高速）
+### 2. generateQuestionTool (`tools/goal-tools.ts`)
+
+動的な質問生成を行うツールです。
+
+```typescript
+export const generateQuestionTool = createTool({
+  id: 'generate-question',
+  description: '目標達成のための次の質問を生成する',
+  inputSchema: z.object({
+    goalTitle: z.string(),
+    goalDescription: z.string().optional(),
+    goalDueDate: z.string().optional(),
+    chatHistory: z.array(z.object({
+      role: z.string(),
+      content: z.string(),
+    })),
+    currentDepth: z.number(),
+  }),
+  outputSchema: z.object({
+    question: z.string(),
+    type: z.enum([
+      'motivation', 'experience', 'resources', 'timeline',
+      'obstacles', 'values', 'details', 'context',
+    ]),
+    depth: z.number(),
+  }),
+});
+```
+
+**特徴:**
+- **文脈認識**: 前回の回答内容を分析してキーワード検出
+- **動的質問選択**: ユーザーの回答に応じて質問タイプを変更
+- **8つの質問タイプ**: motivation, experience, resources, timeline, obstacles, values, details, context
+
+**質問生成ロジック:**
+```typescript
+// 深度0: 動機について
+if (currentDepth === 0) {
+  type = 'motivation';
+  question = `なぜ「${goalTitle}」を達成したいのですか？`;
+}
+// 深度1: 経験について  
+else if (currentDepth === 1) {
+  type = 'experience';
+  question = `「${goalTitle}」に関連して、どのような経験がありますか？`;
+}
+// 深度2以上: 文脈に応じた動的質問
+else {
+  if (lastUserMessage.includes('時間')) {
+    type = 'timeline';
+    question = '具体的なスケジュールについて詳しく教えてください';
+  }
+  // その他のキーワード検出...
+}
+```
+
+### 3. generateOKRTool (`tools/okr-tools.ts`)
+
+目標と対話履歴からOKRプランを生成するツールです。
+
+```typescript
+export const generateOKRTool = createTool({
+  id: 'generate-okr',
+  description: '目標に基づいてOKRプランを生成する',
+  inputSchema: z.object({
+    goalTitle: z.string(),
+    goalDescription: z.string(),
+    goalDueDate: z.string(),
+    chatInsights: z.object({
+      motivation: z.string().optional(),
+      resources: z.string().optional(),
+      obstacles: z.string().optional(),
+    }),
+  }),
+  outputSchema: z.object({
+    yearly: z.array(yearlyOKRSchema),
+    quarterly: z.array(quarterlyOKRSchema),
+  }),
+});
+```
+
+**機能:**
+- 目標期限から年次・四半期のプランを自動計算
+- 各年の役割に応じたObjectiveを生成
+- 定量的なKey Resultsを設定（targetValue: 100, currentValue: 0）
+
+### 4. analyzeChatHistoryTool (`tools/okr-tools.ts`)
+
+対話履歴から重要な洞察を抽出するツールです。
+
+```typescript
+export const analyzeChatHistoryTool = createTool({
+  id: 'analyze-chat-history',
+  description: '対話履歴から重要な洞察を抽出する',
+  outputSchema: z.object({
+    userMotivation: z.string(),
+    keyInsights: z.array(z.string()),
+    readinessLevel: z.number().min(1).max(10),
+    recommendedActions: z.array(z.string()),
+  }),
+});
+```
+
+## Workflows（ワークフロー）
+
+### okrGenerationWorkflow （メインワークフロー）
+
+OKRプラン生成のためのメインワークフローです。
+
+```typescript
+// workflows/okr-generation-workflow.ts
+export const okrGenerationWorkflow = createWorkflow({
+  id: 'okr-generation',
+  description: 'Generate OKR plan with optimized single step',
+})
+  .then(generateOKRStep)  // 並列実行による最適化
+  .commit();
+```
+
+**特徴:**
+- **並列実行**: 複数ツールを同時実行してパフォーマンス向上
+- **型安全**: シンプルな構造で型エラーを回避
+- **安定動作**: 実稼働環境での確実な動作
+- **保守性**: 理解しやすく変更が容易
+
+**内部実装:**
+```typescript
+// 3つのツールを並列実行
 const [chatAnalysis, goalAnalysis, okrPlan] = await Promise.all([
-  analyzeChatHistoryTool.execute({...}),
-  goalAnalysisTool.execute({...}),
-  generateOKRTool.execute({...}),
+  analyzeChatHistoryTool.execute({ context: { chatHistory }, runtimeContext }),
+  goalAnalysisTool.execute({ context: { goalId, userId, chatHistory }, runtimeContext }),
+  generateOKRTool.execute({ context: { goalTitle, goalDescription, goalDueDate }, runtimeContext }),
 ]);
 ```
 
-#### モジュラリティの向上
-- 型定義の一元管理により保守性向上
-- バリデーション関数の統合
-- テスト基盤の構築
+## 使用方法
 
-### ✅ **実装パターンの確立**
+### Server Actionsからの呼び出し
 
-#### シンプルワークフローパターン
+#### 1. 質問生成 (`actions/ai-conversation.ts`)
+
 ```typescript
-// 複雑な3ステップチェーンから単一ステップ並列実行へ
-export const okrGenerationWorkflowSimple = createWorkflow({
-  id: 'okr-generation-simple',
-  description: 'Generate OKR plan with single step',
+import { generateQuestionTool, goalAnalysisTool } from '@/src/mastra/tools/goal-tools';
+import { RuntimeContext } from '@mastra/core/di';
+
+export async function generateNextQuestion(
+  goalId: string,
+  userId: string,
+  chatHistory: ChatMessage[],
+): Promise<ActionResult<NextQuestionData>> {
+  const runtimeContext = new RuntimeContext();
+
+  // 1. 対話の深さを分析
+  const analysisResult = await goalAnalysisTool.execute({
+    context: { goalId, userId, chatHistory },
+    runtimeContext,
+  });
+
+  // 2. 次の質問を生成
+  const questionResult = await generateQuestionTool.execute({
+    context: {
+      goalTitle: goal.title,
+      goalDescription: goal.description || '',
+      goalDueDate: goal.dueDate,
+      chatHistory,
+      currentDepth: analysisResult.currentDepth,
+    },
+    runtimeContext,
+  });
+
+  return {
+    success: true,
+    data: questionResult,
+  };
+}
+```
+
+#### 2. OKR計画生成 (`actions/ai-planning.ts`)
+
+```typescript
+import { mastra } from '@/src/mastra';
+
+export async function generateOKRPlan(
+  goalId: string,
+  userId: string,
+): Promise<ActionResult<OKRPlanData>> {
+  // ワークフローを実行
+  const workflow = mastra.getWorkflow('okrGenerationWorkflow');
+  const run = await workflow.createRunAsync();
+  
+  const result = await run.start({
+    goalId,
+    userId,
+    goalTitle: goal.title,
+    goalDescription: goal.description || '',
+    goalDueDate: goal.dueDate.toISOString(),
+    chatHistory: messages,
+  });
+
+  return {
+    success: true,
+    data: result.okrPlan,
+  };
+}
+```
+
+### 直接ツールの使用
+
+個別のツールを直接使用することも可能です：
+
+```typescript
+import { generateQuestionTool } from '@/src/mastra/tools/goal-tools';
+import { RuntimeContext } from '@mastra/core/di';
+
+const runtimeContext = new RuntimeContext();
+const result = await generateQuestionTool.execute({
+  context: {
+    goalTitle: '英語をマスターする',
+    chatHistory: [],
+    currentDepth: 0,
+  },
+  runtimeContext,
+});
+
+console.log(result.question); // "なぜ「英語をマスターする」を達成したいのですか？..."
+```
+
+## 環境設定
+
+### 必要な環境変数
+
+```bash
+# .env.local
+# Vertex AI設定
+GOOGLE_VERTEX_PROJECT_ID=your-gcp-project-id
+GOOGLE_VERTEX_LOCATION=us-central1
+GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account-key.json
+
+# データベース設定
+DATABASE_URL=postgresql://user:password@localhost:5432/elevia
+
+# Mastra設定
+NODE_ENV=development  # または production
+```
+
+### パッケージ依存関係
+
+```json
+{
+  "dependencies": {
+    "@mastra/core": "latest",
+    "@mastra/loggers": "latest", 
+    "@mastra/libsql": "latest",
+    "@ai-sdk/google-vertex": "latest",
+    "zod": "^3.22.0"
+  }
+}
+```
+
+## Mastraインスタンス設定
+
+`index.ts`でMastraインスタンスを設定：
+
+```typescript
+import { Mastra } from '@mastra/core';
+import { PinoLogger } from '@mastra/loggers';
+import { LibSQLStore } from '@mastra/libsql';
+
+export const mastra = new Mastra({
+  agents: {
+    conversationAgent,
+    planningAgent,
+  },
+  workflows: {
+    okrGenerationWorkflow,
+  },
+  storage: new LibSQLStore({
+    url: process.env.DATABASE_URL || 'file:./mastra.db',
+  }),
+  logger: new PinoLogger({
+    name: 'Mastra',
+    level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+  }),
+  server: {
+    port: 4111,
+    host: 'localhost',
+    cors: {
+      origin: '*',
+      allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowHeaders: ['Content-Type', 'Authorization', 'x-mastra-client-type'],
+      exposeHeaders: ['Content-Length', 'X-Requested-With'],
+      credentials: false,
+    },
+  },
+});
+```
+
+## 型定義とスキーマ
+
+### Zodスキーマの使用
+
+すべてのツールは型安全性を保つためZodスキーマを使用：
+
+```typescript
+const keyResultSchema = z.object({
+  description: z.string(),
+  targetValue: z.number(),
+  currentValue: z.number(),
+});
+
+const yearlyOKRSchema = z.object({
+  year: z.number(),
+  objective: z.string(),
+  keyResults: z.array(keyResultSchema),
+});
+```
+
+### TypeScript型の生成
+
+Zodスキーマから自動的にTypeScript型を生成：
+
+```typescript
+type KeyResult = z.infer<typeof keyResultSchema>;
+type YearlyOKR = z.infer<typeof yearlyOKRSchema>;
+```
+
+## 現在の制限事項とトラブルシューティング
+
+### 1. ワークフローの最適化
+
+**改善済み**: 複雑なマルチステップワークフローから並列実行型に最適化
+```typescript
+// workflows/okr-generation-workflow.ts
+export const okrGenerationWorkflow = createWorkflow({
+  id: 'okr-generation',
+  description: 'Generate OKR plan with optimized single step',
 })
-  .then(generateOKRStep) // 単一ステップで並列実行
+  .then(generateOKRStep)  // 並列実行で高速化
   .commit();
 ```
 
-#### 型安全なツール実行パターン
+**利点**: 
+- 型エラーが解消され安定動作
+- パフォーマンスが大幅向上
+- メンテナンスが容易
+
+### 2. Vertex AI設定
+
+**問題**: プロジェクト設定での型エラー
 ```typescript
-// RuntimeContext使用の標準パターン確立
+// agents/conversation-agent.ts
+model: vertex('gemini-2.5-flash-preview-05-20'), // project設定は削除済み
+```
+
+**対処法**: 環境変数`GOOGLE_VERTEX_PROJECT_ID`で設定
+
+### 3. データベース型変換
+
+**問題**: PostgreSQLのdecimal型が文字列として返される
+```typescript
+// 対処法: parseFloatで数値変換
+const targetValue = parseFloat(kr.targetValue || '0');
+const currentValue = parseFloat(kr.currentValue || '0');
+```
+
+### 4. LibSQL依存関係
+
+**問題**: Webpackビルド時のlibsql依存関係エラー
+
+**対処法**: `next.config.ts`で外部化
+```typescript
+const nextConfig = {
+  serverExternalPackages: ['@libsql/client', 'libsql'],
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals.push('@libsql/client', 'libsql');
+    }
+    return config;
+  },
+};
+```
+
+## ベストプラクティス
+
+### 1. エラーハンドリング
+
+```typescript
+try {
+  const result = await generateQuestionTool.execute({
+    context: { /* ... */ },
+    runtimeContext: new RuntimeContext(),
+  });
+  return { success: true, data: result };
+} catch (error) {
+  console.error('Error generating question:', error);
+  return { success: false, error: 'Failed to generate question' };
+}
+```
+
+### 2. RuntimeContextの使用
+
+```typescript
+// 各ツール実行時に新しいRuntimeContextを作成
 const runtimeContext = new RuntimeContext();
 const result = await tool.execute({
-  context: { /* 型安全なパラメータ */ },
+  context: inputData,
   runtimeContext,
 });
 ```
 
-## 🚀 実装完了状況
+### 3. 並列実行の活用
 
-### ✅ **Phase 1: 緊急修正 - 完了（2025/12/28）**
-1. ✅ **最優先**: RuntimeContextエラーの修正（ビルド通過のため）- **完了**
-2. ✅ **高**: 型エラー解決とAI機能復旧 - **完了**
-3. ✅ **高**: 個別ツール実行パターン実装 - **完了**
-
-### ✅ **Phase 2: 型統一・ワークフロー再有効化 - 完了（2025/6/27）**
-1. ✅ **最優先**: 共通型定義ファイル作成とテスト（TDD実践）- **完了**
-2. ✅ **高**: 既存コードの型定義統一 - **完了**
-3. ✅ **高**: RuntimeContext問題の根本解決 - **完了**
-4. ✅ **高**: ワークフローの段階的再有効化 - **完了**
-5. ✅ **中**: アーキテクチャの最適化（パフォーマンス向上）- **完了**
-
-### 🎯 **Phase 3: 今後の改善課題**
-1. 🔄 **中**: 複雑な3ステップワークフローの修正（現在はシンプルワークフローで代替）
-2. 🔄 **中**: エージェント活用の検討（現在は直接ツール実行）
-3. 🔄 **低**: Quarterly OKR保存機能の実装
-4. 🔄 **低**: Vertex AI設定完了による本格AI機能実装
-
-## 📝 実装ガイドライン
-
-### ✅ **確立された実装パターン**
-
-#### Mastraツール実行の標準パターン
 ```typescript
-// 型安全なツール実行（推奨）
-import type { ChatMessage } from '@/types/mastra';
-import { RuntimeContext } from '@mastra/core/di';
-
-const runtimeContext = new RuntimeContext();
-const result = await analyzeChatHistoryTool.execute({
-  context: {
-    chatHistory: chatHistory as ChatMessage[], // 型安全性確保
-  },
-  runtimeContext, // 必須パラメータ
-});
+// 複数ツールの並列実行でパフォーマンス向上
+const [chatAnalysis, goalAnalysis, okrPlan] = await Promise.all([
+  analyzeChatHistoryTool.execute({ context: data1, runtimeContext }),
+  goalAnalysisTool.execute({ context: data2, runtimeContext }),
+  generateOKRTool.execute({ context: data3, runtimeContext }),
+]);
 ```
 
-#### ワークフロー実装の標準パターン
-```typescript
-// シンプルワークフロー（推奨）
-export const simpleWorkflow = createWorkflow({
-  id: 'workflow-name',
-  description: 'Workflow description',
-  inputSchema: z.object({ /* 統一スキーマ */ }),
-  outputSchema: z.object({ /* 出力スキーマ */ }),
-})
-  .then(singleStep) // 単一ステップで並列実行
-  .commit();
-```
+## パフォーマンス考慮事項
 
-#### TDD実装の標準パターン
-```typescript
-// 1. Red: テストを先に作成
-describe('New Feature', () => {
-  it('should work correctly', () => {
-    expect(newFunction()).toBeDefined();
-  });
-});
+### 1. Vertex AI呼び出し最適化
 
-// 2. Green: 実装でテスト通過
-export function newFunction() {
-  return 'implementation';
-}
+- **モデル選択**: `gemini-2.5-flash-preview-05-20`を使用（高速・コスト効率）
+- **バッチ処理**: 複数ツールの並列実行を活用
+- **キャッシュ**: 同じ質問タイプの再利用
 
-// 3. Refactor: コードの改善
-```
+### 2. データベースアクセス最適化
 
-### 📚 **参考ドキュメント**
-- [Mastra Tools Overview](https://mastra.ai/docs/tools-mcp/overview)
-- [Mastra Workflow Reference](https://mastra.ai/reference/workflows/)
-- [TypeScript Type Definitions](https://www.typescriptlang.org/docs/)
+- **接続プーリング**: LibSQLStoreが自動管理
+- **クエリ最適化**: Drizzle ORMの効率的なクエリ
+- **インデックス**: 頻繁にアクセスするカラムにインデックス設定
 
-## 🎯 **プロジェクト状況サマリー**
+## 今後の拡張計画
 
-### ✅ **完了項目**
-- ✅ ビルドエラーゼロ（`pnpm build`完全通過）
-- ✅ 型統一による保守性向上
-- ✅ RuntimeContext問題の根本解決
-- ✅ ワークフロー再有効化
-- ✅ テスト基盤構築（22テスト新規追加）
-- ✅ パフォーマンス最適化（並列実行）
+### 1. ワークフロー拡張
 
-### 🚀 **現在の動作確認**
-- ✅ AI対話分析機能：正常動作
-- ✅ OKR生成機能：正常動作
-- ✅ データベース保存：正常動作
-- ✅ ワークフロー実行：正常動作
-- ✅ 型安全性：完全確保
+- 条件分岐を持つワークフローの実装
+- ユーザーフィードバックループの組み込み
+- 段階的なOKR改善プロセスの追加
 
-## 📅 **更新履歴**
+### 2. エージェント拡張
 
-- 2025/12/28 09:00: 初版作成 - Mastra統合の問題分析と修正方針策定
-- 2025/12/28 11:30: **Phase 1完了** - ビルドエラー解決、AI機能復旧確認
-- 2025/6/27 07:22: **Phase 2完了** - 型統一・ワークフロー再有効化・TDD実践による品質向上 
+- **評価エージェント**: OKRの達成度評価
+- **アドバイザーエージェント**: 改善提案の生成
+
+### 3. ツール追加
+
+- **進捗分析ツール**: 定期的な進捗レポート生成
+- **リマインダーツール**: 期限管理とアラート
+
+## 関連ドキュメント
+
+- [Mastra公式ドキュメント](https://docs.mastra.ai/)
+- [Vertex AI API Reference](https://cloud.google.com/vertex-ai/docs)
+- [Zod Documentation](https://zod.dev/)
+- [Next.js Server Actions](https://nextjs.org/docs/app/building-your-application/data-fetching/server-actions-and-mutations)
+
+---
+
+**最終更新**: 2025年6月28日  
+**バージョン**: 1.0.0  
+**作成者**: Claude Code Assistant

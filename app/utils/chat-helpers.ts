@@ -104,7 +104,7 @@ export async function handleUserMessage(
   return {
     aiResponse: questionResult.data.question,
     conversationDepth: questionResult.data.depth + 1,
-    isComplete: questionResult.data.depth >= 4, // Simple completion logic
+    isComplete: false, // Never auto-complete, let user decide
   };
 }
 

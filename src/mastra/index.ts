@@ -3,7 +3,7 @@ import { PinoLogger } from '@mastra/loggers';
 import { LibSQLStore } from '@mastra/libsql';
 import { conversationAgent } from './agents/conversation-agent';
 import { planningAgent } from './agents/planning-agent';
-import { okrGenerationWorkflowSimple } from './workflows/okr-generation-workflow-simple';
+import { okrGenerationWorkflow } from './workflows/okr-generation-workflow';
 
 export const mastra = new Mastra({
   agents: {
@@ -11,7 +11,7 @@ export const mastra = new Mastra({
     planningAgent,
   },
   workflows: {
-    okrGenerationWorkflow: okrGenerationWorkflowSimple,
+    okrGenerationWorkflow,
   },
   storage: new LibSQLStore({
     url: process.env.DATABASE_URL || 'file:./mastra.db',
