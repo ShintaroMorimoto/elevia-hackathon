@@ -48,7 +48,7 @@ export const conversationAgent = new Agent({
     ## 出力フォーマット：
     すべての判断について、なぜそのような決定をしたかの論理的な説明を含めること
   `,
-  model: vertex('gemini-2.5-flash-preview-05-20'),
+  model: vertex('gemini-2.0-flash-001'),
   tools: {
     goalAnalysisTool,
     generateQuestionTool,

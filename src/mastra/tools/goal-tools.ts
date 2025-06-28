@@ -59,17 +59,41 @@ export const goalAnalysisTool = createTool({
       // 構造化出力用のZodスキーマ
       const analysisSchema = z.object({
         motivation_clarity: z.number().min(0).max(1).describe('動機の明確性'),
-        experience_background: z.number().min(0).max(1).describe('経験・背景の把握'),
-        available_resources: z.number().min(0).max(1).describe('リソースの理解'),
+        experience_background: z
+          .number()
+          .min(0)
+          .max(1)
+          .describe('経験・背景の把握'),
+        available_resources: z
+          .number()
+          .min(0)
+          .max(1)
+          .describe('リソースの理解'),
         expected_obstacles: z.number().min(0).max(1).describe('障害の認識'),
         values_priorities: z.number().min(0).max(1).describe('価値観の把握'),
         goal_specificity: z.number().min(0).max(1).describe('目標の具体性'),
-        information_sufficiency: z.number().min(0).max(1).describe('総合的な情報充実度'),
-        conversation_quality: z.enum(['low', 'medium', 'high']).describe('対話の質'),
-        suggested_next_action: z.enum(['continue_conversation', 'proceed_to_planning', 'clarify_goal']).describe('次のアクション'),
+        information_sufficiency: z
+          .number()
+          .min(0)
+          .max(1)
+          .describe('総合的な情報充実度'),
+        conversation_quality: z
+          .enum(['low', 'medium', 'high'])
+          .describe('対話の質'),
+        suggested_next_action: z
+          .enum([
+            'continue_conversation',
+            'proceed_to_planning',
+            'clarify_goal',
+          ])
+          .describe('次のアクション'),
         reasoning: z.string().describe('判断理由'),
-        missing_critical_info: z.array(z.string()).describe('不足している重要情報'),
-        is_ready_to_proceed: z.boolean().describe('計画生成に進む準備ができているか')
+        missing_critical_info: z
+          .array(z.string())
+          .describe('不足している重要情報'),
+        is_ready_to_proceed: z
+          .boolean()
+          .describe('計画生成に進む準備ができているか'),
       });
 
       // 完全AI駆動の対話分析
@@ -97,13 +121,16 @@ ${conversationText}
 総合的な情報充実度、対話の質、次のアクション、判断理由を適切に評価してください。`;
 
       const result = await generateObject({
-        model: vertex('gemini-2.5-flash-preview-05-20'),
+        model: vertex('gemini-2.0-flash-001'),
         prompt,
         schema: analysisSchema,
         temperature: 0.3,
       });
 
-      console.log('✅ Analysis structured output generated successfully:', result.object);
+      console.log(
+        '✅ Analysis structured output generated successfully:',
+        result.object,
+      );
       const analysisData = result.object;
 
       // レガシー形式対応
@@ -206,10 +233,21 @@ export const generateQuestionTool = createTool({
       // 構造化出力用のZodスキーマ
       const questionSchema = z.object({
         question: z.string().describe('ユーザーに対する次の質問'),
-        type: z.enum(['motivation', 'experience', 'resources', 'timeline', 'obstacles', 'values', 'details', 'context']).describe('質問のタイプ'),
+        type: z
+          .enum([
+            'motivation',
+            'experience',
+            'resources',
+            'timeline',
+            'obstacles',
+            'values',
+            'details',
+            'context',
+          ])
+          .describe('質問のタイプ'),
         reasoning: z.string().describe('なぜこの質問をするのかの理由'),
         confidence: z.number().min(0).max(1).describe('質問の適切性への信頼度'),
-        should_complete: z.boolean().describe('対話を完了すべきかどうか')
+        should_complete: z.boolean().describe('対話を完了すべきかどうか'),
       });
 
       // シンプルなプロンプトで構造化出力
@@ -226,13 +264,16 @@ ${chatHistory.length >= 2 ? 'これまでの対話を踏まえ、リソースや
       console.log('🔍 Generated prompt length:', prompt.length);
 
       const result = await generateObject({
-        model: vertex('gemini-2.5-flash-preview-05-20'),
+        model: vertex('gemini-2.0-flash-001'),
         prompt,
         schema: questionSchema,
         temperature: 0.3,
       });
 
-      console.log('✅ Structured output generated successfully:', result.object);
+      console.log(
+        '✅ Structured output generated successfully:',
+        result.object,
+      );
       const questionData = result.object;
 
       console.log('🤖 AI-generated question:', questionData);
@@ -285,7 +326,7 @@ ${chatHistory.length >= 2 ? 'これまでの対話を踏まえ、リソースや
           ];
           return questions[(currentDepth - 2) % questions.length];
         }
-        
+
         // デフォルト
         return {
           question: `「${goalTitle}」について、もう少し詳しく教えてください。`,
@@ -308,4 +349,3 @@ ${chatHistory.length >= 2 ? 'これまでの対話を踏まえ、リソースや
     }
   },
 });
-

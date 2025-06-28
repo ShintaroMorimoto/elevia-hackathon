@@ -26,7 +26,15 @@ export async function generateNextQuestion(
   chatHistory: ChatMessage[],
 ): Promise<ActionResult<DynamicNextQuestionData>> {
   try {
-    console.log('🚀 generateNextQuestion called with:', { goalId, userId, historyLength: chatHistory.length });
+    const callTimestamp = new Date().toISOString();
+    const callId = Math.random().toString(36).substring(7);
+    
+    console.log(`🚀 generateNextQuestion called [${callId}] at ${callTimestamp}:`, { 
+      goalId: goalId.substring(0, 8) + '...', 
+      userId: userId.substring(0, 8) + '...', 
+      historyLength: chatHistory.length,
+      stackTrace: new Error().stack?.split('\n').slice(1, 4).map(line => line.trim())
+    });
     
     // Validation
     if (!goalId || !userId) {
@@ -52,12 +60,12 @@ export async function generateNextQuestion(
     }
 
     const goal = goalResult[0];
-    console.log('✅ Goal found:', goal.title);
+    console.log(`✅ Goal found [${callId}]:`, goal.title);
     
     const runtimeContext = new RuntimeContext();
 
     // 対話の深さを分析
-    console.log('🔍 Executing goalAnalysisTool...');
+    console.log(`🔍 Executing goalAnalysisTool [${callId}]...`);
     const analysisResult = await goalAnalysisTool.execute({
       context: {
         goalId,
@@ -66,10 +74,10 @@ export async function generateNextQuestion(
       },
       runtimeContext,
     });
-    console.log('📊 Analysis result:', analysisResult);
+    console.log(`📊 Analysis result [${callId}]:`, analysisResult);
 
     // 次の質問を生成
-    console.log('🤖 Executing generateQuestionTool...');
+    console.log(`🤖 Executing generateQuestionTool [${callId}]...`);
     const questionResult = await generateQuestionTool.execute({
       context: {
         goalTitle: goal.title,
@@ -80,7 +88,8 @@ export async function generateNextQuestion(
       },
       runtimeContext,
     });
-    console.log('❓ Question result:', questionResult);
+    console.log(`❓ Question result [${callId}]:`, questionResult);
+    console.log(`✅ generateNextQuestion completed [${callId}] in ${Date.now() - new Date(callTimestamp).getTime()}ms`);
 
     return {
       success: true,

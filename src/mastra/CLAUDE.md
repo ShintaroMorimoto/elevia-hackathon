@@ -55,7 +55,7 @@ graph TD
 export const conversationAgent = new Agent({
   name: 'Goal Conversation Agent',
   description: '目標達成支援のための対話エージェント',
-  model: vertex('gemini-2.5-flash-preview-05-20'),
+  model: vertex('gemini-2.0-flash-001'),
   tools: {
     goalAnalysisTool,
     generateQuestionTool,
@@ -80,7 +80,7 @@ OKR計画を生成する専門エージェントです。
 export const planningAgent = new Agent({
   name: 'OKR Planning Agent',
   description: 'OKR計画を生成する専門エージェント',
-  model: vertex('gemini-2.5-flash-preview-05-20'),
+  model: vertex('gemini-2.0-flash-001'),
   tools: {
     generateOKRTool,
     analyzeChatHistoryTool,
@@ -480,7 +480,7 @@ export const okrGenerationWorkflow = createWorkflow({
 **問題**: プロジェクト設定での型エラー
 ```typescript
 // agents/conversation-agent.ts
-model: vertex('gemini-2.5-flash-preview-05-20'), // project設定は削除済み
+model: vertex('gemini-2.0-flash-001'), // project設定は削除済み
 ```
 
 **対処法**: 環境変数`GOOGLE_VERTEX_PROJECT_ID`で設定
@@ -554,7 +554,7 @@ const [chatAnalysis, goalAnalysis, okrPlan] = await Promise.all([
 
 ### 1. Vertex AI呼び出し最適化
 
-- **モデル選択**: `gemini-2.5-flash-preview-05-20`を使用（高速・コスト効率）
+- **モデル選択**: `gemini-2.0-flash-001`を使用（高速・コスト効率）
 - **バッチ処理**: 複数ツールの並列実行を活用
 - **キャッシュ**: 同じ質問タイプの再利用
 

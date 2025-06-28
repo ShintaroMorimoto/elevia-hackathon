@@ -56,6 +56,8 @@ export default function ChatPage({
     'continue_conversation' | 'proceed_to_planning' | 'clarify_goal'
   >('continue_conversation');
   const [reasoning, setReasoning] = useState('');
+  const [isInitialized, setIsInitialized] = useState(false);
+  const initializationRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -68,24 +70,81 @@ export default function ChatPage({
 
   // Initialize chat session with Mastra integration
   useEffect(() => {
+    const abortController = new AbortController();
+    let initializationAttempted = false;
+    
     const initializeChat = async () => {
       try {
-        if (status === 'loading') return;
+        console.log('🔍 initializeChat called:', {
+          isInitialized,
+          initializationRef: initializationRef.current,
+          sessionStatus: status,
+          hasUserId: !!session?.user?.id,
+          aborted: abortController.signal.aborted,
+          attemptedThisRun: initializationAttempted
+        });
+
+        // AbortSignalチェック
+        if (abortController.signal.aborted) {
+          console.log('🚫 Operation aborted before starting');
+          return;
+        }
+
+        // 重複初期化防止（このuseEffect内での実行チェック）
+        if (initializationAttempted) {
+          console.log('🛡️ Already attempted initialization in this useEffect run');
+          return;
+        }
+
+        // グローバル重複初期化防止
+        if (isInitialized || initializationRef.current) {
+          console.log('⚠️ Chat already initialized globally, skipping...');
+          return;
+        }
+
+        if (status === 'loading') {
+          console.log('🔄 Session still loading, waiting...');
+          return;
+        }
 
         if (status === 'unauthenticated' || !session?.user?.id) {
+          console.log('❌ Not authenticated, redirecting...');
           router.push('/');
           return;
         }
 
+        // 実行フラグを設定（このuseEffect内での重複防止）
+        initializationAttempted = true;
+        // グローバルフラグを設定（他のuseEffectからの重複防止）
+        initializationRef.current = true;
+        
         const resolvedParams = await params;
         const paramGoalId = resolvedParams.id;
         setGoalId(paramGoalId);
+
+        // AbortSignalチェック（非同期処理前）
+        if (abortController.signal.aborted) {
+          console.log('🚫 Operation aborted before API call');
+          initializationRef.current = false;
+          return;
+        }
+
+        console.log('🚀 Starting chat initialization for goal:', paramGoalId);
 
         // Initialize chat with Mastra
         const chatInit = await initializeChatWithMastra(
           paramGoalId,
           session.user.id,
         );
+
+        // AbortSignalチェック（API呼び出し後）
+        if (abortController.signal.aborted) {
+          console.log('🚫 Operation aborted after API call');
+          initializationRef.current = false;
+          return;
+        }
+
+        console.log('✅ Chat initialization completed successfully');
 
         setChatSessionId(chatInit.sessionId);
         // Save session ID for plan generation
@@ -115,16 +174,36 @@ export default function ChatPage({
         };
 
         setMessages([welcomeMessage, firstQuestion]);
+        setIsInitialized(true);
         setIsLoading(false);
       } catch (error) {
-        console.error('Error initializing chat:', error);
+        if (abortController.signal.aborted) {
+          console.log('🚫 Chat initialization aborted during error handling');
+          return;
+        }
+        console.error('❌ Error initializing chat:', error);
         setError('チャットの初期化に失敗しました');
         setIsLoading(false);
+        // エラー時はフラグをリセット
+        initializationRef.current = false;
       }
     };
 
-    initializeChat();
-  }, [params, session, status, router]);
+    // セッションが確定してからのみ実行
+    if (session && status === 'authenticated' && !isInitialized) {
+      initializeChat();
+    }
+
+    // クリーンアップ関数でAbortController実行
+    return () => {
+      console.log('🧹 Cleaning up chat initialization, aborting any pending operations');
+      abortController.abort();
+      // Strict Modeでの2回目の実行を防ぐため、初期化が完了していない場合のみリセット
+      if (!isInitialized) {
+        initializationRef.current = false;
+      }
+    };
+  }, [params, session]); // status, routerを依存関係から削除、isInitializedを追加
 
   const handleSendMessage = async (content: string) => {
     if (!content.trim() || !chatSessionId || !goalId || !session?.user?.id)

@@ -36,39 +36,77 @@ export interface Goal {
   userId: string;
 }
 
+// グローバルな初期化状態管理
+const initializationTracker = new Map<string, boolean>();
+
 export async function initializeChatWithMastra(
   goalId: string,
   userId: string
 ): Promise<ChatInitResult> {
-  // Get goal data
-  const goalResult = await getGoal(goalId, userId);
-  if (!goalResult.success) {
-    throw new Error('Goal not found');
-  }
-
-  // Create chat session
-  const sessionResult = await createChatSession({
-    goalId,
-    status: 'active',
+  const trackingKey = `${goalId}-${userId}`;
+  
+  console.log('🚀 initializeChatWithMastra called:', {
+    goalId: goalId.substring(0, 8) + '...',
+    userId: userId.substring(0, 8) + '...',
+    trackingKey,
+    alreadyInitializing: initializationTracker.get(trackingKey),
+    timestamp: new Date().toISOString()
   });
 
-  if (!sessionResult.success) {
-    throw new Error('Failed to create chat session');
+  // 重複初期化チェック
+  if (initializationTracker.get(trackingKey)) {
+    console.log('⚠️ initializeChatWithMastra: Already initializing this goal+user combination, throwing error');
+    throw new Error('Chat initialization already in progress');
   }
 
-  const welcomeMessage = `こんにちは！「${goalResult.data.title}」という夢の実現に向けて、最高の計画を一緒に作りましょう。`;
+  // 初期化フラグを設定
+  initializationTracker.set(trackingKey, true);
 
-  // Generate first question
-  const questionResult = await generateNextQuestion(goalId, userId, []);
-  if (!questionResult.success) {
-    throw new Error('Failed to generate first question');
+  try {
+    console.log('🔍 Getting goal data...');
+    // Get goal data
+    const goalResult = await getGoal(goalId, userId);
+    if (!goalResult.success) {
+      throw new Error('Goal not found');
+    }
+
+    console.log('🔍 Creating chat session...');
+    // Create chat session
+    const sessionResult = await createChatSession({
+      goalId,
+      status: 'active',
+    });
+
+    if (!sessionResult.success) {
+      throw new Error('Failed to create chat session');
+    }
+
+    const welcomeMessage = `こんにちは！「${goalResult.data.title}」という夢の実現に向けて、最高の計画を一緒に作りましょう。`;
+
+    console.log('🔍 Generating first question...');
+    // Generate first question
+    const questionResult = await generateNextQuestion(goalId, userId, []);
+    if (!questionResult.success) {
+      throw new Error('Failed to generate first question');
+    }
+
+    console.log('✅ initializeChatWithMastra completed successfully:', {
+      sessionId: sessionResult.data.id.substring(0, 8) + '...',
+      questionGenerated: !!questionResult.data.question
+    });
+
+    const result = {
+      sessionId: sessionResult.data.id,
+      welcomeMessage,
+      firstQuestion: questionResult.data.question,
+    };
+
+    return result;
+  } finally {
+    // 初期化フラグをクリア（成功でも失敗でも）
+    console.log('🧹 Clearing initialization flag for:', trackingKey);
+    initializationTracker.delete(trackingKey);
   }
-
-  return {
-    sessionId: sessionResult.data.id,
-    welcomeMessage,
-    firstQuestion: questionResult.data.question,
-  };
 }
 
 export async function handleUserMessage(
