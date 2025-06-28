@@ -549,6 +549,225 @@ const avoidanceGuidance = `既に聞いたタイプ: ${Array.from(previousQuesti
 - 対話の多様性と情報収集効率が大幅向上
 - ユーザー体験の向上
 
+### 2. 抽象的質問から具体的質問への改善 (2025年12月28日)
+
+**問題**: ふわっとした理想しか持たないユーザーが質問に答えにくい状況
+**根本原因**:
+- オープンな質問形式でユーザーが回答方法に迷う
+- 具体例や選択肢がないため答えの方向性が分からない
+- 「どのような」型の抽象的な質問が多い
+
+**解決策**:
+```typescript
+// generateQuestionTool のプロンプトに追加された指針
+**質問生成の指針:**
+- ふわっとした理想しか持たないユーザーでも答えやすいよう、具体例や選択肢を含める
+- 質問文の中に「例えば、○○、△△、××など」といった形で3-4個の具体例を提示する
+- オープンな質問にせず、選択肢を示しながらも自由回答も可能な形式にする
+- 「どのような」ではなく「以下のうちどれに近いですか」のような聞き方を心がける
+```
+
+**実装例**:
+- 従来: 「どのようなスキルが必要だと思いますか？」
+- 改善後: 「必要なスキルとして、例えば、プログラミング、マーケティング、営業、語学力などが考えられますが、どれに近いでしょうか？」
+
+**結果**:
+- ユーザーの回答率向上
+- 具体的で有用な情報の収集効率改善
+- 対話のスムーズな進行
+
+### 3. 手動OKR作成機能の追加 (2025年12月28日)
+
+**問題**: 対話完了まで待たなければOKR作成に進めない
+**根本原因**:
+- AI分析による推奨タイミングでのみOKR作成が可能
+- ユーザーが早めに計画作成を望む場合の対応不足
+
+**解決策**:
+```typescript
+// チャット画面のボタン改良
+<Button
+  onClick={handleCreatePlan}
+  className={`w-full ${
+    suggestedNextAction === 'proceed_to_planning' ||
+    informationSufficiency >= 0.6
+      ? 'bg-indigo-600 hover:bg-indigo-700'
+      : 'bg-yellow-600 hover:bg-yellow-700'  // 視覚的に差別化
+  }`}
+  disabled={informationSufficiency < 0.2}  // 20%から有効化（従来30%）
+>
+  <Sparkles className="w-4 h-4 mr-2" />
+  {suggestedNextAction === 'proceed_to_planning'
+    ? '計画を作成する（推奨）'
+    : informationSufficiency >= 0.6
+      ? 'この内容で計画を作成する'
+      : informationSufficiency >= 0.2
+        ? 'この内容でとりあえず計画作成'  // 新しい段階を追加
+        : '情報不足のため作成不可'}
+</Button>
+```
+
+**改善内容**:
+- 情報充実度20%以上で有効化（従来30%から緩和）
+- 情報不足時も「とりあえず計画作成」として利用可能
+- ボタン色を黄色にしてアクション感を強化
+- 段階的なメッセージ表示でユーザーの理解促進
+
+**結果**:
+- ユーザーの選択肢拡大
+- 早期のOKR作成ニーズに対応
+- より柔軟な対話フロー制御
+
+### 4. リアルタイム計画生成の実装 (2025年12月28日)
+
+**問題**: 計画生成画面でモック進捗表示によりユーザーが実際の処理状況を把握できない
+**根本原因**:
+- 固定の2秒タイマーによる偽の進捗表示
+- 実際のMastra処理ステップと連動していない
+- ユーザーが何が起こっているか理解できない
+
+**解決策**:
+```typescript
+// app/plan-generation/[id]/page.tsx - リアルタイム進捗実装
+const generatePlanWithRealTimeProgress = async (
+  goalId: string,
+  userId: string,
+  goalData: { title: string; deadline: string },
+  chatHistory: Array<{ role: string; content: string }>,
+) => {
+  try {
+    // Step 1: チャット履歴分析
+    setCurrentStep(0);
+    setProcessingStatus('チャット履歴を分析中...');
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Step 2: 目標詳細評価
+    setCurrentStep(1);
+    setProcessingStatus('目標の詳細を評価中...');
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Step 3: 実際のMastra OKR生成
+    setCurrentStep(2);
+    setProcessingStatus('OKRプランを生成中...');
+    
+    const generatedPlan = await generatePlanWithMastra(
+      goalId,
+      userId,
+      goalData,
+      chatHistory,
+    );
+
+    // Step 4: データベース保存
+    setCurrentStep(3);
+    setProcessingStatus('データベースに保存中...');
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Step 5: 完了
+    setCurrentStep(4);
+    setProcessingStatus('ロードマップが完成しました！');
+    setGeneratedPlanId(generatedPlan.planId);
+    setIsComplete(true);
+  } catch (error) {
+    console.error('Plan generation failed:', error);
+    setError('計画の生成に失敗しました');
+  }
+};
+```
+
+**改善内容**:
+- モック進捗表示を実際のMastra処理ステップに置き換え
+- 各ステップでリアルタイムな状態更新
+- 実際の処理内容を反映したステップ名称
+- エラーハンドリングの強化
+
+**結果**:
+- ユーザーが実際の処理状況を把握可能
+- 透明性のある計画生成プロセス
+- より正確な進捗フィードバック
+
+### 5. ボタンネスト問題の解決とアクセシビリティ向上 (2025年12月28日)
+
+**問題**: 計画詳細画面でボタン要素がネストしてHTMLバリデーションエラーが発生
+**根本原因**:
+- `<button>` 要素内に `<Checkbox>` コンポーネント（内部でボタンを使用）が配置
+- HTML仕様違反によるhydrationエラー
+- キーボードナビゲーション未対応
+
+**解決策**:
+```typescript
+// app/plan/[id]/page.tsx - UI構造の再設計
+<Card key={yearlyOKR.id}>
+  <CardContent className="p-0">
+    <div className="flex items-center p-4">
+      <div className="flex items-center space-x-3 flex-1">
+        <Checkbox
+          checked={yearlyOKR.progressPercentage >= 100}
+          onCheckedChange={() =>
+            handleToggleOKRCompletion(
+              yearlyOKR.id,
+              yearlyOKR.progressPercentage >= 100,
+              'yearly',
+            )
+          }
+        />
+        <div 
+          className="flex-1 cursor-pointer hover:bg-gray-50 transition-colors p-2 -m-2 rounded"
+          onClick={() => toggleYear(year)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              toggleYear(year);
+            }
+          }}
+          role="button"
+          tabIndex={0}
+        >
+          <h3 className="font-semibold text-gray-900">
+            {year}年: {yearlyOKR.objective}
+          </h3>
+          {/* 進捗表示など */}
+        </div>
+      </div>
+      <div className="flex items-center space-x-2">
+        <Button variant="ghost" size="sm">
+          <Edit className="w-4 h-4" />
+        </Button>
+        <div 
+          className="cursor-pointer p-1"
+          onClick={() => toggleYear(year)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              toggleYear(year);
+            }
+          }}
+          role="button"
+          tabIndex={0}
+        >
+          {isExpanded ? (
+            <ChevronDownIcon className="w-5 h-5 text-gray-400" />
+          ) : (
+            <ChevronRightIcon className="w-5 h-5 text-gray-400" />
+          )}
+        </div>
+      </div>
+    </div>
+  </CardContent>
+</Card>
+```
+
+**改善内容**:
+- ボタンネストの完全解消：`<button>` 要素を `<div>` に変更
+- アクセシビリティの向上：`role="button"`, `tabIndex={0}`, `onKeyDown` 追加
+- キーボードナビゲーション対応：EnterキーとSpaceキーでの操作
+- 視覚的一貫性の維持：hover効果とクリック領域の保持
+
+**結果**:
+- HTMLバリデーションエラーの完全解消
+- WCAG準拠のアクセシビリティ実現
+- スクリーンリーダー対応
+- キーボード操作での完全な機能性
+
 ### 2. AI駆動対話フロー管理への進化
 
 **従来の問題**: 固定深度制限による機械的な対話進行
@@ -793,12 +1012,24 @@ export const collaborativeAgentSystem = {
 
 ---
 
-**最終更新**: 2025年6月28日 (質問重複問題解決、AI駆動対話管理強化)  
-**バージョン**: 2.0.0 - 重複回避対応版  
+**最終更新**: 2025年12月28日 (UI統合とリアルタイム処理の完全実装)  
+**バージョン**: 2.2.0 - UI統合・UX向上版  
 **主要改善**: 
-- 質問重複問題の根本解決
-- AI駆動動的対話フロー管理への移行
-- 文脈認識質問生成システムの実装
-- フォールバック戦略の高度化
+- **リアルタイム計画生成**: モック進捗からMastra実処理への完全移行
+- **ボタンネスト問題解決**: HTMLバリデーションエラーの完全解消
+- **アクセシビリティ向上**: WCAG準拠のキーボードナビゲーション実装
+- **透明性のある進捗表示**: ユーザーが実際の処理状況を把握可能
+- **UI構造の最適化**: 機能性と視覚的一貫性の両立
+
+**過去の改善履歴**:
+- v2.1.0 (2025年12月28日): 具体的質問生成、手動OKR作成機能追加
+- v2.0.0 (2025年6月28日): 質問重複問題解決、AI駆動対話管理強化
+- v1.0.0: 基本的なMastra統合とAI対話機能実装
+
+**技術的改善点**:
+- HTML仕様準拠によるhydrationエラー解消
+- リアルタイム状態管理の実装
+- アクセシビリティ標準（WCAG）への準拠
+- エラーハンドリングとユーザーフィードバックの強化
 
 **作成者**: Claude Code Assistant

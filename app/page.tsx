@@ -21,7 +21,11 @@ export default async function HomePage() {
     return <LoginPage />;
   }
 
-  return <DashboardPage user={session.user} userId={session.user?.id || ''} />;
+  if (!session?.user?.id) {
+    return <LoginPage />;
+  }
+
+  return <DashboardPage user={session.user} userId={session.user.id} />;
 }
 
 function LoginPage() {
@@ -48,7 +52,17 @@ function LoginPage() {
   );
 }
 
-async function DashboardPage({ user, userId }: { user: any; userId: string }) {
+interface DashboardPageProps {
+  user: {
+    id?: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+  };
+  userId: string;
+}
+
+async function DashboardPage({ user, userId }: DashboardPageProps) {
   // Fetch actual goals from database
   const goalsResult = await getGoals(userId);
   const goals = goalsResult.success ? goalsResult.data : [];

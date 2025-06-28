@@ -52,8 +52,8 @@ export async function initializeChatWithMastra(
   const trackingKey = `${goalId}-${userId}`;
 
   console.log('🚀 initializeChatWithMastra called:', {
-    goalId: goalId.substring(0, 8) + '...',
-    userId: userId.substring(0, 8) + '...',
+    goalId: `${goalId.substring(0, 8)}...`,
+    userId: `${userId.substring(0, 8)}...`,
     trackingKey,
     alreadyInitializing: initializationTracker.get(trackingKey),
     timestamp: new Date().toISOString(),
@@ -99,7 +99,7 @@ export async function initializeChatWithMastra(
     }
 
     console.log('✅ initializeChatWithMastra completed successfully:', {
-      sessionId: sessionResult.data.id.substring(0, 8) + '...',
+      sessionId: `${sessionResult.data.id.substring(0, 8)}...`,
       questionGenerated: !!questionResult.data.question,
     });
 
@@ -145,7 +145,17 @@ export async function handleUserMessage(
 
   const [questionResult, analysisResult] = await Promise.all([
     generateNextQuestion(goalId, userId, updatedHistory),
-    analyzeConversationDepth(updatedHistory, { id: goalId, userId } as any),
+    analyzeConversationDepth(updatedHistory, { 
+      id: goalId, 
+      userId, 
+      title: '',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      description: null,
+      dueDate: '',
+      status: 'active',
+      progressPercentage: null
+    }),
   ]);
 
   console.log(

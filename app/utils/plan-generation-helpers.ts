@@ -4,7 +4,6 @@
 import { generateOKRPlan } from '@/actions/ai-planning';
 import {
   createYearlyOkr,
-  createQuarterlyOkr,
   createKeyResult,
 } from '@/actions/okr';
 import { getGoal } from '@/actions/goals';
@@ -78,7 +77,7 @@ export async function initializePlanGeneration(
 export async function generatePlanWithMastra(
   goalId: string,
   userId: string,
-  goalData: { title: string; deadline: string },
+  _goalData: { title: string; deadline: string },
   chatHistory: Array<{ role: string; content: string }>,
 ): Promise<GeneratedPlan> {
   // Generate OKR plan using Mastra

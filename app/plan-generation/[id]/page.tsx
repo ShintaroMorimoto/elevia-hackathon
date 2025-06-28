@@ -25,13 +25,14 @@ export default function PlanGenerationPage({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [generatedPlanId, setGeneratedPlanId] = useState<string>('');
+  const [processingStatus, setProcessingStatus] = useState('');
 
   const steps = [
-    'あなたの価値観を分析中...',
-    '最適なスキルアッププランを検索中...',
-    '年単位のOKRを組み立てています...',
-    '月次の具体的なアクションを設計中...',
-    'あなただけのロードマップが、まもなく完成します！',
+    'チャット履歴を分析中...',
+    '目標の詳細を評価中...',
+    'OKRプランを生成中...',
+    'データベースに保存中...',
+    'ロードマップが完成しました！',
   ];
 
   // Initialize plan generation with Mastra
@@ -57,33 +58,24 @@ export default function PlanGenerationPage({
         }
 
         // Initialize plan generation data
+        setProcessingStatus('計画生成を初期化中...');
+        setCurrentStep(0);
+        
         const planInit = await initializePlanGeneration(
           paramGoalId,
           session.user.id,
           sessionId,
         );
 
-        // Start actual plan generation process
-        setTimeout(async () => {
-          try {
-            const generatedPlan = await generatePlanWithMastra(
-              paramGoalId,
-              session.user?.id || '',
-              planInit.goalData,
-              planInit.chatHistory,
-            );
-
-            setGeneratedPlanId(generatedPlan.planId);
-            setIsComplete(true);
-            setIsLoading(false);
-          } catch (error) {
-            console.error('Plan generation failed:', error);
-            setError('計画の生成に失敗しました');
-            setIsLoading(false);
-          }
-        }, steps.length * 2000); // Wait for all steps to complete
-
         setIsLoading(false);
+
+        // Start actual plan generation process with real-time updates
+        await generatePlanWithRealTimeProgress(
+          paramGoalId,
+          session.user?.id || '',
+          planInit.goalData,
+          planInit.chatHistory,
+        );
       } catch (error) {
         console.error('Error initializing plan generation:', error);
         setError('計画生成の初期化に失敗しました');
@@ -94,23 +86,53 @@ export default function PlanGenerationPage({
     initializePlan();
   }, [params, session, status, router]);
 
-  // Step animation effect
-  useEffect(() => {
-    if (isLoading || isComplete) return;
+  // Real-time plan generation with progress updates
+  const generatePlanWithRealTimeProgress = async (
+    goalId: string,
+    userId: string,
+    goalData: { title: string; deadline: string },
+    chatHistory: Array<{ role: string; content: string }>,
+  ) => {
+    try {
+      // Step 1: Analyze chat history
+      setCurrentStep(0);
+      setProcessingStatus('チャット履歴を分析中...');
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Brief pause for UX
 
-    const interval = setInterval(() => {
-      setCurrentStep((prev) => {
-        if (prev < steps.length - 1) {
-          return prev + 1;
-        } else {
-          clearInterval(interval);
-          return prev;
-        }
-      });
-    }, 2000);
+      // Step 2: Evaluate goal details
+      setCurrentStep(1);
+      setProcessingStatus('目標の詳細を評価中...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-    return () => clearInterval(interval);
-  }, [isLoading, isComplete]);
+      // Step 3: Generate OKR plan
+      setCurrentStep(2);
+      setProcessingStatus('OKRプランを生成中...');
+      
+      const generatedPlan = await generatePlanWithMastra(
+        goalId,
+        userId,
+        goalData,
+        chatHistory,
+      );
+
+      // Step 4: Save to database
+      setCurrentStep(3);
+      setProcessingStatus('データベースに保存中...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Step 5: Complete
+      setCurrentStep(4);
+      setProcessingStatus('ロードマップが完成しました！');
+      setGeneratedPlanId(generatedPlan.planId);
+      setIsComplete(true);
+
+    } catch (error) {
+      console.error('Plan generation failed:', error);
+      setError('計画の生成に失敗しました');
+    }
+  };
+
+  // No more automatic step animation - controlled by real progress
 
   const handleViewPlan = () => {
     router.push(`/plan/${generatedPlanId || goalId}`);
@@ -160,14 +182,16 @@ export default function PlanGenerationPage({
             </h2>
 
             {!isComplete && (
-              <p className="text-gray-600 mb-6">{steps[currentStep]}</p>
+              <p className="text-gray-600 mb-6">
+                {processingStatus || steps[currentStep]}
+              </p>
             )}
           </div>
 
           {!isComplete && (
             <div className="space-y-3 mb-6">
               {steps.map((step, index) => (
-                <div key={index} className="flex items-center space-x-3">
+                <div key={`step-${index}`} className="flex items-center space-x-3">
                   <div
                     className={`w-4 h-4 rounded-full flex-shrink-0 ${
                       index < currentStep

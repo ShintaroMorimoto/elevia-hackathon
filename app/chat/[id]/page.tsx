@@ -44,7 +44,7 @@ export default function ChatPage({
   const [error, setError] = useState('');
   const [chatSessionId, setChatSessionId] = useState<string>('');
   const [_conversationComplete, setConversationComplete] = useState(false);
-  const [conversationDepth, setConversationDepth] = useState(0);
+  const [_conversationDepth, setConversationDepth] = useState(0);
   const [_maxDepth] = useState(5);
   const [showSuggestion, setShowSuggestion] = useState(false);
   // AI駆動動的フロー制御の状態

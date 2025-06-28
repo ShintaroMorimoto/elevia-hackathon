@@ -154,8 +154,9 @@ async function saveOKRsToDatabase(
   okrPlan: OKRPlan,
 ): Promise<OKRPlan> {
   const savedYearlyOKRs = [];
+  const savedQuarterlyOKRs = [];
 
-  // Save yearly OKRs only (quarterly OKRs temporarily disabled due to complexity)
+  // Save yearly OKRs first
   for (const yearlyOKR of okrPlan.yearly) {
     const yearlyResult = await createYearlyOkr({
       goalId,
@@ -188,12 +189,53 @@ async function saveOKRsToDatabase(
         objective: yearlyOKR.objective,
         keyResults: savedKeyResults,
       });
+
+      // Save quarterly OKRs for this yearly OKR
+      const relatedQuarterlyOKRs = okrPlan.quarterly.filter(
+        (qOKR) => qOKR.year === yearlyOKR.year,
+      );
+
+      for (const quarterlyOKR of relatedQuarterlyOKRs) {
+        const quarterlyResult = await createQuarterlyOkr({
+          yearlyOkrId: yearlyResult.data.id,
+          targetYear: quarterlyOKR.year,
+          targetQuarter: quarterlyOKR.quarter,
+          objective: quarterlyOKR.objective,
+        });
+
+        if (quarterlyResult.success) {
+          // Save key results for quarterly OKR
+          const quarterlyKeyResults = [];
+          for (const keyResult of quarterlyOKR.keyResults) {
+            const keyResultData = await createKeyResult({
+              quarterlyOkrId: quarterlyResult.data.id,
+              description: keyResult.description,
+              targetValue: keyResult.targetValue.toString(),
+              currentValue: keyResult.currentValue.toString(),
+            });
+
+            if (keyResultData.success) {
+              quarterlyKeyResults.push({
+                description: keyResult.description,
+                targetValue: keyResult.targetValue,
+                currentValue: keyResult.currentValue,
+              });
+            }
+          }
+
+          savedQuarterlyOKRs.push({
+            year: quarterlyOKR.year,
+            quarter: quarterlyOKR.quarter,
+            objective: quarterlyOKR.objective,
+            keyResults: quarterlyKeyResults,
+          });
+        }
+      }
     }
   }
 
-  // Return simplified structure (quarterly OKRs temporarily empty)
   return {
     yearly: savedYearlyOKRs,
-    quarterly: [], // TODO: Implement quarterly OKR saving after yearly OKR IDs are available
+    quarterly: savedQuarterlyOKRs,
   };
 }

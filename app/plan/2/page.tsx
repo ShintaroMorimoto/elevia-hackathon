@@ -236,7 +236,7 @@ export default function WorldTravelPlanPage() {
 
   const completedCount = tasks.filter((t) => t.completed).length;
   const totalCount = tasks.length;
-  const progressPercentage = Math.round((completedCount / totalCount) * 100);
+  const _progressPercentage = Math.round((completedCount / totalCount) * 100);
 
   const yearlyTasks = tasks.filter((t) => t.type === 'yearly');
   const regularTasks = tasks.filter((t) => t.type === 'task');
@@ -375,7 +375,7 @@ export default function WorldTravelPlanPage() {
 
         <div className="space-y-4">
           {yearlyTasks.map((yearTask) => {
-            const year = yearTask.year!;
+            const year = yearTask.year ?? new Date().getFullYear();
             const isExpanded = expandedYears.has(year);
             const yearRegularTasks = regularTasks.filter(
               (t) => t.year === year,
@@ -392,8 +392,9 @@ export default function WorldTravelPlanPage() {
             return (
               <Card key={yearTask.id}>
                 <CardContent className="p-0">
-                  <div
-                    className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                  <button
+                    type="button"
+                    className="w-full p-4 text-left hover:bg-gray-50 transition-colors"
                     onClick={() => toggleYear(year)}
                   >
                     <div className="flex items-center justify-between">
@@ -435,7 +436,7 @@ export default function WorldTravelPlanPage() {
                         <Progress value={yearProgress} className="h-1" />
                       </div>
                     )}
-                  </div>
+                  </button>
 
                   {isExpanded && yearRegularTasks.length > 0 && (
                     <div className="border-t border-gray-200">

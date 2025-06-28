@@ -132,7 +132,7 @@ export default function PlanDetailPage({
     }
   };
 
-  const handleProgressUpdate = async (
+  const _handleProgressUpdate = async (
     keyResultId: string,
     newCurrentValue: number,
     targetValue: number,
@@ -209,57 +209,59 @@ export default function PlanDetailPage({
             return (
               <Card key={yearlyOKR.id}>
                 <CardContent className="p-0">
-                  <button
-                    type="button"
-                    className="w-full p-4 text-left hover:bg-gray-50 transition-colors"
-                    onClick={() => toggleYear(year)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <Checkbox
-                          checked={yearlyOKR.progressPercentage >= 100}
-                          onCheckedChange={() =>
-                            handleToggleOKRCompletion(
-                              yearlyOKR.id,
-                              yearlyOKR.progressPercentage >= 100,
-                              'yearly',
-                            )
-                          }
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <div>
-                          <h3 className="font-semibold text-gray-900">
-                            {year}年: {yearlyOKR.objective}
-                          </h3>
-                          {yearTotalCount > 0 && (
-                            <p className="text-sm text-gray-600">
-                              {yearCompletedCount}/{yearTotalCount} 完了 (
-                              {yearProgress}%)
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
+                  <div className="flex items-center p-4">
+                    <div className="flex items-center space-x-3 flex-1">
+                      <Checkbox
+                        checked={yearlyOKR.progressPercentage >= 100}
+                        onCheckedChange={() =>
+                          handleToggleOKRCompletion(
+                            yearlyOKR.id,
+                            yearlyOKR.progressPercentage >= 100,
+                            'yearly',
+                          )
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="flex-1 text-left hover:bg-gray-50 transition-colors p-2 -m-2 rounded"
+                        onClick={() => toggleYear(year)}
+                      >
+                        <h3 className="font-semibold text-gray-900">
+                          {year}年: {yearlyOKR.objective}
+                        </h3>
+                        {yearTotalCount > 0 && (
+                          <p className="text-sm text-gray-600">
+                            {yearCompletedCount}/{yearTotalCount} 完了 (
+                            {yearProgress}%)
+                          </p>
+                        )}
+                        {yearTotalCount > 0 && (
+                          <div className="mt-2">
+                            <Progress value={yearProgress} className="h-1" />
+                          </div>
+                        )}
+                      </button>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <button
+                        type="button"
+                        className="p-1"
+                        onClick={() => toggleYear(year)}
+                      >
                         {isExpanded ? (
                           <ChevronDownIcon className="w-5 h-5 text-gray-400" />
                         ) : (
                           <ChevronRightIcon className="w-5 h-5 text-gray-400" />
                         )}
-                      </div>
+                      </button>
                     </div>
-                    {yearTotalCount > 0 && (
-                      <div className="mt-2 ml-8">
-                        <Progress value={yearProgress} className="h-1" />
-                      </div>
-                    )}
-                  </button>
+                  </div>
 
                   {isExpanded && quarterlyOKRs.length > 0 && (
                     <div className="border-t border-gray-200">
