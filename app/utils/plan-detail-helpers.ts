@@ -112,14 +112,21 @@ export async function loadPlanData(
             currentValue: parseFloat(kr.currentValue || '0'),
           }));
 
+        // Calculate progress from key results
+        let calculatedProgress = 0;
+        if (quarterlyKeyResults.length > 0) {
+          const totalProgress = quarterlyKeyResults.reduce((sum, kr) => {
+            return sum + Math.min(100, (kr.currentValue / kr.targetValue) * 100);
+          }, 0);
+          calculatedProgress = Math.round(totalProgress / quarterlyKeyResults.length);
+        }
+
         return {
           id: quarterlyOKR.id,
           quarter: quarterlyOKR.targetQuarter,
           objective: quarterlyOKR.objective,
           description: quarterlyOKR.objective, // Using objective as description
-          progressPercentage: parseFloat(
-            quarterlyOKR.progressPercentage || '0',
-          ),
+          progressPercentage: calculatedProgress,
           keyResults: quarterlyKeyResults,
         };
       });
@@ -136,31 +143,51 @@ export async function loadPlanData(
         currentValue: parseFloat(kr.currentValue || '0'),
       }));
 
+    // Calculate yearly progress from both yearly key results and quarterly OKRs
+    let yearlyProgress = 0;
+    let progressComponents = 0;
+
+    // Add yearly key results progress
+    if (yearlyKeyResults.length > 0) {
+      const yearlyKRProgress = yearlyKeyResults.reduce((sum, kr) => {
+        return sum + Math.min(100, (kr.currentValue / kr.targetValue) * 100);
+      }, 0);
+      yearlyProgress += yearlyKRProgress / yearlyKeyResults.length;
+      progressComponents += 1;
+    }
+
+    // Add quarterly OKRs progress
+    if (relatedQuarterlyOKRs.length > 0) {
+      const quarterlyProgress = relatedQuarterlyOKRs.reduce((sum, qOKR) => {
+        return sum + qOKR.progressPercentage;
+      }, 0);
+      yearlyProgress += quarterlyProgress / relatedQuarterlyOKRs.length;
+      progressComponents += 1;
+    }
+
+    // Calculate final progress
+    const finalYearlyProgress = progressComponents > 0 
+      ? Math.round(yearlyProgress / progressComponents) 
+      : 0;
+
     return {
       id: yearlyOKR.id,
       year: yearlyOKR.targetYear,
       objective: yearlyOKR.objective,
       description: yearlyOKR.objective, // Using objective as description
-      progressPercentage: parseFloat(yearlyOKR.progressPercentage || '0'),
+      progressPercentage: finalYearlyProgress,
       quarterlyOKRs: relatedQuarterlyOKRs,
       keyResults: yearlyKeyResults,
     };
   });
 
-  // Calculate total progress
-  const allKeyResultsWithValues = allKeyResults.filter(
-    (kr) => parseFloat(kr.targetValue) > 0,
-  );
+  // Calculate total progress from yearly OKRs
   let totalProgress = 0;
-  if (allKeyResultsWithValues.length > 0) {
-    const totalCompletionRate = allKeyResultsWithValues.reduce((sum, kr) => {
-      const current = parseFloat(kr.currentValue || '0');
-      const target = parseFloat(kr.targetValue);
-      return sum + Math.min(100, (current / target) * 100);
+  if (organizedYearlyOKRs.length > 0) {
+    const totalYearlyProgress = organizedYearlyOKRs.reduce((sum, yearlyOKR) => {
+      return sum + yearlyOKR.progressPercentage;
     }, 0);
-    totalProgress = Math.round(
-      totalCompletionRate / allKeyResultsWithValues.length,
-    );
+    totalProgress = Math.round(totalYearlyProgress / organizedYearlyOKRs.length);
   }
 
   return {
@@ -179,16 +206,24 @@ export async function updateOKRProgress(
   keyResultId: string,
   newCurrentValue: number,
   targetValue: number,
+  newTargetValue?: number,
 ): Promise<ProgressUpdateResult> {
-  const updateResult = await updateKeyResult(keyResultId, {
+  const updateData: any = {
     currentValue: newCurrentValue.toString(),
-  });
+  };
+  
+  if (newTargetValue !== undefined) {
+    updateData.targetValue = newTargetValue.toString();
+  }
+  
+  const updateResult = await updateKeyResult(keyResultId, updateData);
 
   if (!updateResult.success) {
     throw new Error('Database update failed');
   }
 
-  const progress = Math.min(100, (newCurrentValue / targetValue) * 100);
+  const finalTargetValue = newTargetValue !== undefined ? newTargetValue : targetValue;
+  const progress = Math.min(100, (newCurrentValue / finalTargetValue) * 100);
 
   return {
     success: true,
