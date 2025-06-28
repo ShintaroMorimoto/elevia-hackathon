@@ -299,10 +299,10 @@ export default function ChatPage({
   // Show loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-neutral-100 to-neutral-200 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">AIによる分析中...</p>
+          <div className="w-8 h-8 border-2 border-primary-sunrise border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-neutral-600">AIによる分析中...</p>
         </div>
       </div>
     );
@@ -311,7 +311,7 @@ export default function ChatPage({
   // Show error state
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-neutral-100 to-neutral-200 flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-600 mb-4">{error}</p>
           <Button onClick={() => window.location.reload()}>再試行</Button>
@@ -321,31 +321,35 @@ export default function ChatPage({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white border-b border-gray-200 px-4 py-3">
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-neutral-100 to-neutral-200 flex flex-col">
+      <header className="glass border-b border-white/20 px-6 py-4 sticky top-0 z-40 backdrop-blur-xl">
+        <div className="flex items-center justify-between max-w-4xl mx-auto">
           <div className="flex items-center">
             <Link href="/">
-              <Button variant="ghost" size="sm" className="mr-2">
+              <Button variant="ghost" size="sm" className="mr-3">
                 <ArrowLeftIcon className="w-4 h-4" />
               </Button>
             </Link>
             <div>
-              <h1 className="text-lg font-semibold">AIヒアリング</h1>
-              <p className="text-sm text-gray-600">
+              <h1 className="text-xl font-bold bg-gradient-to-r from-primary-dawn to-primary-sunrise bg-clip-text text-transparent">
+                AIヒアリング
+              </h1>
+              <p className="text-sm text-neutral-600">
                 情報充実度: {Math.round(informationSufficiency * 100)}% |{' '}
-                {conversationQuality}
+                <span className="font-medium text-primary-sunrise">
+                  {conversationQuality}
+                </span>
               </p>
             </div>
           </div>
-          <div className="w-20 h-3 bg-gray-200 rounded-full">
+          <div className="w-24 h-3 bg-neutral-200/80 rounded-full overflow-hidden">
             <div
-              className={`h-3 rounded-full transition-all duration-300 ${
+              className={`h-3 rounded-full transition-all duration-500 ${
                 informationSufficiency >= 0.8
-                  ? 'bg-green-600'
+                  ? 'bg-gradient-daylight'
                   : informationSufficiency >= 0.5
-                    ? 'bg-blue-600'
-                    : 'bg-yellow-600'
+                    ? 'bg-gradient-sunrise'
+                    : 'bg-gradient-dawn'
               }`}
               style={{ width: `${informationSufficiency * 100}%` }}
             />
@@ -353,33 +357,37 @@ export default function ChatPage({
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-4 space-y-4">
+      <main className="flex-1 overflow-y-auto p-6 space-y-6 max-w-4xl mx-auto w-full">
         {messages.map((message) => (
           <div
             key={message.id}
             className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`flex max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+              className={`flex max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
             >
               <div
-                className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center shadow-md ${
                   message.role === 'user'
-                    ? 'bg-indigo-600 ml-2'
-                    : 'bg-gray-200 mr-2'
+                    ? 'bg-primary-sunrise ml-3'
+                    : 'bg-white border border-neutral-200 mr-3'
                 }`}
               >
                 {message.role === 'user' ? (
-                  <PersonIcon className="w-4 h-4 text-white" />
+                  <PersonIcon className="w-5 h-5 text-neutral-800" />
                 ) : (
-                  <Bot className="w-4 h-4 text-gray-600" />
+                  <Bot className="w-5 h-5 text-primary-sunrise" />
                 )}
               </div>
               <div>
                 <Card
-                  className={`${message.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-white'}`}
+                  className={`${
+                    message.role === 'user'
+                      ? 'bg-primary-sunrise text-neutral-800 border-none shadow-lg'
+                      : 'bg-white/90 backdrop-blur-sm border border-neutral-200 text-neutral-800 shadow-md'
+                  }`}
                 >
-                  <CardContent className="p-3">
+                  <CardContent className="p-4">
                     <p className="text-sm leading-relaxed">{message.content}</p>
                   </CardContent>
                 </Card>
@@ -412,21 +420,26 @@ export default function ChatPage({
         {isTyping && (
           <div className="flex justify-start">
             <div className="flex">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 mr-2 flex items-center justify-center">
-                <Bot className="w-4 h-4 text-gray-600" />
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-white border border-neutral-200 mr-3 flex items-center justify-center shadow-md">
+                <Bot className="w-5 h-5 text-primary-sunrise" />
               </div>
-              <Card className="bg-white">
-                <CardContent className="p-3">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                    <div
-                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                      style={{ animationDelay: '0.1s' }}
-                    />
-                    <div
-                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                      style={{ animationDelay: '0.2s' }}
-                    />
+              <Card className="bg-white/90 backdrop-blur-sm border border-neutral-200 shadow-md">
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-2">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-primary-sunrise rounded-full animate-bounce" />
+                      <div
+                        className="w-2 h-2 bg-primary-sunrise rounded-full animate-bounce"
+                        style={{ animationDelay: '0.1s' }}
+                      />
+                      <div
+                        className="w-2 h-2 bg-primary-sunrise rounded-full animate-bounce"
+                        style={{ animationDelay: '0.2s' }}
+                      />
+                    </div>
+                    <span className="text-sm text-neutral-600 ml-2">
+                      AIが返答を準備中...
+                    </span>
                   </div>
                 </CardContent>
               </Card>
@@ -438,39 +451,39 @@ export default function ChatPage({
         {(showSuggestion || suggestedNextAction === 'proceed_to_planning') && (
           <div className="flex justify-start mb-4">
             <div className="flex max-w-[85%]">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 mr-2 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-blue-600" />
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-sunrise mr-3 flex items-center justify-center shadow-md">
+                <Sparkles className="w-5 h-5 text-white" />
               </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="bg-gradient-to-br from-primary-sunrise/10 to-primary-daylight/10 border border-primary-sunrise/20 rounded-xl p-5 backdrop-blur-sm">
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-blue-600">
+                    <span className="text-xs font-medium text-primary-sunrise">
                       情報充実度: {Math.round(informationSufficiency * 100)}%
                     </span>
-                    <span className="text-xs text-blue-600 capitalize">
+                    <span className="text-xs text-primary-sunrise capitalize font-medium">
                       {conversationQuality} quality
                     </span>
                   </div>
-                  <div className="w-full bg-blue-200 rounded-full h-2 mb-2">
+                  <div className="w-full bg-neutral-200/60 rounded-full h-2 mb-2 overflow-hidden">
                     <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      className="bg-gradient-sunrise h-2 rounded-full transition-all duration-500"
                       style={{ width: `${informationSufficiency * 100}%` }}
                     ></div>
                   </div>
                 </div>
 
-                <p className="text-sm text-blue-800 mb-3">
+                <p className="text-sm text-neutral-700 mb-4">
                   💡{' '}
                   {reasoning ||
                     '十分な情報が集まりました！いつでも計画作成に進むことができます。'}
                 </p>
 
-                <div className="flex space-x-2">
+                <div className="flex space-x-3">
                   {suggestedNextAction === 'proceed_to_planning' ? (
                     <Button
                       onClick={handleCreatePlan}
                       size="sm"
-                      className="bg-blue-600 hover:bg-blue-700"
+                      variant="primary"
                     >
                       <Sparkles className="w-3 h-3 mr-1" />
                       計画を作成する
@@ -479,7 +492,7 @@ export default function ChatPage({
                     <Button
                       onClick={() => handleSendMessage('')}
                       size="sm"
-                      className="bg-blue-600 hover:bg-blue-700"
+                      variant="primary"
                     >
                       続けて詳しく聞く
                     </Button>
@@ -491,7 +504,7 @@ export default function ChatPage({
                     }}
                     variant="ghost"
                     size="sm"
-                    className="text-blue-600 hover:text-blue-800"
+                    className="text-primary-sunrise hover:text-primary-daylight"
                   >
                     会話を続ける
                   </Button>
@@ -534,8 +547,8 @@ export default function ChatPage({
           className={`w-full ${
             suggestedNextAction === 'proceed_to_planning' ||
             informationSufficiency >= 0.6
-              ? 'bg-indigo-600 hover:bg-indigo-700'
-              : 'bg-yellow-600 hover:bg-yellow-700'
+              ? 'bg-primary-sunrise hover:bg-primary-daylight'
+              : 'bg-accent-purple hover:bg-primary-dawn'
           }`}
           disabled={informationSufficiency < 0.2}
         >

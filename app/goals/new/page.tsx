@@ -37,10 +37,10 @@ export default function NewGoalPage() {
   // Show loading while session is being checked
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-neutral-100 to-neutral-200 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">認証情報を確認中...</p>
+          <div className="w-8 h-8 border-2 border-primary-sunrise border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-neutral-600">認証情報を確認中...</p>
         </div>
       </div>
     );
@@ -101,23 +101,25 @@ export default function NewGoalPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-4 py-3">
-        <div className="flex items-center">
+    <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-neutral-100 to-neutral-200">
+      <header className="glass border-b border-white/20 px-6 py-4 sticky top-0 z-40 backdrop-blur-xl">
+        <div className="flex items-center max-w-4xl mx-auto">
           <Link href="/">
-            <Button variant="ghost" size="sm" className="mr-2">
+            <Button variant="ghost" size="sm" className="mr-3">
               <ArrowLeftIcon className="w-4 h-4" />
             </Button>
           </Link>
-          <h1 className="text-xl font-bold text-gray-900">新しいOKRを追加</h1>
+          <h1 className="text-xl font-bold text-neutral-800">
+            新しいOKRを追加
+          </h1>
         </div>
       </header>
 
-      <main className="p-4">
-        <Card>
+      <main className="p-6 max-w-2xl mx-auto">
+        <Card className="glass border-none shadow-xl">
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <Target className="w-5 h-5 mr-2 text-indigo-600" />
+            <CardTitle className="flex items-center text-neutral-800">
+              <Target className="w-5 h-5 mr-2 text-primary-sunrise" />
               あなたの夢を教えてください
             </CardTitle>
           </CardHeader>
@@ -152,7 +154,7 @@ export default function NewGoalPage() {
                   })()}
                   required
                 />
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-neutral-600">
                   最低5年後の期限を設定してください。長期的な目標設定により、より効果的なOKRを作成できます。
                 </p>
               </div>
@@ -165,12 +167,13 @@ export default function NewGoalPage() {
 
               <Button
                 type="submit"
+                size="lg"
                 className="w-full"
                 disabled={!goal.trim() || !deadline || isSubmitting}
               >
                 {isSubmitting ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    <div className="w-4 h-4 border-2 border-neutral-600 border-t-transparent rounded-full animate-spin mr-2" />
                     処理中...
                   </>
                 ) : (
@@ -184,9 +187,9 @@ export default function NewGoalPage() {
           </CardContent>
         </Card>
 
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-          <h3 className="font-semibold text-blue-900 mb-2">次のステップ</h3>
-          <p className="text-sm text-blue-800">
+        <div className="mt-8 p-6 bg-gradient-to-br from-primary-sunrise/10 to-primary-daylight/10 border border-primary-sunrise/20 rounded-xl backdrop-blur-sm">
+          <h3 className="font-semibold text-neutral-800 mb-3">次のステップ</h3>
+          <p className="text-sm text-neutral-700">
             目標を登録すると、AIがあなたの夢について詳しく質問します。
             この対話を通じて、あなただけのパーソナライズされた計画を作成します。
           </p>
