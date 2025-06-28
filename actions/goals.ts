@@ -37,6 +37,18 @@ export async function createGoal(goalData: NewGoal): Promise<ActionResult<Goal>>
       };
     }
 
+    // Validate minimum 5-year deadline
+    const dueDate = new Date(goalData.dueDate);
+    const minDate = new Date();
+    minDate.setFullYear(minDate.getFullYear() + 5);
+    
+    if (dueDate < minDate) {
+      return {
+        success: false,
+        error: '目標期限は最低5年後に設定してください',
+      };
+    }
+
     // Create goal
     const result = await db.insert(goals).values({
       ...goalData,

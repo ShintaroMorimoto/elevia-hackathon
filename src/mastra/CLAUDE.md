@@ -1088,4 +1088,272 @@ quarterlyOKRs.forEach(qOKR => {
 - エラーハンドリングとユーザーフィードバックの強化
 - 四半期OKRとKey Results機能の完全統合
 
+## 最新実装: AI駆動OKR生成システム (2025年12月28日)
+
+### 7. AI駆動OKR生成システムへの完全移行
+
+**背景**: 固定テンプレートによるOKR生成から、AI駆動の動的生成システムへの全面移行を実施
+
+**実装内容**:
+
+#### 7.1 新しいAI生成アーキテクチャ
+
+```typescript
+// src/mastra/schemas/okr-schemas.ts - AI生成専用スキーマ
+export const aiGeneratedYearlyOKRSchema = z.object({
+  year: z.number(),
+  monthsInYear: z.number().min(1).max(12),
+  startMonth: z.number().min(1).max(12),
+  endMonth: z.number().min(1).max(12),
+  isPartialYear: z.boolean(),
+  objective: z.string(),
+  rationale: z.string(), // なぜこの目標なのか
+  keyMilestones: z.array(z.object({
+    month: z.number().min(1).max(12),
+    milestone: z.string(),
+  })),
+  keyResults: z.array(z.object({
+    description: z.string(),
+    targetValue: z.number(),
+    unit: z.string(),
+    measurementMethod: z.string(),
+    frequency: z.enum(["daily", "weekly", "monthly", "quarterly", "annually", "once"]),
+    baselineValue: z.number().default(0),
+  })),
+  dependencies: z.array(z.string()),
+  riskFactors: z.array(z.string()),
+});
+```
+
+#### 7.2 月ベース期間計算システム
+
+```typescript
+// lib/date-utils.ts - 精密な期間計算
+export function calculatePeriod(startDate: Date, endDate: Date): PeriodCalculation {
+  const startYear = startDate.getFullYear();
+  const startMonth = startDate.getMonth();
+  const endYear = endDate.getFullYear();
+  const endMonth = endDate.getMonth();
+  
+  const totalMonths = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
+  const totalYears = Math.ceil(totalMonths / 12);
+  
+  // 年次分解と部分年対応
+  const yearlyBreakdown = [];
+  // 実装詳細...
+}
+```
+
+#### 7.3 AI生成ツールの実装
+
+```typescript
+// src/mastra/tools/ai-okr-generation-tool.ts
+export const generateAIOKRTool = createTool({
+  id: "generate-ai-okr",
+  description: "AIによる動的な年次OKR生成",
+  inputSchema: aiOKRGenerationRequestSchema,
+  outputSchema: aiOKRGenerationResponseSchema,
+  
+  execute: async ({ context }) => {
+    // Vertex AI Geminiを使用した高度なOKR生成
+    const generationAgent = new Agent({
+      name: "OKR Generation Agent",
+      model: vertex("gemini-2.0-flash-001"),
+      instructions: `OKR生成の専門家として...`,
+    });
+    
+    // 二段階検証システム
+    const validationAgent = new Agent({
+      name: "OKR Validation Agent",
+      model: vertex("gemini-2.0-flash-001"),
+      instructions: "OKRプランの品質を評価...",
+    });
+    
+    // 数値制限バリデーション
+    validatedResponse.yearlyOKRs.forEach(yearly => {
+      yearly.keyResults.forEach(kr => {
+        if (kr.targetValue > 99999999) {
+          kr.targetValue = 99999999; // データベース制約対応
+        }
+      });
+    });
+  },
+});
+```
+
+#### 7.4 既存システムとの統合
+
+```typescript
+// src/mastra/tools/okr-tools.ts - 既存ツールの拡張
+export const generateOKRTool = createTool({
+  // ...
+  execute: async ({ context, runtimeContext }) => {
+    // 月ベース計算の統合
+    const { calculatePeriod } = await import('../../../lib/date-utils');
+    const period = calculatePeriod(new Date(), new Date(goalDueDate));
+    
+    // AI生成ツールの呼び出し
+    const { generateAIOKRTool } = await import('./ai-okr-generation-tool');
+    const aiResult = await generateAIOKRTool.execute({
+      context: aiRequest,
+      runtimeContext,
+    });
+    
+    // 後方互換性のための形式変換
+    const yearlyOKRs = aiResult.yearlyOKRs.map(yearly => ({
+      year: yearly.year,
+      objective: yearly.objective,
+      keyResults: yearly.keyResults.map(kr => ({
+        description: kr.description,
+        targetValue: kr.targetValue,
+        currentValue: kr.baselineValue || 0,
+      })),
+      // 拡張プロパティ
+      rationale: yearly.rationale,
+      monthsInYear: yearly.monthsInYear,
+      startMonth: yearly.startMonth,
+      endMonth: yearly.endMonth,
+      isPartialYear: yearly.isPartialYear,
+    }));
+    
+    // フォールバック機能
+    } catch (error) {
+      console.error('AI OKR generation failed, falling back to simple generation:', error);
+      // 簡易生成にフォールバック
+    }
+  },
+});
+```
+
+### 7.5 制約条件と安全策
+
+#### データベース制約対応
+- **数値オーバーフロー**: `DECIMAL(10,2)`制限に対応（99,999,999以下に制限）
+- **頻度列挙型**: `"annually", "once"`を追加してAI生成値に対応
+
+#### フォールバック戦略
+- **AI生成失敗時**: 月ベース計算による簡易生成に自動切り替え
+- **後方互換性**: 既存のデータベース構造を完全保持
+- **段階的移行**: 新機能は拡張として実装
+
+#### 5年以上制限の実装
+```typescript
+// Frontend validation
+min={(() => {
+  const minDate = new Date();
+  minDate.setFullYear(minDate.getFullYear() + 5);
+  return minDate.toISOString().split('T')[0];
+})()}
+
+// Backend validation  
+const dueDate = new Date(goalData.dueDate);
+const minDate = new Date();
+minDate.setFullYear(minDate.getFullYear() + 5);
+
+if (dueDate < minDate) {
+  return {
+    success: false,
+    error: '目標期限は最低5年後に設定してください',
+  };
+}
+```
+
+### 7.6 主要改善効果
+
+#### **1. パーソナライゼーション**
+- ユーザーの対話内容を反映したOKR生成
+- 目標の性質に応じた適応的計画
+- 段階的で現実的な目標設定
+
+#### **2. 精密な時間管理**
+- 月ベース計算による正確な期間管理
+- 部分年対応（例：6月開始→10月終了）
+- より現実的な時間軸での計画
+
+#### **3. 豊富なメタデータ**
+- AI生成の根拠・理由（rationale）
+- リスク要因と依存関係
+- 月次マイルストーン
+- 測定方法と頻度
+
+#### **4. 安全な移行**
+- 既存機能の完全保持
+- AI生成失敗時の確実なフォールバック
+- 段階的な機能拡張
+
+### 7.7 エラー解決と品質向上
+
+#### 解決したエラー
+```typescript
+// 問題1: Zodスキーマ列挙型エラー
+// 解決: frequency列挙型に"annually", "once"を追加
+
+// 問題2: 数値オーバーフロー  
+// 解決: AI生成値の制限とプロンプト制約
+
+// 問題3: データベース制約違反
+// 解決: 数値キャッピングと事前検証
+```
+
+#### 品質向上施策
+- **AI二段階検証**: 生成→検証の二段階プロセス
+- **数値制限バリデーション**: データベース制約の事前チェック
+- **エラーハンドリング**: 包括的なエラー処理とフォールバック
+
+### 7.8 技術スタック拡張
+
+#### 新規追加コンポーネント
+- `src/mastra/schemas/okr-schemas.ts`: AI生成専用型定義
+- `src/mastra/prompts/okr-generation-prompt.ts`: 高度なAIプロンプト
+- `src/mastra/tools/ai-okr-generation-tool.ts`: AI生成エンジン
+- `lib/date-utils.ts`: 月ベース期間計算ユーティリティ
+
+#### 拡張された既存コンポーネント
+- `src/mastra/tools/okr-tools.ts`: AI統合とフォールバック
+- `actions/goals.ts`: 5年制限バリデーション
+- `app/goals/new/page.tsx`: フロントエンド制限
+
+### 7.9 マイグレーション不要の設計
+
+**重要**: 今回の実装はマイグレーション不要
+- データベーススキーマは変更なし
+- 新機能は既存カラムを活用
+- 拡張プロパティは設計書のみ（未実装）
+
+**将来のマイグレーション対象**:
+```sql
+-- 将来実装予定（現在は不要）
+ALTER TABLE yearly_okrs 
+ADD COLUMN rationale TEXT,
+ADD COLUMN months_in_year INTEGER NOT NULL DEFAULT 12,
+-- etc...
+```
+
+### 7.10 実装完了状況
+
+**✅ 完了済み**:
+- AI駆動OKR生成システム
+- 月ベース期間計算
+- 5年以上制限
+- エラー解決とフォールバック
+- 後方互換性確保
+
+**🔄 継続監視**:
+- AI生成品質の継続改善
+- ユーザーフィードバックの収集
+- パフォーマンス最適化
+
+---
+
+**最終更新**: 2025年12月28日 (AI駆動OKR生成システム完全移行)  
+**バージョン**: 3.0.0 - AI駆動OKR生成システム統合版  
+**主要実装**: 
+- **AI駆動OKR生成**: 固定テンプレートから動的AI生成への完全移行
+- **月ベース期間計算**: 精密な時間管理と部分年対応
+- **5年以上制限**: 長期目標に特化した制約実装
+- **数値制限対応**: データベース制約に対応した安全な実装
+- **フォールバック機能**: AI生成失敗時の確実な代替手段
+- **Zodスキーマ拡張**: AI生成に対応した型安全な実装
+- **エラー解決**: 列挙型とオーバーフロー問題の完全解決
+
 **作成者**: Claude Code Assistant
