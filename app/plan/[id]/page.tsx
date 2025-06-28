@@ -32,7 +32,7 @@ export default function PlanDetailPage({
   const { data: session, status } = useSession();
   const [goalId, setGoalId] = useState<string>('');
   const [planData, setPlanData] = useState<PlanData | null>(null);
-  const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set());
+  const [expandedOKRs, setExpandedOKRs] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -55,9 +55,12 @@ export default function PlanDetailPage({
         const loadedPlanData = await loadPlanData(paramGoalId, session.user.id);
         setPlanData(loadedPlanData);
 
-        // Expand the current year by default
+        // Expand the current year's OKRs by default
         const currentYear = new Date().getFullYear();
-        setExpandedYears(new Set([currentYear]));
+        const currentYearOKRs = loadedPlanData.yearlyOKRs
+          .filter(okr => okr.year === currentYear)
+          .map(okr => okr.id);
+        setExpandedOKRs(new Set(currentYearOKRs));
 
         setIsLoading(false);
       } catch (error) {
@@ -102,14 +105,14 @@ export default function PlanDetailPage({
     );
   }
 
-  const toggleYear = (year: number) => {
-    const newExpanded = new Set(expandedYears);
-    if (newExpanded.has(year)) {
-      newExpanded.delete(year);
+  const toggleOKR = (okrId: string) => {
+    const newExpanded = new Set(expandedOKRs);
+    if (newExpanded.has(okrId)) {
+      newExpanded.delete(okrId);
     } else {
-      newExpanded.add(year);
+      newExpanded.add(okrId);
     }
-    setExpandedYears(newExpanded);
+    setExpandedOKRs(newExpanded);
   };
 
   const handleToggleOKRCompletion = async (
@@ -195,8 +198,9 @@ export default function PlanDetailPage({
         <div className="space-y-4">
           {planData.yearlyOKRs.map((yearlyOKR) => {
             const year = yearlyOKR.year;
-            const isExpanded = expandedYears.has(year);
+            const isExpanded = expandedOKRs.has(yearlyOKR.id);
             const quarterlyOKRs = yearlyOKR.quarterlyOKRs;
+            
             const yearCompletedCount = quarterlyOKRs.filter(
               (q) => q.progressPercentage >= 100,
             ).length;
@@ -224,7 +228,7 @@ export default function PlanDetailPage({
                       <button
                         type="button"
                         className="flex-1 text-left hover:bg-gray-50 transition-colors p-2 -m-2 rounded"
-                        onClick={() => toggleYear(year)}
+                        onClick={() => toggleOKR(yearlyOKR.id)}
                       >
                         <h3 className="font-semibold text-gray-900">
                           {year}年: {yearlyOKR.objective}
@@ -252,7 +256,7 @@ export default function PlanDetailPage({
                       <button
                         type="button"
                         className="p-1"
-                        onClick={() => toggleYear(year)}
+                        onClick={() => toggleOKR(yearlyOKR.id)}
                       >
                         {isExpanded ? (
                           <ChevronDownIcon className="w-5 h-5 text-gray-400" />
@@ -263,9 +267,27 @@ export default function PlanDetailPage({
                     </div>
                   </div>
 
-                  {isExpanded && quarterlyOKRs.length > 0 && (
+                  {isExpanded && (
                     <div className="border-t border-gray-200">
-                      {quarterlyOKRs.map((quarterlyOKR) => (
+                      {/* Yearly OKR Key Results */}
+                      {yearlyOKR.keyResults.length > 0 && (
+                        <div className="p-4 pl-12 border-b border-gray-100 bg-blue-50">
+                          <h4 className="font-medium text-gray-900 mb-2">年次Key Results</h4>
+                          <div className="space-y-1">
+                            {yearlyOKR.keyResults.map((keyResult) => (
+                              <div key={keyResult.id} className="text-sm text-gray-700">
+                                {keyResult.result}: {keyResult.currentValue}/{keyResult.targetValue}
+                                ({Math.round((keyResult.currentValue / keyResult.targetValue) * 100)}%)
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Quarterly OKRs */}
+                      {quarterlyOKRs.length > 0 && (
+                        <div>
+                          {quarterlyOKRs.map((quarterlyOKR) => (
                         <div
                           key={quarterlyOKR.id}
                           className="p-4 pl-12 border-b border-gray-100 last:border-b-0"
@@ -289,9 +311,9 @@ export default function PlanDetailPage({
                                 <p className="text-sm text-gray-600">
                                   Q{quarterlyOKR.quarter}
                                 </p>
-                                {quarterlyOKR.keyResults.length > 0 && (
-                                  <div className="mt-2 space-y-1">
-                                    {quarterlyOKR.keyResults.map(
+                                <div className="mt-2 space-y-1">
+                                  {quarterlyOKR.keyResults.length > 0 ? (
+                                    quarterlyOKR.keyResults.map(
                                       (keyResult) => (
                                         <div
                                           key={keyResult.id}
@@ -308,9 +330,13 @@ export default function PlanDetailPage({
                                           %)
                                         </div>
                                       ),
-                                    )}
-                                  </div>
-                                )}
+                                    )
+                                  ) : (
+                                    <div className="text-xs text-gray-400 italic">
+                                      Key Resultsが設定されていません
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </div>
                             <Button variant="ghost" size="sm">
@@ -318,13 +344,15 @@ export default function PlanDetailPage({
                             </Button>
                           </div>
                         </div>
-                      ))}
-                      <div className="p-4 pl-12">
-                        <Button variant="outline" size="sm" className="w-full">
-                          <PlusIcon className="w-4 h-4 mr-2" />
-                          {year}年にOKRを追加
-                        </Button>
-                      </div>
+                          ))}
+                          <div className="p-4 pl-12">
+                            <Button variant="outline" size="sm" className="w-full">
+                              <PlusIcon className="w-4 h-4 mr-2" />
+                              {year}年にOKRを追加
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>

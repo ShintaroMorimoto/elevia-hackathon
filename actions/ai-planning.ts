@@ -195,6 +195,7 @@ async function saveOKRsToDatabase(
         (qOKR) => qOKR.year === yearlyOKR.year,
       );
 
+
       for (const quarterlyOKR of relatedQuarterlyOKRs) {
         const quarterlyResult = await createQuarterlyOkr({
           yearlyOkrId: yearlyResult.data.id,
@@ -222,7 +223,6 @@ async function saveOKRsToDatabase(
               });
             }
           }
-
           savedQuarterlyOKRs.push({
             year: quarterlyOKR.year,
             quarter: quarterlyOKR.quarter,

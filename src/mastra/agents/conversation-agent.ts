@@ -3,7 +3,6 @@ import { vertex } from '@ai-sdk/google-vertex';
 import { goalAnalysisTool, generateQuestionTool } from '../tools/goal-tools';
 import { config } from 'dotenv';
 
-// 環境変数を読み込み
 config({ path: '../../.env.local' });
 
 export const conversationAgent = new Agent({

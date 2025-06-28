@@ -629,8 +629,11 @@ export async function getKeyResults(goalId: string): Promise<ActionResult<KeyRes
       };
     }
 
-    // Get key results by joining with yearly OKRs (and optionally quarterly OKRs) to filter by goal
-    const result = await db
+    // Get key results by joining with both yearly and quarterly OKRs to filter by goal
+    // We need to get key results from both yearly OKRs and quarterly OKRs
+    
+    // First, get key results from yearly OKRs
+    const yearlyKeyResults = await db
       .select({
         id: keyResults.id,
         yearlyOkrId: keyResults.yearlyOkrId,
@@ -646,8 +649,32 @@ export async function getKeyResults(goalId: string): Promise<ActionResult<KeyRes
       })
       .from(keyResults)
       .innerJoin(yearlyOkrs, eq(keyResults.yearlyOkrId, yearlyOkrs.id))
-      .where(eq(yearlyOkrs.goalId, goalId))
-      .orderBy(keyResults.sortOrder);
+      .where(eq(yearlyOkrs.goalId, goalId));
+
+    // Then, get key results from quarterly OKRs
+    const quarterlyKeyResults = await db
+      .select({
+        id: keyResults.id,
+        yearlyOkrId: keyResults.yearlyOkrId,
+        quarterlyOkrId: keyResults.quarterlyOkrId,
+        description: keyResults.description,
+        targetValue: keyResults.targetValue,
+        currentValue: keyResults.currentValue,
+        unit: keyResults.unit,
+        achievementRate: keyResults.achievementRate,
+        sortOrder: keyResults.sortOrder,
+        createdAt: keyResults.createdAt,
+        updatedAt: keyResults.updatedAt,
+      })
+      .from(keyResults)
+      .innerJoin(quarterlyOkrs, eq(keyResults.quarterlyOkrId, quarterlyOkrs.id))
+      .innerJoin(yearlyOkrs, eq(quarterlyOkrs.yearlyOkrId, yearlyOkrs.id))
+      .where(eq(yearlyOkrs.goalId, goalId));
+
+    // Combine and sort all key results
+    const result = [...yearlyKeyResults, ...quarterlyKeyResults]
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+
 
     return {
       success: true,
