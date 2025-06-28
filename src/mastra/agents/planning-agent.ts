@@ -1,6 +1,9 @@
 import { Agent } from '@mastra/core/agent';
 import { vertex } from '@ai-sdk/google-vertex';
 import { generateOKRTool, analyzeChatHistoryTool } from '../tools/okr-tools';
+import { config } from 'dotenv';
+
+config({ path: '../../.env.local' });
 
 export const planningAgent = new Agent({
   name: 'OKR Planning Agent',
@@ -21,7 +24,7 @@ export const planningAgent = new Agent({
     - 進捗を追跡できる明確な指標を定義
     - ユーザーの対話履歴から得た洞察を反映
   `,
-  model: vertex('gemini-2.5-flash-preview-05-20'),
+  model: vertex('gemini-2.0-flash-001'),
   tools: {
     generateOKRTool,
     analyzeChatHistoryTool,

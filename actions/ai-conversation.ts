@@ -4,7 +4,6 @@ import { db } from '@/lib/db';
 import { goals } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { RuntimeContext } from '@mastra/core/di';
-import { mastra } from '@/src/mastra';
 import {
   generateQuestionTool,
   goalAnalysisTool,
@@ -12,41 +11,34 @@ import {
 import { analyzeChatHistoryTool } from '@/src/mastra/tools/okr-tools';
 import type { ActionResult } from './goals';
 import type { Goal } from '@/lib/db/schema';
-
-export interface ChatMessage {
-  role: string;
-  content: string;
-}
-
-export interface NextQuestionData {
-  question: string;
-  type: string;
-  depth: number;
-}
-
-export interface ConversationAnalysis {
-  currentDepth: number;
-  maxDepth: number;
-  isComplete: boolean;
-  completionPercentage: number;
-  missingAspects: string[];
-}
-
-export interface ConversationSummary {
-  userMotivation: string;
-  keyInsights: string[];
-  readinessLevel: number;
-  recommendedActions: string[];
-}
+import type {
+  ChatMessage,
+  NextQuestionData,
+  DynamicNextQuestionData,
+  ConversationAnalysis,
+  DynamicConversationAnalysis,
+  ConversationSummary,
+} from '@/types/mastra';
 
 export async function generateNextQuestion(
   goalId: string,
   userId: string,
   chatHistory: ChatMessage[],
-): Promise<ActionResult<NextQuestionData>> {
+): Promise<ActionResult<DynamicNextQuestionData>> {
   try {
+    const callTimestamp = new Date().toISOString();
+    const callId = Math.random().toString(36).substring(7);
+    
+    console.log(`🚀 generateNextQuestion called [${callId}] at ${callTimestamp}:`, { 
+      goalId: goalId.substring(0, 8) + '...', 
+      userId: userId.substring(0, 8) + '...', 
+      historyLength: chatHistory.length,
+      stackTrace: new Error().stack?.split('\n').slice(1, 4).map(line => line.trim())
+    });
+    
     // Validation
     if (!goalId || !userId) {
+      console.error('❌ Validation failed: Missing goalId or userId');
       return {
         success: false,
         error: 'Goal ID and User ID are required',
@@ -68,9 +60,12 @@ export async function generateNextQuestion(
     }
 
     const goal = goalResult[0];
+    console.log(`✅ Goal found [${callId}]:`, goal.title);
+    
     const runtimeContext = new RuntimeContext();
 
     // 対話の深さを分析
+    console.log(`🔍 Executing goalAnalysisTool [${callId}]...`);
     const analysisResult = await goalAnalysisTool.execute({
       context: {
         goalId,
@@ -79,8 +74,10 @@ export async function generateNextQuestion(
       },
       runtimeContext,
     });
+    console.log(`📊 Analysis result [${callId}]:`, analysisResult);
 
     // 次の質問を生成
+    console.log(`🤖 Executing generateQuestionTool [${callId}]...`);
     const questionResult = await generateQuestionTool.execute({
       context: {
         goalTitle: goal.title,
@@ -91,6 +88,8 @@ export async function generateNextQuestion(
       },
       runtimeContext,
     });
+    console.log(`❓ Question result [${callId}]:`, questionResult);
+    console.log(`✅ generateNextQuestion completed [${callId}] in ${Date.now() - new Date(callTimestamp).getTime()}ms`);
 
     return {
       success: true,
@@ -108,7 +107,7 @@ export async function generateNextQuestion(
 export async function analyzeConversationDepth(
   chatHistory: ChatMessage[],
   goal: Goal,
-): Promise<ActionResult<ConversationAnalysis>> {
+): Promise<ActionResult<DynamicConversationAnalysis>> {
   try {
     const runtimeContext = new RuntimeContext();
     const result = await goalAnalysisTool.execute({

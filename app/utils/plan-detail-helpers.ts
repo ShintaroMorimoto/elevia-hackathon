@@ -209,7 +209,7 @@ export async function toggleOKRCompletion(
   // Use progressPercentage to indicate completion (100% = completed, 0% = not completed)
   const progressPercentage = newStatus ? '100.00' : '0.00';
 
-  let updateResult: any;
+  let updateResult: { success: boolean; data?: any; error?: string };
 
   if (okrType === 'yearly') {
     updateResult = await updateYearlyOkr(okrId, {
@@ -230,6 +230,6 @@ export async function toggleOKRCompletion(
   return {
     success: true,
     newStatus,
-    data: updateResult.data,
+    data: updateResult.data || {},
   };
 }

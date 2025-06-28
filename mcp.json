@@ -5,6 +5,12 @@
         "command": "npx",
         "args": ["-y", "@mastra/mcp-docs-server"],
         "env": {}
-      }
+      },
+      "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest"
+      ]
+    }
     }
   }

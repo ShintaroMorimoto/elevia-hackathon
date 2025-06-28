@@ -67,7 +67,7 @@ export default function NewGoalPage() {
     try {
       // Use actual user ID from session
       const userId = session.user.id;
-      
+
       // Create goal in database
       const goalResult = await createGoal({
         userId: userId,
@@ -145,9 +145,16 @@ export default function NewGoalPage() {
                   type="date"
                   value={deadline}
                   onChange={(e) => setDeadline(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={(() => {
+                    const minDate = new Date();
+                    minDate.setFullYear(minDate.getFullYear() + 5);
+                    return minDate.toISOString().split('T')[0];
+                  })()}
                   required
                 />
+                <p className="text-sm text-gray-600">
+                  最低5年後の期限を設定してください。長期的な目標設定により、より効果的なOKRを作成できます。
+                </p>
               </div>
 
               {error && (

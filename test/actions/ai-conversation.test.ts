@@ -55,6 +55,37 @@ describe('AI Conversation Server Actions', () => {
   });
 
   describe('generateNextQuestion', () => {
+    it('should generate AI-driven dynamic next question based on conversation context', async () => {
+      mockLimit.mockResolvedValueOnce([mockGoal]);
+      
+      const mockQuestionResponse = {
+        question: 'これまでにどのような海外経験はありますか？',
+        type: 'experience',
+        depth: 3,
+        reasoning: '資金準備について言及されたため、具体的な経験について深掘りする',
+        shouldComplete: false,
+        confidence: 0.85,
+      };
+      
+      mockAgent.generate.mockResolvedValueOnce({ 
+        text: JSON.stringify(mockQuestionResponse) 
+      });
+
+      const result = await generateNextQuestion('goal-123', 'user-123', mockChatHistory);
+
+      expect(result).toEqual({
+        success: true,
+        data: expect.objectContaining({
+          question: 'これまでにどのような海外経験はありますか？',
+          type: 'experience',
+          depth: 3,
+          reasoning: expect.any(String),
+          shouldComplete: false,
+          confidence: expect.any(Number),
+        }),
+      });
+    });
+
     it('should generate appropriate next question', async () => {
       mockLimit.mockResolvedValueOnce([mockGoal]);
       
@@ -195,6 +226,31 @@ describe('AI Conversation Server Actions', () => {
 
       expect(result.data?.isComplete).toBe(true);
       expect(result.data?.completionPercentage).toBe(100);
+    });
+
+    it('should use AI-driven dynamic assessment instead of fixed depth limits', async () => {
+      const mockDynamicResponse = {
+        informationSufficiency: 0.85,
+        isReadyToProceed: true,
+        missingCriticalInfo: [],
+        conversationQuality: 'high',
+        suggestedNextAction: 'proceed_to_planning',
+        reasoning: 'ユーザーの動機、経験、リソースについて十分な情報が収集されました',
+      };
+      
+      mockAgent.generate.mockResolvedValueOnce({ 
+        text: JSON.stringify(mockDynamicResponse) 
+      });
+
+      const result = await analyzeConversationDepth(mockChatHistory, mockGoal);
+
+      expect(result.data).toEqual(expect.objectContaining({
+        informationSufficiency: expect.any(Number),
+        isReadyToProceed: expect.any(Boolean),
+        conversationQuality: expect.any(String),
+        suggestedNextAction: expect.any(String),
+        reasoning: expect.any(String),
+      }));
     });
   });
 
