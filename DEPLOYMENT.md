@@ -1,0 +1,302 @@
+# Deployment Guide - Elevia OKR Application
+
+This guide explains how to deploy the Elevia OKR application to Google Cloud Platform using Terraform and GitHub Actions.
+
+## Prerequisites
+
+Before deploying, ensure you have:
+
+1. **Google Cloud Project** with billing enabled
+2. **GitHub repository** for the code
+3. **Local development environment** with:
+   - Google Cloud SDK (`gcloud`)
+   - Terraform (>= 1.0)
+   - Node.js 20+
+   - pnpm
+
+## Infrastructure Overview
+
+The deployment consists of:
+- **Cloud SQL (PostgreSQL)** - Database
+- **Cloud Run** - Application runtime
+- **VPC** - Private networking
+- **Artifact Registry** - Container images
+- **Secret Manager** - Sensitive data
+- **GitHub Actions** - CI/CD pipeline
+
+## Step 1: Initial Setup
+
+### 1.1 Clone and Configure
+
+```bash
+# Clone the repository
+git clone <your-repo-url>
+cd deploy-to-gcp
+
+# Copy environment template
+cp .env.template .env.local
+
+# Edit .env.local with your values
+```
+
+### 1.2 Configure Environment Variables
+
+Edit `.env.local`:
+
+```bash
+# Google Cloud Configuration
+GOOGLE_CLOUD_PROJECT_ID=your-gcp-project-id
+GOOGLE_CLOUD_PROJECT_NUMBER=123456789012
+WORKLOAD_IDENTITY_POOL=github-actions
+WORKLOAD_IDENTITY_PROVIDER=github
+GITHUB_REPO=your-repo-name
+GITHUB_OWNER=your-github-username
+
+# Database Configuration
+CLOUD_SQL_CONNECTION_NAME=your-project-id:asia-northeast1:elevia-postgres-xxxx
+DB_USER=elevia_user
+DB_PASS=your-secure-database-password-min-8-chars
+DB_NAME=elevia_db
+
+# NextAuth Configuration
+NEXTAUTH_URL=https://your-domain.com  # Will be updated after deployment
+NEXTAUTH_SECRET=your-32-char-secret-key
+
+# AI Configuration
+GOOGLE_VERTEX_PROJECT_ID=your-project-id
+GOOGLE_VERTEX_LOCATION=asia-northeast1
+```
+
+### 1.3 Initialize Google Cloud Workload Identity
+
+```bash
+# Make the init script executable
+chmod +x ./scripts/init.sh
+
+# Run the initialization script
+./scripts/init.sh
+```
+
+This script will:
+- Enable required APIs
+- Create Workload Identity Federation
+- Set up service accounts
+- Create GCS bucket for Terraform state
+
+## Step 2: Configure GitHub Repository
+
+### 2.1 Set Repository Variables
+
+In your GitHub repository, go to Settings > Secrets and variables > Actions, and add these **Variables**:
+
+```
+GOOGLE_CLOUD_PROJECT_ID=your-gcp-project-id
+GOOGLE_CLOUD_PROJECT_NUMBER=123456789012
+WORKLOAD_IDENTITY_POOL=github-actions
+WORKLOAD_IDENTITY_PROVIDER=github
+```
+
+### 2.2 Set Repository Secrets
+
+Add these **Secrets**:
+
+```
+DB_USER=elevia_user
+DB_PASS=your-secure-database-password
+DB_NAME=elevia_db
+```
+
+## Step 3: Configure Terraform
+
+### 3.1 Create Terraform Variables
+
+```bash
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+```
+
+Edit `terraform.tfvars`:
+
+```hcl
+# Required values
+project_id = "your-gcp-project-id"
+db_password = "your-secure-database-password"
+nextauth_secret = "your-32-character-nextauth-secret"
+
+# Optional overrides
+# region = "asia-northeast1"
+# app_name = "elevia"
+# db_tier = "db-f1-micro"  # Use db-g1-small+ for production
+# max_instances = 10
+# deletion_protection = true
+```
+
+### 3.2 Initialize Terraform
+
+```bash
+# Initialize Terraform with remote state
+terraform init -backend-config="bucket=your-project-id-terraform-state"
+
+# Plan the deployment
+terraform plan
+
+# Apply the infrastructure (or use GitHub Actions)
+terraform apply
+```
+
+## Step 4: Deploy via GitHub Actions
+
+### 4.1 Infrastructure Deployment
+
+1. Create a pull request with your changes
+2. GitHub Actions will run `terraform plan` and post results
+3. Merge the PR to main branch
+4. GitHub Actions will run `terraform apply`
+
+### 4.2 Application Deployment
+
+After infrastructure is ready:
+
+1. Push code changes to main branch
+2. GitHub Actions will:
+   - Run tests and linting
+   - Build Docker image
+   - Push to Artifact Registry
+   - Deploy to Cloud Run
+   - Run database migrations
+
+## Step 5: Database Setup
+
+### 5.1 Local Development Database
+
+For local development with Cloud SQL Proxy:
+
+```bash
+# Install Cloud SQL Proxy
+gcloud components install cloud-sql-proxy
+
+# Start proxy (in separate terminal)
+cloud_sql_proxy -instances=your-project-id:asia-northeast1:elevia-postgres-xxxx=tcp:5432
+
+# Generate database schema
+pnpm run db:generate
+
+# Run migrations
+pnpm run db:migrate
+
+# Open database studio
+pnpm run db:studio
+```
+
+### 5.2 Production Database
+
+Database migrations run automatically during deployment via GitHub Actions.
+
+## Step 6: Verify Deployment
+
+### 6.1 Check Infrastructure
+
+```bash
+# Get Terraform outputs
+cd terraform
+terraform output
+
+# Check Cloud Run service
+gcloud run services list --platform=managed
+
+# Check Cloud SQL instance
+gcloud sql instances list
+```
+
+### 6.2 Test Application
+
+1. Get the Cloud Run URL from Terraform outputs or GitHub Actions logs
+2. Access the application in your browser
+3. Test user registration and OKR creation
+
+## Step 7: Custom Domain (Optional)
+
+### 7.1 Configure Domain Mapping
+
+```bash
+# Map custom domain to Cloud Run
+gcloud run domain-mappings create \
+  --service=elevia \
+  --domain=your-domain.com \
+  --region=asia-northeast1
+```
+
+### 7.2 Update Environment Variables
+
+Update `NEXTAUTH_URL` in your secrets to use the custom domain.
+
+## Monitoring and Maintenance
+
+### Database Backups
+
+Cloud SQL automatically creates daily backups and supports point-in-time recovery.
+
+### Logs and Monitoring
+
+- **Application logs**: Available in Cloud Logging
+- **Metrics**: Available in Cloud Monitoring
+- **Error tracking**: Available in Error Reporting
+
+### Updating the Application
+
+1. Make code changes
+2. Push to main branch
+3. GitHub Actions will automatically deploy
+
+### Scaling
+
+Cloud Run automatically scales based on traffic. Adjust `max_instances` in Terraform if needed.
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Database Connection Errors**
+   - Check VPC connector configuration
+   - Verify database credentials in Secret Manager
+   - Ensure Cloud SQL instance is running
+
+2. **Build Failures**
+   - Check Docker build logs in GitHub Actions
+   - Verify all dependencies are installed
+   - Check for TypeScript/linting errors
+
+3. **Permission Errors**
+   - Verify Workload Identity Federation setup
+   - Check service account permissions
+   - Ensure GitHub variables/secrets are set correctly
+
+### Logs and Debugging
+
+```bash
+# View Cloud Run logs
+gcloud logs read --service=elevia --platform=managed
+
+# View Cloud SQL logs
+gcloud sql operations list --instance=elevia-postgres-xxxx
+
+# View Terraform state
+terraform show
+```
+
+## Security Considerations
+
+- Database passwords are stored in Google Secret Manager
+- Cloud SQL uses private networking (VPC)
+- Workload Identity Federation eliminates long-lived service account keys
+- All traffic to Cloud Run is automatically HTTPS
+- Regular security updates via automated deployments
+
+## Cost Optimization
+
+- Cloud Run scales to zero when not in use
+- Cloud SQL uses smallest instance size (db-f1-micro) by default
+- Terraform state includes deletion protection for production data
+- Consider upgrading to larger instances for production workloads
+
+For additional support, refer to the Google Cloud documentation or open an issue in the repository.

@@ -11,11 +11,16 @@
     "test": "vitest",
     "prepare": "husky",
     "dev:mastra": "mastra dev",
-    "build:mastra": "mastra build"
+    "build:mastra": "mastra build",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@ai-sdk/google-vertex": "^2.2.24",
     "@auth/drizzle-adapter": "^1.10.0",
+    "@google-cloud/cloud-sql-connector": "^1.8.1",
     "@mastra/core": "^0.10.7",
     "@mastra/libsql": "^0.11.0",
     "@mastra/loggers": "^0.10.2",

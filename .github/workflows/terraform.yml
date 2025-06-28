@@ -24,7 +24,7 @@ jobs:
       matrix:
         # specify the directory of main.tf (called side) in tf_working_dir
         tf_working_dir:
-          - enter_your_terraform_directory_here
+          - terraform
   
     steps:
       - uses: actions/checkout@v4
@@ -36,8 +36,8 @@ jobs:
         name: 'Authenticate to Google Cloud'
         uses: 'google-github-actions/auth@v2'
         with:
-        #   workload_identity_provider: 'projects/${{ vars.GOOGLE_CLOUD_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ vars.WORKLOAD_IDENTITY_POOL }}/providers/${{ vars.WORKLOAD_IDENTITY_PROVIDER }}'
-          workload_identity_provider: 'projects/207161571323/locations/global/workloadIdentityPools/github-test/providers/github'
+          workload_identity_provider: 'projects/${{ vars.GOOGLE_CLOUD_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ vars.WORKLOAD_IDENTITY_POOL }}/providers/${{ vars.WORKLOAD_IDENTITY_PROVIDER }}'
+          service_account: '${{ vars.GOOGLE_CLOUD_PROJECT_ID }}@${{ vars.GOOGLE_CLOUD_PROJECT_ID }}.iam.gserviceaccount.com'
   
       # https://github.com/marketplace/actions/setup-tfcmt      
       - uses: shmokmt/actions-setup-tfcmt@v2

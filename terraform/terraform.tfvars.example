@@ -1,0 +1,32 @@
+# Copy this file to terraform.tfvars and update with your values
+# DO NOT commit terraform.tfvars to version control
+
+# Required: Your Google Cloud project ID
+project_id = "your-gcp-project-id"
+
+# Optional: Override default region (default: asia-northeast1)
+# region = "us-central1"
+
+# Optional: Override default application name (default: elevia)
+# app_name = "your-app-name"
+
+# Required: Database password (minimum 8 characters)
+db_password = "your-secure-database-password-here"
+
+# Required: NextAuth secret (minimum 32 characters)
+# Generate with: openssl rand -base64 32
+nextauth_secret = "your-nextauth-secret-key-here"
+
+# Optional: Database configuration
+# db_tier = "db-f1-micro"  # Use db-g1-small or larger for production
+# db_name = "elevia_db"
+# db_user = "elevia_user"
+
+# Optional: Cloud Run configuration
+# max_instances = 10
+
+# Optional: Custom domain (leave empty to use generated Cloud Run URL)
+# custom_domain = "your-domain.com"
+
+# Optional: Security settings
+# deletion_protection = true  # Set to false for development environments
