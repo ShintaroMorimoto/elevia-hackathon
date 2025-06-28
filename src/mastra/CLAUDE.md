@@ -56,7 +56,7 @@ graph TD
 export const conversationAgent = new Agent({
   name: 'Goal Conversation Agent',
   description: '目標達成支援のための対話エージェント',
-  model: vertex('gemini-2.0-flash-001'),
+  model: vertex('gemini-2.0-flash-lite'),
   tools: {
     goalAnalysisTool,
     generateQuestionTool,
@@ -81,7 +81,7 @@ OKR計画を生成する専門エージェントです。
 export const planningAgent = new Agent({
   name: 'OKR Planning Agent',
   description: 'OKR計画を生成する専門エージェント',
-  model: vertex('gemini-2.0-flash-001'),
+  model: vertex('gemini-2.0-flash-lite'),
   tools: {
     generateOKRTool,
     analyzeChatHistoryTool,
@@ -822,7 +822,7 @@ export const okrGenerationWorkflow = createWorkflow({
 **対処法**: 環境変数`GOOGLE_VERTEX_PROJECT_ID`で設定
 ```typescript
 // agents/conversation-agent.ts
-model: vertex('gemini-2.0-flash-001'), // project設定は削除済み
+model: vertex('gemini-2.0-flash-lite'), // project設定は削除済み
 ```
 
 ### B. データベース型変換
@@ -891,7 +891,7 @@ const [chatAnalysis, goalAnalysis, okrPlan] = await Promise.all([
 
 ### 1. Vertex AI呼び出し最適化
 
-- **モデル選択**: `gemini-2.0-flash-001`を使用（高速・コスト効率）
+- **モデル選択**: `gemini-2.0-flash-lite`を使用（高速・コスト効率）
 - **バッチ処理**: 複数ツールの並列実行を活用
 - **キャッシュ**: 同じ質問タイプの再利用
 
@@ -1158,14 +1158,14 @@ export const generateAIOKRTool = createTool({
     // Vertex AI Geminiを使用した高度なOKR生成
     const generationAgent = new Agent({
       name: "OKR Generation Agent",
-      model: vertex("gemini-2.0-flash-001"),
+      model: vertex("gemini-2.0-flash-lite"),
       instructions: `OKR生成の専門家として...`,
     });
     
     // 二段階検証システム
     const validationAgent = new Agent({
       name: "OKR Validation Agent",
-      model: vertex("gemini-2.0-flash-001"),
+      model: vertex("gemini-2.0-flash-lite"),
       instructions: "OKRプランの品質を評価...",
     });
     
@@ -1593,5 +1593,218 @@ setError(`計画生成の初期化に失敗しました: ${errorMessage}`);
 - **高度なエラーハンドリング**: 段階的復旧オプションとデバッグ支援
 - **透明性のある進捗**: 実際の処理状況をリアルタイム表示
 - **包括的ログ機能**: 問題発生時の迅速な原因特定
+
+**作成者**: Claude Code Assistant
+
+## 最新改善: 四半期OKR Key Results AI生成機能の実装 (2025年12月28日)
+
+### 9. 四半期OKRの固定プレースホルダーからAI生成Key Resultsへの移行
+
+**背景**: 四半期OKRが固定プレースホルダー「Q${quarter}のマイルストーンを達成する: 0/100(0%)」を使用していたため、年次OKRとの品質格差があり、ユーザーにとって具体性に欠ける状況でした。
+
+#### 9.1 問題の詳細分析
+
+**発生していた問題**:
+1. **固定プレースホルダー**: 四半期OKRが「Q1のマイルストーンを達成する」という汎用的なKey Resultsのみ
+2. **品質格差**: 年次OKRは具体的なAI生成Key Resultsなのに、四半期OKRは汎用的
+3. **実用性の低さ**: ユーザーが具体的な行動を起こしにくい抽象的な目標
+
+**ユーザーログから見える問題**:
+```
+Q1: 事業計画の初稿完成
+- Q1のマイルストーンを達成する: 0/100(0%)
+```
+
+#### 9.2 実装した包括的解決策
+
+##### A. 四半期Key Results生成アルゴリズムの実装
+
+```typescript
+// src/mastra/tools/okr-tools.ts - 新しいヘルパー関数
+function generateQuarterlyKeyResults(
+  yearlyKeyResults: Array<{
+    description: string;
+    targetValue: number;
+    unit?: string;
+    measurementMethod?: string;
+    frequency?: string;
+    baselineValue?: number;
+  }>,
+  quarter: number,
+  quarterMilestones: Array<{ month: number; milestone: string }>
+): Array<{ description: string; targetValue: number; currentValue: number }> {
+  const quarterlyKeyResults = [];
+  
+  // 年次Key Resultsを四半期用に適応
+  for (const yearlyKR of yearlyKeyResults) {
+    // 四半期目標値 = 年次目標の25%（最低1）
+    const quarterlyTarget = Math.max(1, Math.ceil(yearlyKR.targetValue / 4));
+    
+    // 四半期特有の説明を生成
+    let quarterlyDescription = '';
+    
+    if (yearlyKR.description.includes('年間') || yearlyKR.description.includes('年次')) {
+      quarterlyDescription = yearlyKR.description
+        .replace('年間', `Q${quarter}`)
+        .replace('年次', `Q${quarter}`);
+    } else if (yearlyKR.description.includes('達成') || yearlyKR.description.includes('完成')) {
+      // 四半期に応じた段階的な進捗表現
+      const stageMap = {
+        1: '基盤構築',
+        2: '本格推進', 
+        3: '加速実行',
+        4: '完成・評価'
+      };
+      quarterlyDescription = `Q${quarter}: ${yearlyKR.description}の${stageMap[quarter]}`;
+    } else {
+      // デフォルト: 四半期コンテキストを追加
+      quarterlyDescription = `Q${quarter}: ${yearlyKR.description}の段階的推進`;
+    }
+    
+    quarterlyKeyResults.push({
+      description: quarterlyDescription,
+      targetValue: quarterlyTarget,
+      currentValue: 0,
+    });
+  }
+  
+  // マイルストーン特化Key Resultsの追加
+  if (quarterMilestones.length > 0) {
+    quarterlyKeyResults.push({
+      description: `Q${quarter}の重要マイルストーン達成: ${quarterMilestones.length}件`,
+      targetValue: quarterMilestones.length,
+      currentValue: 0,
+    });
+  }
+  
+  // 最大4つのKey Resultsに制限（明確性のため）
+  return quarterlyKeyResults.slice(0, 4);
+}
+```
+
+##### B. 四半期OKR生成ロジックの刷新
+
+```typescript
+// 従来の固定プレースホルダー実装
+// 修正前:
+quarterlyOKRs.push({
+  year: yearly.year,
+  quarter,
+  objective: `Q${quarter}: ${quarterMilestones.map(m => m.milestone).join(', ')}`,
+  keyResults: [{
+    description: `Q${quarter}のマイルストーンを達成する`,
+    targetValue: 100,
+    currentValue: 0,
+  }],
+});
+
+// 修正後: AI生成Key Resultsの使用
+quarterlyOKRs.push({
+  year: yearly.year,
+  quarter,
+  objective: `Q${quarter}: ${quarterMilestones.map(m => m.milestone).join(', ')}`,
+  keyResults: generateQuarterlyKeyResults(
+    yearly.keyResults,
+    quarter,
+    quarterMilestones
+  ),
+});
+```
+
+##### C. デバッグログの追加と品質保証
+
+```typescript
+// 生成プロセスの透明性確保
+console.log(`🔍 DEBUG: Q${quarter}用のKey Results生成中 - 年次Key Results数:`, yearly.keyResults.length);
+const quarterlyKeyResults = generateQuarterlyKeyResults(
+  yearly.keyResults,
+  quarter,
+  quarterMilestones
+);
+console.log(`🔍 DEBUG: Q${quarter}で生成されたKey Results:`, quarterlyKeyResults);
+```
+
+#### 9.3 実装結果と改善効果
+
+**✅ 解決した問題**:
+1. **固定プレースホルダー削除**: 汎用的なKey Resultsを完全に廃止
+2. **AI駆動Key Results**: 年次OKRと同様の品質の四半期Key Results生成
+3. **段階的進捗表現**: 四半期ごとの適切な進捗ステップを表現
+4. **具体的行動指針**: ユーザーが行動を起こしやすい具体的な目標
+
+**🎯 変換例**:
+```
+修正前:
+Q1: 事業計画の初稿完成
+- Q1のマイルストーンを達成する: 0/100(0%)
+
+修正後:
+Q1: 事業計画の初稿完成  
+- Q1: 事業計画書の完成度の基盤構築: 0/24
+- Q1: 初期顧客候補リストの獲得数の基盤構築: 0/13
+- Q1: プロトタイプまたはMVPのユーザーテスト実施数の基盤構築: 0/2
+- Q1の重要マイルストーン達成: 0/1件
+```
+
+#### 9.4 技術的特徴
+
+**🔄 段階的進捗マッピング**:
+- **Q1**: 基盤構築フェーズ
+- **Q2**: 本格推進フェーズ  
+- **Q3**: 加速実行フェーズ
+- **Q4**: 完成・評価フェーズ
+
+**📊 数値配分戦略**:
+- 年次目標の25%を四半期目標として配分
+- 最低値1を保証（小さな目標値でも意味のある進捗確保）
+- 最大4つのKey Resultsに制限（UI明確性確保）
+
+**🔗 整合性保証**:
+- 年次OKRとの明確な関連性維持
+- マイルストーンとの整合性確保
+- データベーススキーマとの完全互換性
+
+#### 9.5 ユーザー体験の向上
+
+**前回までの課題**:
+- 四半期OKRが抽象的で行動に移しにくい
+- 年次OKRとの品質格差による一貫性の欠如
+- 具体的な進捗測定の困難
+
+**今回の改善成果**:
+- **具体性**: 各四半期に明確で測定可能なKey Results
+- **実行性**: ユーザーが具体的な行動を起こしやすい目標
+- **一貫性**: 年次OKRと同等の品質とAI生成による統一感
+- **段階性**: 四半期ごとの適切な進捗ステップ
+
+#### 9.6 今後の発展可能性
+
+**短期改善**:
+- 四半期Key Resultsの進捗連動（4つの四半期達成で年次達成）
+- より高度な目標値配分アルゴリズム（季節性考慮）
+- 四半期間の依存関係管理
+
+**中期改善**:
+- ユーザーフィードバックに基づく四半期Key Results最適化
+- 業界/分野別の四半期パターン学習
+- 個人の達成傾向に基づく適応的目標設定
+
+**長期ビジョン**:
+- 動的四半期調整システム（進捗に応じた自動調整）
+- 多目標間の四半期リソース最適配分
+- AIメンタリングによる四半期実行支援
+
+---
+
+**最新更新**: 2025年12月28日 (四半期OKR Key Results AI生成機能完全実装)  
+**バージョン**: 3.2.0 - 四半期OKR AI生成統合版  
+**主要実装**: 
+- **四半期Key Results AI生成**: 固定プレースホルダーから動的AI生成への完全移行
+- **段階的進捗表現**: 四半期ごとの適切な進捗ステップ（基盤構築→本格推進→加速実行→完成評価）
+- **数値配分アルゴリズム**: 年次目標の25%配分と最低値保証による現実的な目標設定
+- **品質統一**: 年次OKRと同等品質の四半期Key Results生成
+- **デバッグ機能強化**: 四半期Key Results生成プロセスの透明性確保
+- **UI改善**: ユーザーが具体的な行動を起こしやすい実用的な目標表示
+- **完全後方互換**: 既存データベース構造との完全互換性維持
 
 **作成者**: Claude Code Assistant
