@@ -69,7 +69,7 @@ jobs:
         db_user = "${{ secrets.DB_USER }}"
         db_password = "${{ secrets.DB_PASS }}"
         db_name = "${{ secrets.DB_NAME }}"
-        nextauth_secret = "${{ secrets.NEXTAUTH_SECRET }}"
+        nextauth_secret = "${{ secrets.AUTH_SECRET }}"
         custom_domain = ""
         deletion_protection = true
         max_instances = 10
