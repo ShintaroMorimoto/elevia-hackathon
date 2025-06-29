@@ -339,6 +339,7 @@ export async function updateOKRProgress(
   newCurrentValue: number,
   targetValue: number,
   newTargetValue?: number,
+  newUnit?: string,
 ): Promise<ProgressUpdateResult> {
   const updateData: any = {
     currentValue: newCurrentValue.toString(),
@@ -346,6 +347,10 @@ export async function updateOKRProgress(
 
   if (newTargetValue !== undefined) {
     updateData.targetValue = newTargetValue.toString();
+  }
+
+  if (newUnit !== undefined) {
+    updateData.unit = newUnit;
   }
 
   const updateResult = await updateKeyResult(keyResultId, updateData);

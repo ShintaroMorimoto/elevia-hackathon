@@ -177,6 +177,7 @@ export const generateOKRTool = createTool({
           description: kr.description,
           targetValue: kr.targetValue,
           currentValue: kr.baselineValue || 0,
+          unit: kr.unit, // AI生成のunit情報を保持
         })),
         // Extended properties for new system
         rationale: yearly.rationale,
@@ -306,6 +307,7 @@ export const generateOKRTool = createTool({
             description: `${yearInfo.monthsInYear}ヶ月間での具体的成果を達成する`,
             targetValue: 100,
             currentValue: 0,
+            unit: '%', // フォールバック時のデフォルト単位
           },
         ],
         // Add extended properties even in fallback
