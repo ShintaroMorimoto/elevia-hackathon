@@ -38,4 +38,16 @@ jobs:
         
       - name: Build project
         run: pnpm run build
+        
+      - name: Build Docker image for validation
+        run: |
+          docker build --tag preview-build:${{ github.sha }} .
+          
+      - name: Add validation summary
+        run: |
+          echo "## ✅ PR Validation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: All checks passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **PR**: #${{ github.event.number }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Validated at**: $(date)" >> $GITHUB_STEP_SUMMARY
 

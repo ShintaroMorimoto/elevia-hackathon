@@ -114,15 +114,54 @@ WORKLOAD_IDENTITY_PROVIDER=github
 
 ### 2.2 Set Repository Secrets
 
-Add these **Secrets** (these will be stored in Google Secret Manager):
+⚠️ **IMPORTANT**: Secrets must be set in the **"Terraform" Environment** (not Repository Secrets)
+
+1. Go to Settings > Environments
+2. Click on **"Terraform"** environment (create if it doesn't exist)
+3. Add these **Environment secrets**:
 
 ```
+AUTH_SECRET=your-nextauth-secret-here    # NOTE: AUTH_SECRET not NEXTAUTH_SECRET
 DB_USER=elevia_user
 DB_PASS=your-secure-database-password
 DB_NAME=elevia_db
 ```
 
+**Critical Notes**:
+- ✅ Use `AUTH_SECRET` (not `NEXTAUTH_SECRET`)
+- ✅ Avoid special characters like `/`, `"`, `'` in secret values
+- ✅ Set in "Terraform" Environment, not Repository Secrets
+- ✅ Must match the `environment: Terraform` setting in terraform.yml
+
 **Note**: These values will be automatically stored in Secret Manager by Terraform and injected into Cloud Run at runtime. You don't need to manually create secrets in Google Cloud Console.
+
+### ⚠️ Quick Configuration Checklist
+
+Before running workflows, verify these critical settings:
+
+**GitHub Environment "Terraform" Variables** ✅
+```bash
+# Verify with: gh api repos/:owner/:repo/environments/Terraform/variables
+GOOGLE_CLOUD_PROJECT_ID=your-project-id
+GOOGLE_CLOUD_PROJECT_NUMBER=123456789012  
+WORKLOAD_IDENTITY_POOL=github-test
+WORKLOAD_IDENTITY_PROVIDER=github
+```
+
+**GitHub Environment "Terraform" Secrets** ✅
+```bash
+# Verify with: gh api repos/:owner/:repo/environments/Terraform/secrets
+AUTH_SECRET=your-secret-here    # NOT NEXTAUTH_SECRET
+DB_USER=elevia_user
+DB_PASS=your-password
+DB_NAME=elevia_db
+```
+
+**Workload Identity Repository Setting** ✅
+```bash
+# Verify with: gcloud iam workload-identity-pools providers describe github ...
+# Should show: assertion.repository=='YourUsername/your-actual-repo-name'
+```
 
 ## Step 3: Setup GitHub Actions Workflows
 
@@ -130,18 +169,31 @@ The deployment is fully automated through GitHub Actions using **Direct Workload
 
 ### 3.1 GitHub Actions Workflows Created
 
+**PR Validation Workflow (`.github/workflows/pr-validation.yml`)**:
+- ✅ **Early Feedback**: Fast quality checks on every pull request
+- ✅ **Comprehensive Testing**: Lint, type check, unit tests, application build
+- ✅ **Docker Build Validation**: Ensures Docker image builds successfully
+- ✅ **No Redundancy**: Single workflow for all PR validation needs
+
 **Infrastructure Workflow (`.github/workflows/terraform.yml`)**:
 - ✅ **Direct Workload Identity Federation**: No service account needed for GitHub Actions authentication
 - ✅ **Terraform Plan on PRs**: Automatic plan comments on pull requests  
 - ✅ **Terraform Apply on Main**: Automatic infrastructure deployment on merge
 - ✅ **30-minute timeout**: Handles Cloud SQL creation time
 
-**Application Workflow (`.github/workflows/deploy.yml`)**:
-- ✅ **Full CI Pipeline**: Lint, test, build, deploy
+**Deployment Workflow (`.github/workflows/deploy.yml`)**:
+- ✅ **Main Branch Only**: Triggers only on main branch push (no PR triggers)
+- ✅ **No Test Duplication**: Focuses solely on deployment activities
 - ✅ **Docker Build/Push**: Automatic container creation and push to Artifact Registry
 - ✅ **Cloud Run Deployment**: Zero-downtime rolling deployment
 - ✅ **Database Migration**: Automatic Drizzle migrations
 - ✅ **Direct WIF Authentication**: Secure authentication without service account keys
+
+**Workflow Optimization Benefits**:
+- ✅ **No Duplication**: Each workflow has clear, separate responsibilities
+- ✅ **Fast PR Feedback**: Quality checks complete quickly without heavy deployment steps
+- ✅ **Resource Efficient**: Eliminates redundant test execution
+- ✅ **Clear Separation**: Validation vs. deployment concerns properly separated
 
 ### 3.2 Terraform Configuration (Automated)
 
@@ -291,6 +343,167 @@ Cloud SQL automatically creates daily backups and supports point-in-time recover
 Cloud Run automatically scales based on traffic. Adjust `max_instances` in Terraform if needed.
 
 ## Troubleshooting
+
+### ⚠️ Critical GitHub Actions Configuration Issues
+
+#### 1. GitHub Environment Variables Not Recognized
+
+**Issue**: GitHub Actions variables appear to be set but are empty in workflows.
+
+**Root Cause**: GitHub has multiple places to store variables:
+- **Repository Variables** (Settings > Secrets and variables > Actions > Variables tab)
+- **Environment Variables** (Settings > Environments > [Environment Name] > Environment variables)
+
+**Solution**: 
+- ✅ **Ensure variables are set in the correct Environment**
+- The workflow uses `environment: Terraform` (line 26 in terraform.yml)
+- Variables must be set in the **"Terraform" Environment**, not "Configure Terraform" or Repository Variables
+- **Verification**: Use `gh api repos/:owner/:repo/environments/Terraform/variables` to check
+
+```bash
+# Check which environments exist
+gh api repos/:owner/:repo/environments
+
+# Check variables in specific environment  
+gh api repos/:owner/:repo/environments/Terraform/variables
+
+# Should show your 4 required variables
+```
+
+**Required Variables in "Terraform" Environment**:
+```
+GOOGLE_CLOUD_PROJECT_ID=your-project-id
+GOOGLE_CLOUD_PROJECT_NUMBER=123456789012
+WORKLOAD_IDENTITY_POOL=github-test
+WORKLOAD_IDENTITY_PROVIDER=github
+```
+
+#### 2. Workload Identity Federation Permission Errors
+
+**Issue**: Authentication works but gets "unauthorized_client" or "repository not allowed" errors.
+
+**Root Cause**: 
+- Wrong repository name in Workload Identity Provider attribute condition
+- Old permissions from previous repository names
+- `init.sh` script has a bug in permission checking logic
+
+**Solutions**:
+
+**Check Current Attribute Condition**:
+```bash
+gcloud iam workload-identity-pools providers describe github \
+  --workload-identity-pool=github-test \
+  --location=global \
+  --project=sandbox-morimoto-s1 \
+  --format="value(attributeCondition)"
+```
+
+**Update Repository Name if Incorrect**:
+```bash
+gcloud iam workload-identity-pools providers update-oidc github \
+  --workload-identity-pool=github-test \
+  --location=global \
+  --project=sandbox-morimoto-s1 \
+  --attribute-condition="assertion.repository=='YourGitHubUsername/your-repo-name'"
+```
+
+**Re-run init.sh after fixing the script**:
+```bash
+# The init.sh script has been fixed for permission checking
+./scripts/init.sh
+```
+
+#### 3. Secret Manager Variable Name Mismatches
+
+**Issue**: `nextauth_secret = ""` (empty) in terraform.tfvars despite secrets being set.
+
+**Root Causes**:
+- Variable name mismatch: `NEXTAUTH_SECRET` vs `AUTH_SECRET`
+- HEREDOC vs echo command variable expansion issues
+- Special characters (like `/`) in secret values causing parsing errors
+
+**Solutions**:
+
+**Correct Secret Names** (set these in GitHub Environment "Terraform" Secrets):
+```
+AUTH_SECRET=your-nextauth-secret-here  # NOT NEXTAUTH_SECRET
+DB_USER=elevia_user
+DB_PASS=your-secure-password
+DB_NAME=elevia_db
+```
+
+**Avoid Special Characters in Secrets**:
+- Don't use `/`, `"`, `'`, `\` in AUTH_SECRET values
+- Use base64 encoded values if needed: `openssl rand -base64 32`
+
+#### 4. Terraform State Bucket Naming Inconsistency
+
+**Issue**: "bucket doesn't exist" error during terraform init.
+
+**Root Cause**: Naming convention mismatch between init.sh and terraform.yml:
+- `init.sh` creates: `${PROJECT_ID}-terraform-state`
+- `terraform.yml` looks for: `terraform-state-${PROJECT_ID}`
+
+**Solution**: Fixed in terraform.yml to use consistent naming.
+
+#### 5. Terraform Format Issues with Generated Files
+
+**Issue**: `terraform fmt -check` fails with "Missing newline after argument".
+
+**Root Causes**:
+- Generated terraform.tfvars missing final newline
+- Single quotes preventing variable expansion in echo commands
+- HEREDOC not handling special characters properly
+
+**Solution**: Fixed in terraform.yml to:
+- Use double quotes with escaped inner quotes
+- Run `terraform fmt` after file generation
+- Use echo commands instead of HEREDOC
+
+#### 6. Branch Protection Rules and GitHub Pro Requirements
+
+**Issue**: Cannot set up branch protection rules to prevent merging when workflows fail.
+
+**Root Cause**: GitHub branch protection features require:
+- **GitHub Pro subscription** for private repositories
+- **Public repository** for free accounts
+
+**Solutions**:
+
+**Option A: Manual Process** (No GitHub Pro required):
+1. Always check GitHub Actions status before merging PRs
+2. Look for green checkmarks on all required workflows
+3. Only merge when all checks pass
+
+**Option B: Repository Settings** (Requires GitHub Pro or public repo):
+1. Go to Settings > Branches
+2. Add rule for `main` branch:
+   - ✅ Require status checks to pass before merging
+   - ✅ Require branches to be up to date before merging
+   - Select required checks: `Terraform Infrastructure`, `Pull Request Validation`
+   - ✅ Require pull request reviews before merging
+
+**Option C: GitHub Actions Auto-merge** (Alternative):
+```yaml
+# Add to workflow to enable auto-merge only when all checks pass
+- name: Enable auto-merge
+  if: github.event_name == 'pull_request'
+  run: gh pr merge --auto --merge "${{ github.event.pull_request.number }}"
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+**Verification Commands**:
+```bash
+# Check current branch protection status
+gh api repos/:owner/:repo/branches/main/protection
+
+# List all workflow runs for a PR
+gh run list --branch=your-pr-branch
+
+# Check workflow status
+gh run view --log
+```
 
 ### Common Issues
 

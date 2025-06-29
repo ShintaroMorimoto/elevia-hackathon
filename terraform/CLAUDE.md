@@ -470,9 +470,115 @@ terraform apply tfplan
 - Ensure complete resource cleanup
 - Optimize test runtime through parallel and staged execution
 
+## GitHub Actions CI/CD Best Practices
+
+### Workflow Optimization Principles
+
+When designing GitHub Actions workflows for Terraform and application deployment, follow these optimization principles to avoid redundancy and improve efficiency:
+
+#### 1. Separation of Concerns
+- **PR Validation Workflow**: Focus on fast feedback and quality checks
+  - Linting, type checking, unit tests
+  - Application build validation
+  - Docker build verification
+  - Run on every pull request for immediate feedback
+
+- **Infrastructure Workflow**: Handle Terraform-specific operations
+  - Terraform plan on PRs (with automatic commenting)
+  - Terraform apply on main branch merges
+  - Infrastructure-only triggers (terraform/ directory changes)
+
+- **Deployment Workflow**: Manage application deployment only
+  - Trigger only on main branch push
+  - Skip redundant testing (already done in PR validation)
+  - Focus on build, push, and deploy operations
+
+#### 2. Trigger Strategy
+```yaml
+# PR Validation - Fast feedback on every PR
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+# Infrastructure - Only when Terraform files change
+on:
+  push:
+    branches: [main]
+    paths: ['terraform/**']
+  pull_request:
+    branches: [main]
+    paths: ['terraform/**']
+
+# Deployment - Only on main branch after merge
+on:
+  push:
+    branches: [main]
+```
+
+#### 3. Avoid Common Anti-Patterns
+- **Don't duplicate test execution**: If PR validation runs tests, deployment workflow shouldn't repeat them
+- **Don't trigger deployment on PRs**: Use dedicated validation workflows instead
+- **Don't mix concerns**: Keep infrastructure and application workflows separate
+- **Don't skip Docker validation**: Include Docker build checks in PR validation for early feedback
+
+#### 4. Resource Efficiency
+- **Parallel execution**: Run independent checks in parallel within workflows
+- **Minimal scope**: Each workflow should have the smallest possible scope
+- **Fast feedback**: Prioritize speed in PR validation workflows
+- **Conditional execution**: Use `if` conditions to skip unnecessary steps
+
+#### 5. Security and Dependencies
+- **Workload Identity Federation**: Prefer over service account keys
+- **Environment-specific secrets**: Use GitHub environments for sensitive data
+- **Dependency tracking**: Ensure proper job dependencies with `needs`
+- **Timeout configuration**: Set appropriate timeouts for long-running operations
+
+### Example Optimized Workflow Structure
+
+```yaml
+# .github/workflows/pr-validation.yml
+# Fast, comprehensive PR validation
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup and test
+        run: |
+          # Fast quality checks
+          pnpm install
+          pnpm run lint
+          pnpm run test
+          pnpm run build
+      - name: Docker build validation
+        run: docker build --tag validation:${{ github.sha }} .
+
+# .github/workflows/deploy.yml  
+# Main branch deployment only
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy
+        run: |
+          # Skip tests (already validated in PR)
+          # Focus on deployment
+```
+
+This approach ensures:
+- ✅ No redundant test execution
+- ✅ Fast PR feedback loops
+- ✅ Clear separation of responsibilities
+- ✅ Efficient resource utilization
+- ✅ Maintainable CI/CD pipeline
+
 ## Additional Resources
 
 - [Google Cloud Foundation Toolkit](https://cloud.google.com/foundation-toolkit)
 - [Terraform Google Provider Documentation](https://registry.terraform.io/providers/hashicorp/google/latest/docs)
 - [Google Cloud Terraform Modules](https://github.com/terraform-google-modules)
 - [Terraform Best Practices Guide](https://www.terraform.io/docs/cloud/guides/recommended-practices/index.html)
+- [GitHub Actions Best Practices](https://docs.github.com/en/actions/learn-github-actions/best-practices-for-github-actions)
