@@ -96,6 +96,7 @@ jobs:
         run: |
           # Install pnpm and dependencies
           corepack enable pnpm
+          corepack prepare pnpm@10.12.4 --activate
           pnpm install --frozen-lockfile
           
           # Set environment variables for migration
