@@ -23,7 +23,7 @@ export default function NewGoalPage() {
   const [deadline, setDeadline] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  
+
   // Generate unique IDs for form elements
   const goalId = useId();
   const deadlineId = useId();
@@ -95,12 +95,14 @@ export default function NewGoalPage() {
         throw new Error(chatResult.error);
       }
 
+      // Keep submitting state until navigation completes
       // Redirect to chat page
       router.push(`/chat/${goalResult.data.id}`);
+
+      // Don't set isSubmitting to false here - keep it true until page navigation
     } catch (err) {
       setError(err instanceof Error ? err.message : 'エラーが発生しました');
-    } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false); // Only reset on error
     }
   };
 
@@ -140,7 +142,7 @@ export default function NewGoalPage() {
                   required
                 />
                 <p className="text-sm text-gray-600">
-                  どんなに大きな夢でも大丈夫です。AIが一緒に現実的な計画を立てます。
+                  ワクワクするような大きな夢を教えてください。
                 </p>
               </div>
 
@@ -154,12 +156,13 @@ export default function NewGoalPage() {
                   min={(() => {
                     const minDate = new Date();
                     minDate.setFullYear(minDate.getFullYear() + 5);
+                    minDate.setDate(minDate.getDate() + 1);
                     return minDate.toISOString().split('T')[0];
                   })()}
                   required
                 />
                 <p className="text-sm text-neutral-600">
-                  最低5年後の期限を設定してください。長期的な目標設定により、より効果的なOKRを作成できます。
+                  5年後以降からの期限が設定できます。
                 </p>
               </div>
 

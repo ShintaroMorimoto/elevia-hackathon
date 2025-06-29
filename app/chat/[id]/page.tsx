@@ -40,7 +40,7 @@ export default function ChatPage({
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [chatSessionId, setChatSessionId] = useState<string>('');
   const [_conversationComplete, setConversationComplete] = useState(false);
@@ -57,16 +57,64 @@ export default function ChatPage({
   >('continue_conversation');
   const [reasoning, setReasoning] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   const initializationRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
+  // Auto-scroll when messages change or when typing starts, but only if auto-scroll is enabled
   useEffect(() => {
-    scrollToBottom();
-  }, [scrollToBottom]);
+    if ((messages.length > 0 || isTyping) && shouldAutoScroll) {
+      // Use setTimeout to ensure DOM is updated before scrolling
+      setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+    }
+  }, [messages.length, isTyping, scrollToBottom, shouldAutoScroll]);
+
+  // Handle manual scroll detection
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100; // 100px threshold
+      setShouldAutoScroll(isNearBottom);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Mock progress calculation based on user message count
+  useEffect(() => {
+    const userMessages = messages.filter((msg) => msg.role === 'user');
+    const mockProgress = Math.min(1, userMessages.length * 0.2); // 20% per message, max 100%
+    setInformationSufficiency(mockProgress);
+
+    // Update conversation quality based on progress
+    if (mockProgress >= 0.8) {
+      setConversationQuality('high');
+    } else if (mockProgress >= 0.4) {
+      setConversationQuality('medium');
+    } else {
+      setConversationQuality('low');
+    }
+
+    // Suggest planning when progress >= 70%
+    if (mockProgress >= 0.7) {
+      setSuggestedNextAction('proceed_to_planning');
+      setReasoning(
+        '十分な情報が集まりました！計画作成に進むことをお勧めします。',
+      );
+    }
+  }, [messages]);
 
   // Initialize chat session with Mastra integration
   useEffect(() => {
@@ -177,6 +225,7 @@ export default function ChatPage({
 
         setMessages([welcomeMessage, firstQuestion]);
         setIsInitialized(true);
+        setIsInitializing(false);
         setIsLoading(false);
       } catch (error) {
         if (abortController.signal.aborted) {
@@ -257,25 +306,26 @@ export default function ChatPage({
       setConversationDepth(result.conversationDepth);
       setConversationComplete(result.isComplete);
 
-      // AI駆動動的フロー制御の状態更新
-      if (result.informationSufficiency !== undefined) {
-        setInformationSufficiency(result.informationSufficiency);
-      }
-      if (result.conversationQuality) {
-        setConversationQuality(result.conversationQuality);
-      }
-      if (result.suggestedNextAction) {
-        setSuggestedNextAction(result.suggestedNextAction);
-      }
-      if (result.reasoning) {
-        setReasoning(result.reasoning);
-      }
+      // Mock progress is now handled by useEffect based on message count
+      // AI駆動動的フロー制御の状態更新 - temporarily disabled for mock implementation
+      // if (result.informationSufficiency !== undefined) {
+      //   setInformationSufficiency(result.informationSufficiency);
+      // }
+      // if (result.conversationQuality) {
+      //   setConversationQuality(result.conversationQuality);
+      // }
+      // if (result.suggestedNextAction) {
+      //   setSuggestedNextAction(result.suggestedNextAction);
+      // }
+      // if (result.reasoning) {
+      //   setReasoning(result.reasoning);
+      // }
 
-      // AI駆動の提案表示判定
-      if (
-        result.suggestedNextAction === 'proceed_to_planning' ||
-        (result.informationSufficiency && result.informationSufficiency >= 0.7)
-      ) {
+      // Show suggestion based on mock progress (handled by useEffect)
+      const userMessages =
+        messages.filter((msg) => msg.role === 'user').length + 1; // +1 for current message
+      if (userMessages >= 4) {
+        // Show after 4 messages (80% progress)
         setTimeout(() => {
           setShowSuggestion(true);
         }, 1000);
@@ -322,49 +372,82 @@ export default function ChatPage({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-50 via-neutral-100 to-neutral-200 flex flex-col">
-      <header className="glass border-b border-white/20 px-6 py-4 sticky top-0 z-40 backdrop-blur-xl">
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
-          <div className="flex items-center">
+      <header className="glass border-b border-white/20 px-4 md:px-6 py-4 sticky top-0 z-40 backdrop-blur-xl">
+        <div className="flex items-center justify-between max-w-4xl mx-auto min-w-0">
+          <div className="flex items-center min-w-0 flex-1">
             <Link href="/">
-              <Button variant="ghost" size="sm" className="mr-3">
+              <Button variant="ghost" size="sm" className="mr-3 flex-shrink-0">
                 <ArrowLeftIcon className="w-4 h-4" />
               </Button>
             </Link>
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-primary-dawn to-primary-sunrise bg-clip-text text-transparent">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg md:text-xl font-bold bg-gradient-to-r from-primary-dawn to-primary-sunrise bg-clip-text text-transparent truncate">
                 AIヒアリング
               </h1>
-              <p className="text-sm text-neutral-600">
-                情報充実度: {Math.round(informationSufficiency * 100)}% |{' '}
-                <span className="font-medium text-primary-sunrise">
-                  {conversationQuality}
+              <p className="text-xs md:text-sm text-neutral-600 truncate">
+                情報充実度:{' '}
+                <span className="font-semibold text-primary-sunrise">
+                  {Math.round(informationSufficiency * 100)}%
+                </span>{' '}
+                |{' '}
+                <span
+                  className={`font-medium capitalize ${
+                    conversationQuality === 'high'
+                      ? 'text-primary-sky'
+                      : conversationQuality === 'medium'
+                        ? 'text-primary-daylight'
+                        : 'text-primary-sunrise'
+                  }`}
+                >
+                  {conversationQuality} quality
                 </span>
               </p>
             </div>
           </div>
-          <div className="w-24 h-3 bg-neutral-200/80 rounded-full overflow-hidden">
-            <div
-              className={`h-3 rounded-full transition-all duration-500 ${
-                informationSufficiency >= 0.8
-                  ? 'bg-gradient-daylight'
-                  : informationSufficiency >= 0.5
-                    ? 'bg-gradient-sunrise'
-                    : 'bg-gradient-dawn'
-              }`}
-              style={{ width: `${informationSufficiency * 100}%` }}
-            />
-          </div>
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-6 space-y-6 max-w-4xl mx-auto w-full">
+      <main
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 pb-40 md:pb-44 space-y-6 max-w-4xl mx-auto w-full min-h-0"
+      >
+        {isInitializing && messages.length === 0 && (
+          <div className="flex justify-start">
+            <div className="flex">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-white border border-neutral-200 mr-3 flex items-center justify-center shadow-md">
+                <Bot className="w-5 h-5 text-primary-sunrise" />
+              </div>
+              <Card className="bg-white/90 backdrop-blur-sm border border-neutral-200 shadow-md">
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-2">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-primary-sunrise rounded-full animate-bounce" />
+                      <div
+                        className="w-2 h-2 bg-primary-sunrise rounded-full animate-bounce"
+                        style={{ animationDelay: '0.1s' }}
+                      />
+                      <div
+                        className="w-2 h-2 bg-primary-sunrise rounded-full animate-bounce"
+                        style={{ animationDelay: '0.2s' }}
+                      />
+                    </div>
+                    <span className="text-sm text-neutral-600 ml-2">
+                      AIが最初の質問を準備中...
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
+
         {messages.map((message) => (
           <div
             key={message.id}
             className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`flex max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+              className={`flex w-full max-w-[95%] sm:max-w-[85%] md:max-w-[80%] min-w-0 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
             >
               <div
                 className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center shadow-md ${
@@ -379,16 +462,18 @@ export default function ChatPage({
                   <Bot className="w-5 h-5 text-primary-sunrise" />
                 )}
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <Card
-                  className={`${
+                  className={`w-full ${
                     message.role === 'user'
                       ? 'bg-primary-sunrise text-neutral-800 border-none shadow-lg'
                       : 'bg-white/90 backdrop-blur-sm border border-neutral-200 text-neutral-800 shadow-md'
                   }`}
                 >
                   <CardContent className="p-4">
-                    <p className="text-sm leading-relaxed">{message.content}</p>
+                    <p className="text-sm leading-relaxed break-words overflow-wrap-anywhere hyphens-auto">
+                      {message.content}
+                    </p>
                   </CardContent>
                 </Card>
                 {message.options && (
@@ -438,7 +523,7 @@ export default function ChatPage({
                       />
                     </div>
                     <span className="text-sm text-neutral-600 ml-2">
-                      AIが返答を準備中...
+                      考えています...
                     </span>
                   </div>
                 </CardContent>
@@ -450,11 +535,11 @@ export default function ChatPage({
         {/* AI駆動動的提案表示 */}
         {(showSuggestion || suggestedNextAction === 'proceed_to_planning') && (
           <div className="flex justify-start mb-4">
-            <div className="flex max-w-[85%]">
+            <div className="flex w-full max-w-[95%] sm:max-w-[90%] md:max-w-[85%] min-w-0">
               <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-sunrise mr-3 flex items-center justify-center shadow-md">
-                <Sparkles className="w-5 h-5 text-white" />
+                <Sparkles className="w-5 h-5 text-neutral-800" />
               </div>
-              <div className="bg-gradient-to-br from-primary-sunrise/10 to-primary-daylight/10 border border-primary-sunrise/20 rounded-xl p-5 backdrop-blur-sm">
+              <div className="flex-1 min-w-0 bg-gradient-to-br from-primary-sunrise/10 to-primary-daylight/10 border border-primary-sunrise/20 rounded-xl p-4 md:p-5 backdrop-blur-sm">
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-medium text-primary-sunrise">
@@ -464,28 +549,22 @@ export default function ChatPage({
                       {conversationQuality} quality
                     </span>
                   </div>
-                  <div className="w-full bg-neutral-200/60 rounded-full h-2 mb-2 overflow-hidden">
-                    <div
-                      className="bg-gradient-sunrise h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${informationSufficiency * 100}%` }}
-                    ></div>
-                  </div>
                 </div>
 
-                <p className="text-sm text-neutral-700 mb-4">
+                <p className="text-sm text-neutral-700 mb-4 break-words overflow-wrap-anywhere">
                   💡{' '}
                   {reasoning ||
                     '十分な情報が集まりました！いつでも計画作成に進むことができます。'}
                 </p>
 
-                <div className="flex space-x-3">
+                <div className="flex flex-wrap gap-2 sm:gap-3">
                   {suggestedNextAction === 'proceed_to_planning' ? (
                     <Button
                       onClick={handleCreatePlan}
                       size="sm"
                       variant="primary"
                     >
-                      <Sparkles className="w-3 h-3 mr-1" />
+                      <Sparkles className="w-3 h-3 mr-1 text-neutral-800" />
                       計画を作成する
                     </Button>
                   ) : (
@@ -517,50 +596,55 @@ export default function ChatPage({
         <div ref={messagesEndRef} />
       </main>
 
-      <footer className="bg-white border-t border-gray-200 p-4 space-y-3">
-        {/* チャット入力フォーム - 常に表示 */}
-        <div className="flex space-x-2">
-          <Input
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder="テキストで回答を入力..."
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage(inputValue);
-              }
-            }}
-            disabled={isTyping}
-          />
+      <footer className="fixed bottom-0 left-0 right-0 bg-white/95 border-t border-gray-200 p-3 md:p-4 space-y-3 z-40 backdrop-blur-md shadow-lg">
+        <div className="max-w-4xl mx-auto w-full">
+          {/* チャット入力フォーム - 常に表示 */}
+          <div className="flex space-x-2 min-w-0">
+            <Input
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder="テキストで回答を入力..."
+              className="flex-1 min-w-0 min-h-[44px] text-base md:text-sm"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage(inputValue);
+                }
+              }}
+              disabled={isTyping}
+            />
+            <Button
+              onClick={() => handleSendMessage(inputValue)}
+              disabled={!inputValue.trim() || isTyping}
+              className="flex-shrink-0 min-h-[44px] min-w-[44px] px-3"
+            >
+              <PaperPlaneIcon className="w-5 h-5" />
+            </Button>
+          </div>
+
+          {/* 手動計画作成ボタン - 常時表示 */}
           <Button
-            onClick={() => handleSendMessage(inputValue)}
-            disabled={!inputValue.trim() || isTyping}
-            size="icon"
+            onClick={handleCreatePlan}
+            className={`w-full min-h-[48px] text-sm md:text-base font-medium break-words ${
+              suggestedNextAction === 'proceed_to_planning' ||
+              informationSufficiency >= 0.6
+                ? 'bg-primary-sunrise hover:bg-primary-daylight text-neutral-800'
+                : 'bg-accent-purple hover:bg-primary-dawn text-neutral-800'
+            }`}
+            disabled={informationSufficiency < 0.2}
           >
-            <PaperPlaneIcon className="w-4 h-4" />
+            <Sparkles className="w-5 h-5 mr-2 text-neutral-800 flex-shrink-0" />
+            <span className="break-words">
+              {suggestedNextAction === 'proceed_to_planning'
+                ? '計画を作成する（推奨）'
+                : informationSufficiency >= 0.6
+                  ? 'この内容で計画を作成する'
+                  : informationSufficiency >= 0.2
+                    ? 'この内容でとりあえず計画作成'
+                    : '情報不足のため作成不可'}
+            </span>
           </Button>
         </div>
-
-        {/* 手動計画作成ボタン - 常時表示 */}
-        <Button
-          onClick={handleCreatePlan}
-          className={`w-full ${
-            suggestedNextAction === 'proceed_to_planning' ||
-            informationSufficiency >= 0.6
-              ? 'bg-primary-sunrise hover:bg-primary-daylight'
-              : 'bg-accent-purple hover:bg-primary-dawn'
-          }`}
-          disabled={informationSufficiency < 0.2}
-        >
-          <Sparkles className="w-4 h-4 mr-2" />
-          {suggestedNextAction === 'proceed_to_planning'
-            ? '計画を作成する（推奨）'
-            : informationSufficiency >= 0.6
-              ? 'この内容で計画を作成する'
-              : informationSufficiency >= 0.2
-                ? 'この内容でとりあえず計画作成'
-                : '情報不足のため作成不可'}
-        </Button>
       </footer>
     </div>
   );

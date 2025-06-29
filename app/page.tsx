@@ -63,7 +63,7 @@ function LoginPage() {
             10xな成長を目指すためのOKRを一緒に作りましょう🚀
           </CardDescription>
           <div className="text-sm text-neutral-600 mb-2">
-            あなたの夢が、現実的な計画に。
+            あなたの夢を、具体的な計画に。
           </div>
         </CardHeader>
         <CardContent className="space-y-6">

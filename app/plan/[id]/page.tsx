@@ -754,7 +754,10 @@ export default function PlanDetailPage({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Progress value={planData.totalProgress} className="mb-2" />
+            <Progress
+              value={planData.totalProgress}
+              className="mb-2 h-3 bg-gray-200 [&>div]:bg-gradient-to-r [&>div]:from-primary-sunrise [&>div]:to-primary-daylight"
+            />
             <p className="text-sm text-neutral-600">全体の進捗状況</p>
           </CardContent>
         </Card>
@@ -772,12 +775,35 @@ export default function PlanDetailPage({
               <Card key={yearlyOKR.id} className="glass border-none shadow-md">
                 <CardContent className="p-0">
                   <div className="flex items-center p-4">
+                    {/* 削除ボタンを左端に移動 */}
+                    <div className="flex items-center mr-4">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          handleStartOKRDelete(
+                            yearlyOKR.id,
+                            'yearly',
+                            `${yearlyOKR.year}年: ${yearlyOKR.objective}`,
+                          )
+                        }
+                        className="text-red-600 hover:text-red-800 hover:bg-red-50 w-11 h-11"
+                        title="OKRを削除"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+
                     <div className="flex items-center flex-1">
                       <div
                         className="flex-1 text-left cursor-pointer hover:bg-gray-50 transition-colors p-2 -m-2 rounded"
                         onClick={() => {
                           // 編集中は展開/折りたたみを無効にする
-                          if (editingOKR && editingOKR.id === yearlyOKR.id && editingOKR.type === 'yearly') {
+                          if (
+                            editingOKR &&
+                            editingOKR.id === yearlyOKR.id &&
+                            editingOKR.type === 'yearly'
+                          ) {
                             return;
                           }
                           toggleOKR(yearlyOKR.id);
@@ -786,7 +812,11 @@ export default function PlanDetailPage({
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
                             // 編集中は展開/折りたたみを無効にする
-                            if (editingOKR && editingOKR.id === yearlyOKR.id && editingOKR.type === 'yearly') {
+                            if (
+                              editingOKR &&
+                              editingOKR.id === yearlyOKR.id &&
+                              editingOKR.type === 'yearly'
+                            ) {
                               return;
                             }
                             toggleOKR(yearlyOKR.id);
@@ -799,9 +829,7 @@ export default function PlanDetailPage({
                         {editingOKR &&
                         editingOKR.id === yearlyOKR.id &&
                         editingOKR.type === 'yearly' ? (
-                          <div
-                            className="flex flex-col gap-2 bg-blue-50 p-2 rounded border border-blue-200"
-                          >
+                          <div className="flex flex-col gap-2 bg-blue-50 p-2 rounded border border-blue-200">
                             <Textarea
                               ref={okrObjectiveTextareaRef}
                               value={tempObjective}
@@ -841,7 +869,7 @@ export default function PlanDetailPage({
                           </div>
                         ) : (
                           <h3
-                            className="font-semibold text-gray-900 cursor-pointer hover:text-primary-sunrise transition-colors p-1 rounded hover:bg-primary-sunrise/10"
+                            className="font-semibold text-neutral-800 cursor-pointer hover:text-primary-sunrise transition-colors p-1 rounded hover:bg-gradient-to-r hover:from-primary-sunrise/10 hover:to-primary-daylight/10"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleStartOKREdit(
@@ -870,30 +898,21 @@ export default function PlanDetailPage({
                           進捗: {yearProgress}%
                         </p>
                         <div className="mt-2">
-                          <Progress value={yearProgress} className="h-1" />
+                          <Progress
+                            value={yearProgress}
+                            className="h-2 bg-gray-200 [&>div]:bg-gradient-to-r [&>div]:from-primary-sunrise [&>div]:to-primary-daylight"
+                          />
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          handleStartOKRDelete(
-                            yearlyOKR.id,
-                            'yearly',
-                            `${yearlyOKR.year}年: ${yearlyOKR.objective}`,
-                          )
-                        }
-                        className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                        title="OKRを削除"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+
+                    {/* 開閉ボタンを右端に移動、十分な間隔を確保 */}
+                    <div className="flex items-center ml-4">
                       <button
                         type="button"
-                        className="p-1"
+                        className="p-3 hover:bg-gray-100 rounded-full transition-colors w-11 h-11 flex items-center justify-center"
                         onClick={() => toggleOKR(yearlyOKR.id)}
+                        title={isExpanded ? '折りたたむ' : '展開する'}
                       >
                         {isExpanded ? (
                           <ChevronDownIcon className="w-5 h-5 text-gray-400" />
@@ -921,9 +940,7 @@ export default function PlanDetailPage({
                                 <div className="flex items-center justify-between">
                                   <div className="flex-1">
                                     {editingKeyResultDesc === keyResult.id ? (
-                                      <div
-                                        className="flex flex-col gap-2 bg-blue-50 p-2 rounded border border-blue-200"
-                                      >
+                                      <div className="flex flex-col gap-2 bg-blue-50 p-2 rounded border border-blue-200">
                                         <Textarea
                                           ref={keyResultDescTextareaRef}
                                           value={tempKeyResultDesc}
@@ -980,9 +997,7 @@ export default function PlanDetailPage({
                                   </div>
                                   <div className="flex items-center space-x-2">
                                     {editingKeyResult === keyResult.id ? (
-                                      <div
-                                        className="flex flex-col gap-2 bg-white/80 p-3 rounded border border-neutral-200 min-w-[280px]"
-                                      >
+                                      <div className="flex flex-col gap-2 bg-white/80 p-3 rounded border border-neutral-200 min-w-[280px]">
                                         <div className="flex items-center gap-2">
                                           <Label className="text-xs font-medium text-neutral-700 w-12">
                                             実績:
@@ -1121,7 +1136,7 @@ export default function PlanDetailPage({
                                             {keyResult.unit}
                                           </span>
                                         )}
-                                        <span className="text-sm bg-primary-sunrise/10 text-primary-sunrise px-2 py-1 rounded font-medium ml-2">
+                                        <span className="text-xs bg-gradient-to-r from-primary-sunrise/20 to-primary-daylight/20 text-primary-sunrise px-2 py-1 rounded-full font-medium ml-2 border border-primary-sunrise/30">
                                           {Math.round(
                                             (keyResult.currentValue /
                                               keyResult.targetValue) *
@@ -1138,9 +1153,8 @@ export default function PlanDetailPage({
                           </div>
                           <div className="px-4 pb-2">
                             <Button
-                              variant="outline"
                               size="sm"
-                              className="w-full text-xs"
+                              className="w-full text-xs bg-gradient-to-r from-primary-sunrise to-primary-daylight hover:shadow-lg hover:scale-105 active:scale-95 text-neutral-800 border-none transition-all duration-200"
                               onClick={() =>
                                 handleStartAddKeyResult('yearly', yearlyOKR.id)
                               }
@@ -1161,14 +1175,31 @@ export default function PlanDetailPage({
                               className="p-4 pl-12 border-b border-gray-100 last:border-b-0"
                             >
                               <div className="flex items-center justify-between">
-                                <div className="flex items-center">
+                                {/* 削除ボタンを左端に配置 */}
+                                <div className="flex items-center mr-4">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleStartOKRDelete(
+                                        quarterlyOKR.id,
+                                        'quarterly',
+                                        `Q${quarterlyOKR.quarter}: ${quarterlyOKR.objective}`,
+                                      )
+                                    }
+                                    className="text-red-600 hover:text-red-800 hover:bg-red-50 w-9 h-9"
+                                    title="OKRを削除"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </div>
+
+                                <div className="flex items-center flex-1">
                                   <div>
                                     {editingOKR &&
                                     editingOKR.id === quarterlyOKR.id &&
                                     editingOKR.type === 'quarterly' ? (
-                                      <div
-                                        className="flex flex-col gap-1.5 bg-blue-50 p-2 rounded border border-blue-200"
-                                      >
+                                      <div className="flex flex-col gap-1.5 bg-blue-50 p-2 rounded border border-blue-200">
                                         <Textarea
                                           ref={okrObjectiveTextareaRef}
                                           value={tempObjective}
@@ -1213,7 +1244,7 @@ export default function PlanDetailPage({
                                     ) : (
                                       <button
                                         type="button"
-                                        className="font-medium text-gray-900 cursor-pointer hover:text-primary-sunrise transition-colors p-1 rounded hover:bg-primary-sunrise/10 text-left"
+                                        className="font-medium text-neutral-800 cursor-pointer hover:text-primary-sunrise transition-colors p-1 rounded hover:bg-gradient-to-r hover:from-primary-sunrise/10 hover:to-primary-daylight/10 text-left"
                                         onClick={() =>
                                           handleStartOKREdit(
                                             quarterlyOKR.id,
@@ -1244,9 +1275,7 @@ export default function PlanDetailPage({
                                                 <div className="flex-1 text-xs">
                                                   {editingKeyResultDesc ===
                                                   keyResult.id ? (
-                                                    <div
-                                                      className="flex flex-col gap-1.5 bg-blue-50 p-2 rounded border border-blue-200"
-                                                    >
+                                                    <div className="flex flex-col gap-1.5 bg-blue-50 p-2 rounded border border-blue-200">
                                                       <Textarea
                                                         ref={
                                                           keyResultDescTextareaRef
@@ -1312,9 +1341,7 @@ export default function PlanDetailPage({
                                                 <div className="flex items-center space-x-1">
                                                   {editingKeyResult ===
                                                   keyResult.id ? (
-                                                    <div
-                                                      className="flex flex-col gap-1.5 bg-white/80 p-2 rounded border border-neutral-200 min-w-[220px]"
-                                                    >
+                                                    <div className="flex flex-col gap-1.5 bg-white/80 p-2 rounded border border-neutral-200 min-w-[220px]">
                                                       <div className="flex items-center gap-1">
                                                         <Label className="text-xs font-medium text-neutral-700 w-8">
                                                           実績:
@@ -1470,7 +1497,7 @@ export default function PlanDetailPage({
                                                           {keyResult.unit}
                                                         </span>
                                                       )}
-                                                      <span className="text-xs bg-primary-sunrise/10 text-primary-sunrise px-1.5 py-0.5 rounded font-medium ml-1">
+                                                      <span className="text-xs bg-gradient-to-r from-primary-sunrise/20 to-primary-daylight/20 text-primary-sunrise px-1.5 py-0.5 rounded-full font-medium ml-1 border border-primary-sunrise/30">
                                                         {Math.round(
                                                           (keyResult.currentValue /
                                                             keyResult.targetValue) *
@@ -1493,29 +1520,11 @@ export default function PlanDetailPage({
                                     </div>
                                   </div>
                                 </div>
-                                <div className="flex items-center space-x-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() =>
-                                      handleStartOKRDelete(
-                                        quarterlyOKR.id,
-                                        'quarterly',
-                                        `Q${quarterlyOKR.quarter}: ${quarterlyOKR.objective}`,
-                                      )
-                                    }
-                                    className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                                    title="OKRを削除"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </div>
                               </div>
                               <div className="px-4 pb-2 pl-12">
                                 <Button
-                                  variant="outline"
                                   size="sm"
-                                  className="w-full text-xs"
+                                  className="w-full text-xs bg-gradient-to-r from-primary-sunrise to-primary-daylight hover:shadow-lg hover:scale-105 active:scale-95 text-neutral-800 border-none transition-all duration-200"
                                   onClick={() =>
                                     handleStartAddKeyResult(
                                       'quarterly',
@@ -1531,9 +1540,8 @@ export default function PlanDetailPage({
                           ))}
                           <div className="p-4 pl-12">
                             <Button
-                              variant="outline"
                               size="sm"
-                              className="w-full"
+                              className="w-full bg-gradient-to-r from-primary-sunrise to-primary-daylight hover:shadow-lg hover:scale-105 active:scale-95 text-neutral-800 border-none transition-all duration-200"
                               onClick={() =>
                                 handleStartAddOKR('quarterly', yearlyOKR.year)
                               }
@@ -1557,7 +1565,7 @@ export default function PlanDetailPage({
             <Target className="w-8 h-8 text-gray-400 mx-auto mb-2" />
             <p className="text-gray-600 mb-4">新しい年次目標を追加しますか？</p>
             <Button
-              variant="outline"
+              className="bg-gradient-to-r from-primary-sunrise to-primary-daylight hover:shadow-lg hover:scale-105 active:scale-95 text-neutral-800 border-none transition-all duration-200"
               onClick={() => handleStartAddOKR('yearly')}
             >
               <PlusIcon className="w-4 h-4 mr-2" />
