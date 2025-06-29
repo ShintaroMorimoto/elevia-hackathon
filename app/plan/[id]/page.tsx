@@ -773,10 +773,17 @@ export default function PlanDetailPage({
                 <CardContent className="p-0">
                   <div className="flex items-center p-4">
                     <div className="flex items-center flex-1">
-                      <button
-                        type="button"
-                        className="flex-1 text-left hover:bg-gray-50 transition-colors p-2 -m-2 rounded"
+                      <div
+                        className="flex-1 text-left cursor-pointer hover:bg-gray-50 transition-colors p-2 -m-2 rounded"
                         onClick={() => toggleOKR(yearlyOKR.id)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            toggleOKR(yearlyOKR.id);
+                          }
+                        }}
                       >
                         {editingOKR &&
                         editingOKR.id === yearlyOKR.id &&
@@ -851,7 +858,7 @@ export default function PlanDetailPage({
                         <div className="mt-2">
                           <Progress value={yearProgress} className="h-1" />
                         </div>
-                      </button>
+                      </div>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Button
