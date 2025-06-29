@@ -62,7 +62,7 @@ fi
   
 # 4. grant roles to workload identity pool
 log "checking roles for workload identity pool"
-for role in "roles/cloudsql.admin" "roles/run.admin" "roles/storage.admin" "roles/iam.serviceAccountUser" "roles/serviceusage.serviceUsageConsumer" "roles/serviceusage.serviceUsageAdmin"; do
+for role in "roles/cloudsql.admin" "roles/run.admin" "roles/storage.admin" "roles/iam.serviceAccountUser" "roles/iam.serviceAccountTokenCreator" "roles/serviceusage.serviceUsageConsumer" "roles/serviceusage.serviceUsageAdmin"; do
     if ! gcloud projects get-iam-policy $PROJECT_ID --flatten="bindings[].members" --filter="bindings.members:principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/$WORKLOAD_IDENTITY_POOL/attribute.repository/$GITHUB_OWNER/$GITHUB_REPO AND bindings.role:$role" --format="value(bindings.role)" | grep "$role" >/dev/null 2>&1; then
         log "granting $role to workload identity pool: $WORKLOAD_IDENTITY_POOL"
         gcloud projects add-iam-policy-binding $PROJECT_ID \
