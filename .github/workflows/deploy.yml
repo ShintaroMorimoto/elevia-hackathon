@@ -83,12 +83,25 @@ jobs:
 
       - name: Deploy to Cloud Run
         run: |
-          gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image=${{ steps.repo-info.outputs.latest_tag }} \
-            --region=${{ env.REGION }} \
-            --platform=managed \
-            --allow-unauthenticated \
-            --quiet
+          # Use Terraform-created service account if infrastructure is ready
+          if [ "${{ steps.tf-outputs.outputs.infrastructure_ready }}" = "true" ]; then
+            echo "Deploying with Terraform-created service account..."
+            gcloud run deploy ${{ env.SERVICE_NAME }} \
+              --image=${{ steps.repo-info.outputs.latest_tag }} \
+              --region=${{ env.REGION }} \
+              --platform=managed \
+              --allow-unauthenticated \
+              --service-account=elevia-run-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+              --quiet
+          else
+            echo "Deploying without custom service account (infrastructure not ready)..."
+            gcloud run deploy ${{ env.SERVICE_NAME }} \
+              --image=${{ steps.repo-info.outputs.latest_tag }} \
+              --region=${{ env.REGION }} \
+              --platform=managed \
+              --allow-unauthenticated \
+              --quiet
+          fi
 
       - name: Get Cloud Run URL
         id: deploy-url
