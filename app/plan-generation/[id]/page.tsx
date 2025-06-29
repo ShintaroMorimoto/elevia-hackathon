@@ -38,6 +38,7 @@ export default function PlanGenerationPage({
   ];
 
   // Initialize plan generation with Mastra
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Function only needs to run once on mount
   useEffect(() => {
     const initializePlan = async () => {
       try {
@@ -156,7 +157,7 @@ export default function PlanGenerationPage({
         notInitialized: !initializationRef.current,
       });
     }
-  }, [params, session, status, router]);
+  }, [params, session, status, router, isLoading, isProcessing, isComplete, error, goalId]);
 
   // Prevent user from leaving page during processing
   useEffect(() => {

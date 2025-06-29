@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -84,6 +84,13 @@ export default function PlanDetailPage({
   // Ref for auto-focusing Textarea
   const keyResultDescTextareaRef = useRef<HTMLTextAreaElement>(null);
   const okrObjectiveTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Generate unique IDs for form elements
+  const newObjectiveId = useId();
+  const quarterSelectId = useId();
+  const newKrDescId = useId();
+  const newKrTargetId = useId();
+  const newKrUnitId = useId();
 
   // Load plan data from database
   useEffect(() => {
@@ -501,7 +508,7 @@ export default function PlanDetailPage({
     return (
       trimmedDesc.length >= 5 &&
       trimmedDesc.length <= 200 &&
-      !isNaN(targetValue) &&
+      !Number.isNaN(targetValue) &&
       targetValue > 0
     );
   };
@@ -766,17 +773,34 @@ export default function PlanDetailPage({
                 <CardContent className="p-0">
                   <div className="flex items-center p-4">
                     <div className="flex items-center flex-1">
-                      <button
-                        type="button"
-                        className="flex-1 text-left hover:bg-gray-50 transition-colors p-2 -m-2 rounded"
-                        onClick={() => toggleOKR(yearlyOKR.id)}
+                      <div
+                        className="flex-1 text-left cursor-pointer hover:bg-gray-50 transition-colors p-2 -m-2 rounded"
+                        onClick={() => {
+                          // 編集中は展開/折りたたみを無効にする
+                          if (editingOKR && editingOKR.id === yearlyOKR.id && editingOKR.type === 'yearly') {
+                            return;
+                          }
+                          toggleOKR(yearlyOKR.id);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            // 編集中は展開/折りたたみを無効にする
+                            if (editingOKR && editingOKR.id === yearlyOKR.id && editingOKR.type === 'yearly') {
+                              return;
+                            }
+                            toggleOKR(yearlyOKR.id);
+                          }
+                        }}
+                        // biome-ignore lint/a11y/useSemanticElements: Using div to avoid nested button elements within edit area
+                        role="button"
+                        tabIndex={0}
                       >
                         {editingOKR &&
                         editingOKR.id === yearlyOKR.id &&
                         editingOKR.type === 'yearly' ? (
                           <div
                             className="flex flex-col gap-2 bg-blue-50 p-2 rounded border border-blue-200"
-                            onClick={(e) => e.stopPropagation()}
                           >
                             <Textarea
                               ref={okrObjectiveTextareaRef}
@@ -826,6 +850,17 @@ export default function PlanDetailPage({
                                 yearlyOKR.objective,
                               );
                             }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleStartOKREdit(
+                                  yearlyOKR.id,
+                                  'yearly',
+                                  yearlyOKR.objective,
+                                );
+                              }
+                            }}
                             title="クリックして編集"
                           >
                             {year}年次Objective: {yearlyOKR.objective}
@@ -837,7 +872,7 @@ export default function PlanDetailPage({
                         <div className="mt-2">
                           <Progress value={yearProgress} className="h-1" />
                         </div>
-                      </button>
+                      </div>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Button
@@ -888,7 +923,6 @@ export default function PlanDetailPage({
                                     {editingKeyResultDesc === keyResult.id ? (
                                       <div
                                         className="flex flex-col gap-2 bg-blue-50 p-2 rounded border border-blue-200"
-                                        onClick={(e) => e.stopPropagation()}
                                       >
                                         <Textarea
                                           ref={keyResultDescTextareaRef}
@@ -948,7 +982,6 @@ export default function PlanDetailPage({
                                     {editingKeyResult === keyResult.id ? (
                                       <div
                                         className="flex flex-col gap-2 bg-white/80 p-3 rounded border border-neutral-200 min-w-[280px]"
-                                        onClick={(e) => e.stopPropagation()}
                                       >
                                         <div className="flex items-center gap-2">
                                           <Label className="text-xs font-medium text-neutral-700 w-12">
@@ -1135,7 +1168,6 @@ export default function PlanDetailPage({
                                     editingOKR.type === 'quarterly' ? (
                                       <div
                                         className="flex flex-col gap-1.5 bg-blue-50 p-2 rounded border border-blue-200"
-                                        onClick={(e) => e.stopPropagation()}
                                       >
                                         <Textarea
                                           ref={okrObjectiveTextareaRef}
@@ -1179,8 +1211,9 @@ export default function PlanDetailPage({
                                         </div>
                                       </div>
                                     ) : (
-                                      <p
-                                        className="font-medium text-gray-900 cursor-pointer hover:text-primary-sunrise transition-colors p-1 rounded hover:bg-primary-sunrise/10"
+                                      <button
+                                        type="button"
+                                        className="font-medium text-gray-900 cursor-pointer hover:text-primary-sunrise transition-colors p-1 rounded hover:bg-primary-sunrise/10 text-left"
                                         onClick={() =>
                                           handleStartOKREdit(
                                             quarterlyOKR.id,
@@ -1192,7 +1225,7 @@ export default function PlanDetailPage({
                                       >
                                         Q{quarterlyOKR.quarter} Objective:{' '}
                                         {quarterlyOKR.objective}
-                                      </p>
+                                      </button>
                                     )}
                                     <div className="mt-2 space-y-1">
                                       {quarterlyOKR.keyResults.length > 0 && (
@@ -1213,9 +1246,6 @@ export default function PlanDetailPage({
                                                   keyResult.id ? (
                                                     <div
                                                       className="flex flex-col gap-1.5 bg-blue-50 p-2 rounded border border-blue-200"
-                                                      onClick={(e) =>
-                                                        e.stopPropagation()
-                                                      }
                                                     >
                                                       <Textarea
                                                         ref={
@@ -1284,9 +1314,6 @@ export default function PlanDetailPage({
                                                   keyResult.id ? (
                                                     <div
                                                       className="flex flex-col gap-1.5 bg-white/80 p-2 rounded border border-neutral-200 min-w-[220px]"
-                                                      onClick={(e) =>
-                                                        e.stopPropagation()
-                                                      }
                                                     >
                                                       <div className="flex items-center gap-1">
                                                         <Label className="text-xs font-medium text-neutral-700 w-8">
@@ -1404,6 +1431,7 @@ export default function PlanDetailPage({
                                                   ) : (
                                                     <>
                                                       <button
+                                                        type="button"
                                                         onClick={() =>
                                                           handleStartEdit(
                                                             keyResult.id,
@@ -1422,6 +1450,7 @@ export default function PlanDetailPage({
                                                         /{' '}
                                                       </span>
                                                       <button
+                                                        type="button"
                                                         onClick={() =>
                                                           handleStartEdit(
                                                             keyResult.id,
@@ -1684,9 +1713,9 @@ export default function PlanDetailPage({
                 </div>
                 <div className="grid gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="new-objective">目標 (Objective)</Label>
+                    <Label htmlFor={newObjectiveId}>目標 (Objective)</Label>
                     <Textarea
-                      id="new-objective"
+                      id={newObjectiveId}
                       value={newOKRObjective}
                       onChange={(e) => setNewOKRObjective(e.target.value)}
                       placeholder="具体的で測定可能な目標を入力してください"
@@ -1717,9 +1746,9 @@ export default function PlanDetailPage({
 
                   {addingOKR.type === 'quarterly' && (
                     <div className="grid gap-2">
-                      <Label htmlFor="quarter">四半期</Label>
+                      <Label htmlFor={quarterSelectId}>四半期</Label>
                       <select
-                        id="quarter"
+                        id={quarterSelectId}
                         value={newOKRQuarter}
                         onChange={(e) =>
                           setNewOKRQuarter(parseInt(e.target.value))
@@ -1785,9 +1814,9 @@ export default function PlanDetailPage({
                 </div>
                 <div className="grid gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="new-kr-desc">説明</Label>
+                    <Label htmlFor={newKrDescId}>説明</Label>
                     <Textarea
-                      id="new-kr-desc"
+                      id={newKrDescId}
                       value={newKeyResultDesc}
                       onChange={(e) => setNewKeyResultDesc(e.target.value)}
                       placeholder="具体的で測定可能なKey Resultを入力してください"
@@ -1816,9 +1845,9 @@ export default function PlanDetailPage({
                     </div>
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="new-kr-target">目標値</Label>
+                    <Label htmlFor={newKrTargetId}>目標値</Label>
                     <Input
-                      id="new-kr-target"
+                      id={newKrTargetId}
                       type="number"
                       value={newKeyResultTarget}
                       onChange={(e) => setNewKeyResultTarget(e.target.value)}
@@ -1828,9 +1857,9 @@ export default function PlanDetailPage({
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="new-kr-unit">単位（任意）</Label>
+                    <Label htmlFor={newKrUnitId}>単位（任意）</Label>
                     <Input
-                      id="new-kr-unit"
+                      id={newKrUnitId}
                       value={newKeyResultUnit}
                       onChange={(e) => setNewKeyResultUnit(e.target.value)}
                       placeholder="例: 個、件、%、時間"

@@ -31,7 +31,7 @@ describe('Plan Detail Helpers with Database Integration', () => {
         data: { 
           id: 'goal-1', 
           title: '5年後に1億円稼ぐ', 
-          deadline: '2029-12-31',
+          dueDate: '2029-12-31',
           userId: 'user-1'
         }
       });
@@ -41,10 +41,9 @@ describe('Plan Detail Helpers with Database Integration', () => {
         data: [
           {
             id: 'yearly-1',
-            year: 2025,
+            targetYear: 2025,
             objective: '基盤構築の年',
-            description: '事業の基盤を築く',
-            completed: false
+            progressPercentage: '0'
           }
         ]
       });
@@ -55,10 +54,9 @@ describe('Plan Detail Helpers with Database Integration', () => {
           {
             id: 'quarterly-1',
             yearlyOkrId: 'yearly-1',
-            quarter: 1,
+            targetQuarter: 1,
             objective: 'ビジネス開始',
-            description: '副業として開始',
-            completed: false
+            progressPercentage: '0'
           }
         ]
       });
@@ -70,9 +68,9 @@ describe('Plan Detail Helpers with Database Integration', () => {
             id: 'kr-1',
             yearlyOkrId: 'yearly-1',
             quarterlyOkrId: null,
-            result: '売上10万円達成',
-            targetValue: 100000,
-            currentValue: 0
+            description: '売上10万円達成',
+            targetValue: '100000',
+            currentValue: '0'
           }
         ]
       });
@@ -89,8 +87,19 @@ describe('Plan Detail Helpers with Database Integration', () => {
           expect.objectContaining({
             year: 2025,
             objective: '基盤構築の年',
-            quarterlyOKRs: expect.any(Array),
-            keyResults: expect.any(Array)
+            quarterlyOKRs: expect.arrayContaining([
+              expect.objectContaining({
+                quarter: 1,
+                objective: 'ビジネス開始'
+              })
+            ]),
+            keyResults: expect.arrayContaining([
+              expect.objectContaining({
+                result: '売上10万円達成',
+                targetValue: 100000,
+                currentValue: 0
+              })
+            ])
           })
         ]),
         totalProgress: expect.any(Number)
@@ -117,7 +126,7 @@ describe('Plan Detail Helpers with Database Integration', () => {
       // Act & Assert
       await expect(
         loadPlanData(invalidGoalId, userId)
-      ).rejects.toThrow('Goal not found');
+      ).rejects.toThrow('Failed to load plan data for goal invalid-goal: Goal not found');
     });
   });
 
@@ -176,7 +185,7 @@ describe('Plan Detail Helpers with Database Integration', () => {
 
       vi.mocked(updateYearlyOkr).mockResolvedValue({
         success: true,
-        data: { id: 'yearly-1', completed: true }
+        data: { id: 'yearly-1', progressPercentage: '100.00' }
       });
 
       const okrId = 'yearly-1';
@@ -187,7 +196,7 @@ describe('Plan Detail Helpers with Database Integration', () => {
         success: true,
         newStatus: true,
         data: expect.objectContaining({
-          completed: true
+          progressPercentage: "100.00"
         })
       };
 
@@ -203,7 +212,7 @@ describe('Plan Detail Helpers with Database Integration', () => {
 
       vi.mocked(updateQuarterlyOkr).mockResolvedValue({
         success: true,
-        data: { id: 'quarterly-1', completed: true }
+        data: { id: 'quarterly-1', progressPercentage: '100.00' }
       });
 
       const okrId = 'quarterly-1';
@@ -214,7 +223,7 @@ describe('Plan Detail Helpers with Database Integration', () => {
         success: true,
         newStatus: true,
         data: expect.objectContaining({
-          completed: true
+          progressPercentage: "100.00"
         })
       };
 

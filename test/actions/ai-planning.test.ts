@@ -10,6 +10,42 @@ vi.mock('@mastra/core', () => ({
   Agent: vi.fn().mockImplementation(() => mockAgent),
 }));
 
+// Mock RuntimeContext
+vi.mock('@mastra/core/di', () => ({
+  RuntimeContext: vi.fn().mockImplementation(() => ({})),
+}));
+
+// Mock Mastra tools
+const mockGenerateOKRTool = {
+  execute: vi.fn(),
+};
+const mockAnalyzeChatHistoryTool = {
+  execute: vi.fn(),
+};
+const mockGoalAnalysisTool = {
+  execute: vi.fn(),
+};
+
+vi.mock('../../src/mastra/tools/okr-tools', () => ({
+  generateOKRTool: mockGenerateOKRTool,
+  analyzeChatHistoryTool: mockAnalyzeChatHistoryTool,
+}));
+
+vi.mock('../../src/mastra/tools/goal-tools', () => ({
+  goalAnalysisTool: mockGoalAnalysisTool,
+}));
+
+// Mock OKR actions
+const mockCreateYearlyOkr = vi.fn();
+const mockCreateQuarterlyOkr = vi.fn();
+const mockCreateKeyResult = vi.fn();
+
+vi.mock('../../actions/okr', () => ({
+  createYearlyOkr: mockCreateYearlyOkr,
+  createQuarterlyOkr: mockCreateQuarterlyOkr,
+  createKeyResult: mockCreateKeyResult,
+}));
+
 // Mock database
 const mockSelect = vi.fn();
 const mockFrom = vi.fn();
@@ -24,7 +60,14 @@ vi.mock('../../lib/db', () => ({
 
 mockSelect.mockReturnValue({ from: mockFrom });
 mockFrom.mockReturnValue({ where: mockWhere });
-mockWhere.mockReturnValue({ limit: mockLimit });
+mockWhere.mockReturnValue({ 
+  limit: mockLimit,
+  then: function(resolve) { 
+    // This makes mockWhere awaitable (for calls without .limit())
+    return Promise.resolve([]).then(resolve); 
+  }
+});
+mockLimit.mockReturnValue(Promise.resolve([]));
 
 // Dynamic import to ensure mocks are loaded
 const { generateOKRPlan } = await import('../../actions/ai-planning');
@@ -49,16 +92,53 @@ describe('AI Planning Server Actions', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset the default mock behavior
+    mockWhere.mockReturnValue({ 
+      limit: mockLimit,
+      then: function(resolve) { 
+        // This makes mockWhere awaitable (for calls without .limit())
+        return Promise.resolve([]).then(resolve); 
+      }
+    });
     mockLimit.mockReturnValue(Promise.resolve([]));
+
+    // Set up default mock behaviors for Mastra tools
+    mockAnalyzeChatHistoryTool.execute.mockResolvedValue({
+      userMotivation: 'Test motivation',
+      keyInsights: ['Test insight'],
+      readinessLevel: 8,
+      recommendedActions: ['Test action'],
+    });
+
+    mockGoalAnalysisTool.execute.mockResolvedValue({
+      completionPercentage: 0,
+    });
+
+    mockGenerateOKRTool.execute.mockResolvedValue({
+      yearly: [],
+      quarterly: [],
+    });
+
+    // Set up default mock behaviors for OKR actions
+    mockCreateYearlyOkr.mockResolvedValue({ success: true, data: { id: 'yearly-1' } });
+    mockCreateQuarterlyOkr.mockResolvedValue({ success: true, data: { id: 'quarterly-1' } });
+    mockCreateKeyResult.mockResolvedValue({ success: true, data: { id: 'kr-1' } });
   });
 
   describe('generateOKRPlan', () => {
     it('should generate OKR plan successfully', async () => {
-      // Mock goal exists
+      // Mock goal exists (first call with limit)
       mockLimit.mockResolvedValueOnce([mockGoal]);
+      // Mock existing OKRs (second call without limit) - should return empty array
+      mockWhere.mockReturnValueOnce({ 
+        limit: mockLimit,
+        then: function(resolve) { 
+          return Promise.resolve([]).then(resolve); 
+        }
+      });
       
-      // Mock AI response
-      const mockAIResponse = {
+      // Mock OKR generation response
+      const mockOKRPlan = {
         yearly: [
           {
             year: 2025,
@@ -81,28 +161,34 @@ describe('AI Planning Server Actions', () => {
         ],
       };
       
-      mockAgent.generate.mockResolvedValueOnce({ 
-        text: JSON.stringify(mockAIResponse) 
-      });
+      mockGenerateOKRTool.execute.mockResolvedValueOnce(mockOKRPlan);
 
       const result = await generateOKRPlan('goal-123', 'user-123', mockChatHistory);
 
       expect(result).toEqual({
         success: true,
         data: expect.objectContaining({
-          yearly: expect.arrayContaining([
-            expect.objectContaining({
-              year: 2025,
-              objective: 'トラベルスキルと資金を準備する',
-            }),
-          ]),
-          quarterly: expect.arrayContaining([
-            expect.objectContaining({
-              year: 2025,
-              quarter: 1,
-              objective: '旅行準備の基盤を作る',
-            }),
-          ]),
+          success: true,
+          planId: 'goal-123',
+          okrPlan: expect.objectContaining({
+            yearly: expect.arrayContaining([
+              expect.objectContaining({
+                year: 2025,
+                objective: 'トラベルスキルと資金を準備する',
+              }),
+            ]),
+            quarterly: expect.arrayContaining([
+              expect.objectContaining({
+                year: 2025,
+                quarter: 1,
+                objective: '旅行準備の基盤を作る',
+              }),
+            ]),
+          }),
+          analysis: expect.objectContaining({
+            userMotivation: 'Test motivation',
+            completionPercentage: 0,
+          }),
         }),
       });
     });
@@ -131,7 +217,13 @@ describe('AI Planning Server Actions', () => {
 
     it('should handle AI generation errors', async () => {
       mockLimit.mockResolvedValueOnce([mockGoal]);
-      mockAgent.generate.mockRejectedValueOnce(new Error('AI service error'));
+      mockWhere.mockReturnValueOnce({ 
+        limit: mockLimit,
+        then: function(resolve) { 
+          return Promise.resolve([]).then(resolve); 
+        }
+      });
+      mockGenerateOKRTool.execute.mockRejectedValueOnce(new Error('AI service error'));
 
       const result = await generateOKRPlan('goal-123', 'user-123', []);
 
@@ -143,28 +235,40 @@ describe('AI Planning Server Actions', () => {
 
     it('should handle invalid AI response format', async () => {
       mockLimit.mockResolvedValueOnce([mockGoal]);
-      mockAgent.generate.mockResolvedValueOnce({ 
-        text: 'invalid json response' 
+      mockWhere.mockReturnValueOnce({ 
+        limit: mockLimit,
+        then: function(resolve) { 
+          return Promise.resolve([]).then(resolve); 
+        }
       });
+      mockAnalyzeChatHistoryTool.execute.mockRejectedValueOnce(new Error('Invalid response'));
 
       const result = await generateOKRPlan('goal-123', 'user-123', []);
 
       expect(result).toEqual({
         success: false,
-        error: 'Failed to parse AI response',
+        error: 'Failed to generate OKR plan',
       });
     });
 
     it('should include chat history in AI prompt', async () => {
       mockLimit.mockResolvedValueOnce([mockGoal]);
-      mockAgent.generate.mockResolvedValueOnce({ 
-        text: JSON.stringify({ yearly: [], quarterly: [] }) 
+      mockWhere.mockReturnValueOnce({ 
+        limit: mockLimit,
+        then: function(resolve) { 
+          return Promise.resolve([]).then(resolve); 
+        }
       });
 
       await generateOKRPlan('goal-123', 'user-123', mockChatHistory);
 
-      expect(mockAgent.generate).toHaveBeenCalledWith(
-        expect.stringContaining('世界の文化を体験し、視野を広げたいから')
+      // Verify that chat history was passed to analyzeChatHistoryTool
+      expect(mockAnalyzeChatHistoryTool.execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: expect.objectContaining({
+            chatHistory: mockChatHistory,
+          }),
+        })
       );
     });
 

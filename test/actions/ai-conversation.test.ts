@@ -1,13 +1,31 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Goal } from '../../lib/db/schema';
 
-// Mock Mastra
-const mockAgent = {
-  generate: vi.fn(),
+// Mock Mastra tools
+const mockGoalAnalysisTool = {
+  execute: vi.fn(),
 };
 
-vi.mock('@mastra/core', () => ({
-  Agent: vi.fn().mockImplementation(() => mockAgent),
+const mockGenerateQuestionTool = {
+  execute: vi.fn(),
+};
+
+const mockAnalyzeChatHistoryTool = {
+  execute: vi.fn(),
+};
+
+vi.mock('../../src/mastra/tools/goal-tools', () => ({
+  goalAnalysisTool: mockGoalAnalysisTool,
+  generateQuestionTool: mockGenerateQuestionTool,
+}));
+
+vi.mock('../../src/mastra/tools/okr-tools', () => ({
+  analyzeChatHistoryTool: mockAnalyzeChatHistoryTool,
+}));
+
+// Mock RuntimeContext
+vi.mock('@mastra/core/di', () => ({
+  RuntimeContext: vi.fn().mockImplementation(() => ({})),
 }));
 
 // Mock database
@@ -51,13 +69,43 @@ describe('AI Conversation Server Actions', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockLimit.mockReturnValue(Promise.resolve([]));
+    // Default: return mock goal data for database queries
+    mockLimit.mockReturnValue(Promise.resolve([mockGoal]));
+    
+    // Setup default mock responses for Mastra tools
+    mockGoalAnalysisTool.execute.mockResolvedValue({
+      currentDepth: 2,
+      maxDepth: 5,
+      isComplete: false,
+      completionPercentage: 40,
+      missingAspects: ['resources', 'timeline'],
+      informationSufficiency: 0.4,
+      isReadyToProceed: false,
+      missingCriticalInfo: ['資金計画', '具体的なスケジュール'],
+      conversationQuality: 'medium',
+      suggestedNextAction: 'continue_conversation',
+      reasoning: 'さらに詳細情報が必要です',
+    });
+    
+    mockGenerateQuestionTool.execute.mockResolvedValue({
+      question: 'どのような予算を想定していますか？',
+      type: 'resources',
+      depth: 3,
+      reasoning: 'リソース情報が不足しています',
+      shouldComplete: false,
+      confidence: 0.8,
+    });
+
+    mockAnalyzeChatHistoryTool.execute.mockResolvedValue({
+      userMotivation: 'Test motivation',
+      keyInsights: ['Test insight'],
+      readinessLevel: 8,
+      recommendedActions: ['Test action'],
+    });
   });
 
   describe('generateNextQuestion', () => {
     it('should generate AI-driven dynamic next question based on conversation context', async () => {
-      mockLimit.mockResolvedValueOnce([mockGoal]);
-      
       const mockQuestionResponse = {
         question: 'これまでにどのような海外経験はありますか？',
         type: 'experience',
@@ -67,9 +115,7 @@ describe('AI Conversation Server Actions', () => {
         confidence: 0.85,
       };
       
-      mockAgent.generate.mockResolvedValueOnce({ 
-        text: JSON.stringify(mockQuestionResponse) 
-      });
+      mockGenerateQuestionTool.execute.mockResolvedValueOnce(mockQuestionResponse);
 
       const result = await generateNextQuestion('goal-123', 'user-123', mockChatHistory);
 
@@ -87,17 +133,16 @@ describe('AI Conversation Server Actions', () => {
     });
 
     it('should generate appropriate next question', async () => {
-      mockLimit.mockResolvedValueOnce([mockGoal]);
-      
       const mockQuestionResponse = {
         question: 'これまでにどのような海外経験はありますか？',
         type: 'experience_inquiry',
         depth: 3,
+        reasoning: '経験について探る必要があります',
+        shouldComplete: false,
+        confidence: 0.8,
       };
       
-      mockAgent.generate.mockResolvedValueOnce({ 
-        text: JSON.stringify(mockQuestionResponse) 
-      });
+      mockGenerateQuestionTool.execute.mockResolvedValueOnce(mockQuestionResponse);
 
       const result = await generateNextQuestion('goal-123', 'user-123', mockChatHistory);
 
@@ -107,6 +152,9 @@ describe('AI Conversation Server Actions', () => {
           question: 'これまでにどのような海外経験はありますか？',
           type: 'experience_inquiry',
           depth: 3,
+          reasoning: expect.any(String),
+          shouldComplete: false,
+          confidence: expect.any(Number),
         }),
       });
     });
@@ -124,7 +172,7 @@ describe('AI Conversation Server Actions', () => {
 
     it('should handle AI generation errors', async () => {
       mockLimit.mockResolvedValueOnce([mockGoal]);
-      mockAgent.generate.mockRejectedValueOnce(new Error('AI service error'));
+      mockGenerateQuestionTool.execute.mockRejectedValueOnce(new Error('AI service error'));
 
       const result = await generateNextQuestion('goal-123', 'user-123', mockChatHistory);
 
@@ -136,15 +184,13 @@ describe('AI Conversation Server Actions', () => {
 
     it('should handle invalid AI response format', async () => {
       mockLimit.mockResolvedValueOnce([mockGoal]);
-      mockAgent.generate.mockResolvedValueOnce({ 
-        text: 'invalid json response' 
-      });
+      mockGoalAnalysisTool.execute.mockRejectedValueOnce(new Error('Invalid response'));
 
       const result = await generateNextQuestion('goal-123', 'user-123', mockChatHistory);
 
       expect(result).toEqual({
         success: false,
-        error: 'Failed to parse AI response',
+        error: 'Failed to generate next question',
       });
     });
 
@@ -159,14 +205,16 @@ describe('AI Conversation Server Actions', () => {
 
     it('should include conversation context in prompt', async () => {
       mockLimit.mockResolvedValueOnce([mockGoal]);
-      mockAgent.generate.mockResolvedValueOnce({ 
-        text: JSON.stringify({ question: 'test', type: 'test', depth: 1 }) 
-      });
 
       await generateNextQuestion('goal-123', 'user-123', mockChatHistory);
 
-      expect(mockAgent.generate).toHaveBeenCalledWith(
-        expect.stringContaining('世界の文化を体験し、視野を広げたいから')
+      // Verify that chat history was passed to goalAnalysisTool
+      expect(mockGoalAnalysisTool.execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: expect.objectContaining({
+            chatHistory: mockChatHistory,
+          }),
+        })
       );
     });
   });
@@ -181,9 +229,7 @@ describe('AI Conversation Server Actions', () => {
         missingAspects: ['具体的な行動計画', '期間とスケジュール'],
       };
       
-      mockAgent.generate.mockResolvedValueOnce({ 
-        text: JSON.stringify(mockAnalysisResponse) 
-      });
+      mockGoalAnalysisTool.execute.mockResolvedValueOnce(mockAnalysisResponse);
 
       const result = await analyzeConversationDepth(mockChatHistory, mockGoal);
 
@@ -199,7 +245,7 @@ describe('AI Conversation Server Actions', () => {
     });
 
     it('should handle AI analysis errors', async () => {
-      mockAgent.generate.mockRejectedValueOnce(new Error('AI service error'));
+      mockGoalAnalysisTool.execute.mockRejectedValueOnce(new Error('AI service error'));
 
       const result = await analyzeConversationDepth(mockChatHistory, mockGoal);
 
@@ -218,9 +264,7 @@ describe('AI Conversation Server Actions', () => {
         missingAspects: [],
       };
       
-      mockAgent.generate.mockResolvedValueOnce({ 
-        text: JSON.stringify(mockCompleteResponse) 
-      });
+      mockGoalAnalysisTool.execute.mockResolvedValueOnce(mockCompleteResponse);
 
       const result = await analyzeConversationDepth(mockChatHistory, mockGoal);
 
@@ -238,9 +282,7 @@ describe('AI Conversation Server Actions', () => {
         reasoning: 'ユーザーの動機、経験、リソースについて十分な情報が収集されました',
       };
       
-      mockAgent.generate.mockResolvedValueOnce({ 
-        text: JSON.stringify(mockDynamicResponse) 
-      });
+      mockGoalAnalysisTool.execute.mockResolvedValueOnce(mockDynamicResponse);
 
       const result = await analyzeConversationDepth(mockChatHistory, mockGoal);
 
@@ -263,9 +305,7 @@ describe('AI Conversation Server Actions', () => {
         recommendedActions: ['英語学習の開始', '貯金計画の策定'],
       };
       
-      mockAgent.generate.mockResolvedValueOnce({ 
-        text: JSON.stringify(mockSummaryResponse) 
-      });
+      mockAnalyzeChatHistoryTool.execute.mockResolvedValueOnce(mockSummaryResponse);
 
       const result = await generateConversationSummary(mockChatHistory, mockGoal);
 
@@ -280,7 +320,7 @@ describe('AI Conversation Server Actions', () => {
     });
 
     it('should handle AI summary generation errors', async () => {
-      mockAgent.generate.mockRejectedValueOnce(new Error('AI service error'));
+      mockAnalyzeChatHistoryTool.execute.mockRejectedValueOnce(new Error('AI service error'));
 
       const result = await generateConversationSummary(mockChatHistory, mockGoal);
 

@@ -47,7 +47,7 @@ describe('Goal Server Actions', () => {
     userId: mockUserId,
     title: 'Test Goal',
     description: 'Test Description',
-    dueDate: '2025-12-31',
+    dueDate: '2030-12-31',  // Changed to 5+ years in the future
     status: 'active',
   };
 
@@ -56,7 +56,7 @@ describe('Goal Server Actions', () => {
     userId: mockUserId,
     title: 'Test Goal',
     description: 'Test Description',
-    dueDate: '2025-12-31',
+    dueDate: '2030-12-31',  // Changed to 5+ years in the future
     status: 'active',
     progressPercentage: '0',
     createdAt: new Date(),
@@ -92,7 +92,7 @@ describe('Goal Server Actions', () => {
           userId: mockUserId,
           title: 'Test Goal',
           description: 'Test Description',
-          dueDate: '2025-12-31',
+          dueDate: '2030-12-31',
           status: 'active',
         }),
       });
@@ -155,7 +155,7 @@ describe('Goal Server Actions', () => {
       
       expect(result).toEqual({
         success: false,
-        error: expect.any(String),
+        error: 'Failed to fetch goals',
       });
     });
   });
@@ -197,10 +197,19 @@ describe('Goal Server Actions', () => {
 
   describe('updateGoal', () => {
     it('should update a goal successfully', async () => {
-      // Mock existing goal check
+      // Mock existing goal check (first database call)
       mockLimit.mockResolvedValueOnce([mockGoal]);
-      // Mock successful update
-      const updatedGoal = { ...mockGoal, title: 'Updated Goal' };
+      
+      // Mock successful update (second database call)
+      const updatedGoal = { 
+        ...mockGoal, 
+        title: 'Updated Goal',
+        updatedAt: new Date()
+      };
+      
+      // Since the update uses returning(), we need to set up a new chain
+      // We need to clear the default mockReturning and set up a specific response
+      mockReturning.mockClear();
       mockReturning.mockResolvedValueOnce([updatedGoal]);
       
       const updateData = { title: 'Updated Goal' };

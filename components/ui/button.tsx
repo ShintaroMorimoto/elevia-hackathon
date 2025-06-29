@@ -10,22 +10,22 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          'bg-primary-sunrise text-neutral-800 shadow-md hover:bg-primary-daylight hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 font-semibold',
+          'bg-primary-sunrise text-neutral-800 shadow-md hover:bg-primary-daylight hover:shadow-lg hover:shadow-primary-sunrise/20 active:translate-y-0 font-semibold',
         primary:
-          'bg-primary-sunrise text-neutral-800 shadow-md hover:bg-primary-daylight hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 font-semibold',
-        dawn: 'bg-primary-dawn text-white shadow-md hover:bg-primary-sunrise hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 font-semibold',
+          'bg-primary-sunrise text-neutral-800 shadow-md hover:bg-primary-daylight hover:shadow-lg hover:shadow-primary-sunrise/20 active:translate-y-0 font-semibold',
+        dawn: 'bg-primary-dawn text-white shadow-md hover:bg-primary-sunrise hover:shadow-lg hover:shadow-primary-sunrise/20 active:translate-y-0 font-semibold',
         daylight:
-          'bg-primary-daylight text-neutral-800 shadow-md hover:bg-primary-sky hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 font-semibold',
+          'bg-primary-daylight text-neutral-800 shadow-md hover:bg-primary-sky hover:shadow-lg hover:shadow-primary-sky/20 active:translate-y-0 font-semibold',
         glass:
-          'bg-white/90 backdrop-blur-sm border border-neutral-200 text-neutral-800 hover:bg-white hover:border-neutral-300 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0',
+          'bg-white/90 backdrop-blur-sm border border-neutral-200 text-neutral-800 hover:bg-white hover:border-primary-sunrise/30 hover:shadow-lg active:translate-y-0',
         destructive:
-          'bg-red-600 text-white shadow-md hover:bg-red-700 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 font-semibold',
+          'bg-red-600 text-white shadow-md hover:bg-red-700 hover:shadow-lg hover:shadow-red-500/20 active:translate-y-0 font-semibold',
         outline:
-          'border-2 border-primary-sunrise bg-transparent text-primary-sunrise hover:bg-primary-sunrise hover:text-neutral-800 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 font-semibold',
+          'border-2 border-primary-sunrise bg-transparent text-primary-sunrise hover:bg-primary-sunrise hover:text-neutral-800 hover:shadow-md hover:shadow-primary-sunrise/20 active:translate-y-0 font-semibold',
         secondary:
-          'bg-neutral-200 text-neutral-800 shadow-md hover:bg-neutral-300 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0',
+          'bg-neutral-200 text-neutral-800 shadow-md hover:bg-neutral-300 hover:shadow-lg active:translate-y-0',
         ghost:
-          'hover:bg-primary-sunrise/10 hover:text-primary-sunrise hover:-translate-y-0.5 active:translate-y-0',
+          'hover:bg-primary-sunrise/10 hover:text-primary-sunrise active:translate-y-0',
         link: 'text-primary-sunrise underline-offset-4 hover:underline hover:text-primary-daylight',
       },
       size: {

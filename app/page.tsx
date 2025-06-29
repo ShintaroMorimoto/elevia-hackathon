@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Target } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { GoogleSignInButton, SignOutButton } from '@/components/auth-buttons';
 import { getGoalsWithProgress } from '@/actions/goals';
@@ -45,28 +46,29 @@ function LoginPage() {
       </div>
 
       <Card className="w-full max-w-md glass relative z-10">
-        <CardHeader className="text-center pb-8">
-          <div className="mx-auto w-16 h-16 bg-primary-sunrise rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-            <Target className="w-8 h-8 text-neutral-800" />
+        <CardHeader className="text-center pb-2">
+          <div className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-lg overflow-hidden">
+            <Image
+              src="/logo.jpeg"
+              alt="Elevia Logo"
+              width={64}
+              height={64}
+              className="w-full h-full object-cover"
+            />
           </div>
           <CardTitle className="text-3xl font-bold text-neutral-800">
             Elevia
           </CardTitle>
           <CardDescription className="text-lg text-neutral-700 mt-4">
-            今の自分からは想像できないほどの景色を見る
-            <br />
-            <span className="font-medium text-primary-sunrise">
-              ワクワクする日々
-            </span>
-            を始めましょう
+            10xな成長を目指すためのOKRを一緒に作りましょう🚀
           </CardDescription>
+          <div className="text-sm text-neutral-600 mb-2">
+            あなたの夢が、現実的な計画に。
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           <GoogleSignInButton />
           <div className="text-center">
-            <div className="text-sm text-neutral-600 mb-2">
-              AIと一緒に、あなたの夢を現実的な計画に変えます
-            </div>
             <div className="text-xs text-neutral-500">
               Googleアカウントで安全にログイン
             </div>
@@ -105,22 +107,26 @@ async function DashboardPage({ user, userId }: DashboardPageProps) {
 
       {/* Header with Horizon Journey Theme */}
       <header className="glass border-b border-white/20 px-6 py-4 sticky top-0 z-40 backdrop-blur-xl">
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
-          <div className="flex items-center space-x-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-sunrise rounded-xl flex items-center justify-center shadow-glow-primary">
-                <Target className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-primary-dawn to-primary-sunrise bg-clip-text text-transparent">
-                  My Journey
-                </h1>
-                {user?.name && (
-                  <p className="text-sm text-neutral-600">
-                    {user.name}さんの地平線への旅
-                  </p>
-                )}
-              </div>
+        <div className="flex items-center justify-between max-w-4xl mx-auto min-h-[60px]">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-glow-primary overflow-hidden flex-shrink-0">
+              <Image
+                src="/logo.jpeg"
+                alt="Elevia Logo"
+                width={40}
+                height={40}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="flex flex-col justify-center">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary-dawn to-primary-sunrise bg-clip-text text-transparent leading-none">
+                My Journey
+              </h1>
+              {user?.name && (
+                <p className="text-sm text-neutral-600 leading-none mt-1">
+                  {user.name}さんの10xな成長への旅🚀
+                </p>
+              )}
             </div>
           </div>
           <div className="flex items-center space-x-3">
@@ -134,13 +140,10 @@ async function DashboardPage({ user, userId }: DashboardPageProps) {
         {goals.length > 0 && (
           <div className="text-center py-8">
             <h2 className="text-3xl font-bold text-neutral-800 mb-4">
-              あなたの目標への旅路
+              OKR一覧
             </h2>
             <p className="text-lg text-neutral-600 max-w-2xl mx-auto">
-              一歩一歩、確実に成長していく自分を実感しながら、
-              <span className="text-primary-sunrise font-medium">
-                夢に向かって進んでいきましょう
-              </span>
+              千里の道も一歩から🚶‍♂️
             </p>
           </div>
         )}
@@ -161,15 +164,11 @@ async function DashboardPage({ user, userId }: DashboardPageProps) {
                   <Target className="w-10 h-10 text-white" />
                 </div>
                 <h3 className="text-2xl font-bold text-neutral-800 mb-4">
-                  新しい旅を始めましょう
+                  ワクワクするOKRを一緒に作りましょう🚀
                 </h3>
-                <p className="text-lg text-neutral-600 mb-8 max-w-md mx-auto">
-                  今の自分からは想像できないほどの景色を見るために、
-                  AIと一緒に最初の一歩を踏み出しましょう
-                </p>
                 <Link href="/goals/new">
                   <Button size="lg" className="px-8 py-4 text-lg font-medium">
-                    OKRの旅を始める
+                    OKRを作成する
                   </Button>
                 </Link>
               </CardContent>
@@ -183,7 +182,7 @@ async function DashboardPage({ user, userId }: DashboardPageProps) {
                   <Target className="w-8 h-8 text-neutral-400" />
                 </div>
                 <h3 className="text-xl font-semibold text-neutral-700 mb-3">
-                  一つの旅に集中しましょう
+                  今のOKRに集中しましょう👓
                 </h3>
                 <p className="text-neutral-600 mb-2">
                   現在のOKRを完了または削除してから、新しい目標を設定できます

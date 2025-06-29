@@ -63,7 +63,7 @@ export interface CompletionToggleResult {
   newStatus: boolean;
   data: {
     id: string;
-    progressPercentage: string;
+    progressPercentage: string | null;
   };
 }
 
@@ -341,7 +341,11 @@ export async function updateOKRProgress(
   newTargetValue?: number,
   newUnit?: string,
 ): Promise<ProgressUpdateResult> {
-  const updateData: any = {
+  const updateData: {
+    currentValue: string;
+    targetValue?: string;
+    unit?: string;
+  } = {
     currentValue: newCurrentValue.toString(),
   };
 
@@ -382,7 +386,15 @@ export async function toggleOKRCompletion(
   // Use progressPercentage to indicate completion (100% = completed, 0% = not completed)
   const progressPercentage = newStatus ? '100.00' : '0.00';
 
-  let updateResult: { success: boolean; data?: any; error?: string };
+  let updateResult: {
+    success: boolean;
+    data?: {
+      id: string;
+      progressPercentage: string | null;
+      [key: string]: unknown;
+    };
+    error?: string;
+  };
 
   if (okrType === 'yearly') {
     updateResult = await updateYearlyOkr(okrId, {
@@ -403,6 +415,9 @@ export async function toggleOKRCompletion(
   return {
     success: true,
     newStatus,
-    data: updateResult.data || {},
+    data: {
+      id: updateResult.data?.id || okrId,
+      progressPercentage: updateResult.data?.progressPercentage || progressPercentage,
+    },
   };
 }
