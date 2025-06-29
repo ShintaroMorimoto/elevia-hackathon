@@ -344,6 +344,141 @@ Cloud Run automatically scales based on traffic. Adjust `max_instances` in Terra
 
 ## Troubleshooting
 
+### 🔧 CI/CD Workflow Architecture and Troubleshooting
+
+#### Critical Design Decision: Responsibility Separation
+
+**Infrastructure vs Application Management:**
+- **Terraform (Infrastructure Workflow)**: Manages VPC, Cloud SQL, VPC connectors, service accounts, secrets
+- **GitHub Actions (Deployment Workflow)**: Manages Cloud Run service, Docker images, application deployment
+
+**Why This Separation Matters:**
+- ✅ **Prevents Resource Conflicts**: Each workflow manages distinct resources
+- ✅ **Enables Independent Updates**: Infrastructure changes don't require redeployment
+- ✅ **Supports Development Workflow**: Application updates happen without infrastructure changes
+- ✅ **Avoids 409 Conflicts**: No duplicate resource management
+
+#### Resource Conflict Resolution Experience
+
+**Issue**: Both Terraform and GitHub Actions workflows trying to manage the same Cloud Run service.
+
+**Error Pattern**:
+```
+Error: Error creating Service: googleapi: Error 409: Resource 'elevia' already exists.
+```
+
+**Root Cause**: Overlapping responsibility between infrastructure and application workflows.
+
+**Solution Applied**: 
+- Removed `google_cloud_run_v2_service` and `google_cloud_run_service_iam_member` from Terraform
+- Updated outputs to remove Cloud Run URLs (managed by deployment workflow)
+- Clear separation: Terraform provides infrastructure, deployment workflow uses it
+
+**Prevention**: Always define clear boundaries between infrastructure and application management.
+
+#### VPC Access Connector Configuration Issues
+
+**Issue**: VPC Access Connector creation failures due to CIDR range conflicts.
+
+**Error Patterns**:
+```
+Error: Invalid IP CIDR range was provided. It conflicts with an existing subnetwork.
+Error: Error 409: Requested entity already exists
+```
+
+**Root Cause Analysis**:
+1. **Subnet vs ip_cidr_range confusion**: VPC Access Connector can either:
+   - Use `ip_cidr_range` to auto-create a subnet
+   - Use `subnet` parameter to reference existing subnet
+2. **Error state persistence**: Deleted connectors may remain in ERROR state
+3. **CIDR range conflicts**: Multiple subnets trying to use same IP range
+
+**Solution Applied**:
+```hcl
+# ❌ Wrong - causes CIDR conflicts
+resource "google_vpc_access_connector" "connector" {
+  name          = "elevia-connector-v2"
+  region        = var.region
+  network       = google_compute_network.vpc_network.name
+  ip_cidr_range = "10.9.0.0/28"  # Conflicts with existing subnet
+}
+
+# ✅ Correct - uses existing subnet
+resource "google_vpc_access_connector" "connector" {
+  name   = "elevia-connector-v2"
+  region = var.region
+  subnet {
+    name = google_compute_subnetwork.vpc_connector_subnet.name
+  }
+}
+```
+
+**Debugging Commands**:
+```bash
+# Check existing VPC connectors and their state
+gcloud compute networks vpc-access connectors list --region=asia-northeast1
+
+# Check subnet CIDR ranges
+gcloud compute networks subnets list --filter="ipCidrRange:10.9.0.0/28"
+
+# Delete ERROR state connectors before retry
+gcloud compute networks vpc-access connectors delete elevia-connector-v2 --region=asia-northeast1 --quiet
+```
+
+#### Workload Identity Federation Permission Issues
+
+**Issue**: GitHub Actions authentication succeeds but resource operations fail with permission errors.
+
+**Error Patterns**:
+```
+Permission 'iam.serviceAccounts.create' denied
+Permission 'vpcaccess.connectors.create' denied
+Permission 'secretmanager.secrets.create' denied
+```
+
+**Root Cause**: Insufficient IAM roles granted to workload identity pools.
+
+**Required Roles for Infrastructure Management**:
+```bash
+# Core infrastructure roles
+"roles/cloudsql.admin"
+"roles/run.admin" 
+"roles/storage.admin"
+"roles/compute.admin"
+"roles/iam.serviceAccountAdmin"
+"roles/secretmanager.admin"
+"roles/artifactregistry.admin"
+
+# Network and VPC roles
+"roles/servicenetworking.networksAdmin"
+"roles/vpcaccess.admin"
+
+# Permission management roles
+"roles/resourcemanager.projectIamAdmin"
+"roles/iam.serviceAccountUser"
+"roles/iam.serviceAccountTokenCreator"
+```
+
+**Multiple Pool Management**:
+```bash
+# Both pools need permissions due to different environment configurations
+- github-actions pool (deployment workflow)
+- github-test pool (Terraform workflow)
+```
+
+**Solution in init.sh**:
+```bash
+# Updated init.sh automatically grants required roles to both pools
+for role in "roles/cloudsql.admin" "roles/run.admin" "roles/compute.admin" \
+           "roles/iam.serviceAccountAdmin" "roles/secretmanager.admin" \
+           "roles/vpcaccess.admin" "roles/servicenetworking.networksAdmin"; do
+    # Grant to workload identity pool
+    gcloud projects add-iam-policy-binding $PROJECT_ID \
+        --member="principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/$WORKLOAD_IDENTITY_POOL/attribute.repository/$GITHUB_OWNER/$GITHUB_REPO" \
+        --role="$role"
+done
+```
+
 ### ⚠️ Critical GitHub Actions Configuration Issues
 
 #### 1. GitHub Environment Variables Not Recognized
@@ -791,6 +926,140 @@ This deployment uses a **CI/CD-first approach** where:
 4. **Access application** via automatically generated Cloud Run URL
 
 The entire infrastructure and application stack deploys automatically with a single git push.
+
+## 🔄 Zero-to-Production Deployment Checklist
+
+### Prerequisites Verification
+
+Before starting a fresh deployment, verify these prerequisites:
+
+```bash
+# 1. Verify Google Cloud Project Access
+gcloud auth list
+gcloud config get-value project
+gcloud services list --enabled --filter="name:compute.googleapis.com"
+
+# 2. Verify GitHub Repository Access
+gh auth status
+gh repo view
+
+# 3. Verify Local Environment
+terraform --version  # Should be >= 1.0
+node --version       # Should be >= 20
+pnpm --version       # Package manager
+```
+
+### Step-by-Step Fresh Deployment Process
+
+#### Phase 1: Initial Setup (One-time per project)
+
+1. **Clone and Environment Setup**:
+   ```bash
+   git clone <your-repo-url>
+   cd elevia-hackathon
+   cp .env.template .env.local
+   # Edit .env.local with your project values
+   ```
+
+2. **Run Initial Setup Script**:
+   ```bash
+   chmod +x ./scripts/init.sh
+   ./scripts/init.sh
+   ```
+   **What this does**: Creates workload identity pools, grants IAM permissions, creates Terraform state bucket
+
+3. **Configure GitHub Repository Variables** (Settings > Secrets and variables > Actions):
+   ```
+   GOOGLE_CLOUD_PROJECT_ID=your-project-id
+   GOOGLE_CLOUD_PROJECT_NUMBER=123456789012
+   WORKLOAD_IDENTITY_POOL=github-actions  # For deployment workflow
+   WORKLOAD_IDENTITY_PROVIDER=github
+   ```
+
+4. **Configure GitHub Environment Secrets** (Settings > Environments > Terraform):
+   ```
+   AUTH_SECRET=your-32-char-secret
+   DB_USER=elevia_user
+   DB_PASS=your-secure-password
+   DB_NAME=elevia_db
+   ```
+
+#### Phase 2: Infrastructure Deployment
+
+5. **Create Terraform Environment in GitHub**:
+   - Go to Settings > Environments
+   - Create environment named "Terraform" (exact case-sensitive match)
+   - Add environment variables (same as repository variables above)
+   - Add environment secrets (as listed above)
+
+6. **Trigger Infrastructure Deployment**:
+   ```bash
+   # Make any change to terraform/ directory to trigger workflow
+   echo "# Infrastructure deployment $(date)" >> terraform/main.tf
+   git add terraform/main.tf
+   git commit -m "Trigger infrastructure deployment"
+   git push origin main
+   ```
+
+7. **Monitor Infrastructure Workflow**:
+   ```bash
+   gh run list --workflow="Terraform Infrastructure"
+   gh run watch <run-id>
+   ```
+
+#### Phase 3: Application Deployment
+
+8. **Verify Infrastructure Outputs**:
+   ```bash
+   # Check that infrastructure deployment succeeded
+   gh run list --workflow="Terraform Infrastructure" --limit 1
+   # Should show "completed success"
+   ```
+
+9. **Application Deployment** (automatic):
+   - Build and Deploy workflow triggers automatically after infrastructure
+   - Monitor deployment: `gh run list --workflow="Build and Deploy to Cloud Run"`
+
+10. **Verify Deployment Success**:
+    ```bash
+    # Check Cloud Run service
+    gcloud run services list --platform=managed --region=asia-northeast1
+    
+    # Check infrastructure components
+    gcloud compute networks vpc-access connectors list --region=asia-northeast1
+    gcloud sql instances list
+    
+    # Get application URL
+    gcloud run services describe elevia --region=asia-northeast1 --format="value(status.url)"
+    ```
+
+### Reproducibility Guarantees
+
+**✅ Infrastructure Reproducibility**:
+- Terraform state stored in GCS with versioning
+- All resource names use consistent naming patterns
+- Import blocks handle existing resources gracefully
+- Explicit dependencies prevent race conditions
+
+**✅ Application Reproducibility**:
+- Docker images tagged with git SHA
+- Environment configuration managed through Secret Manager
+- Database migrations run automatically
+- Zero-downtime rolling deployments
+
+**✅ Configuration Reproducibility**:
+- All configuration stored in repository
+- init.sh script is idempotent (safe to run multiple times)
+- Clear separation between infrastructure and application workflows
+
+### Troubleshooting Fresh Deployments
+
+If deployment fails on a fresh project:
+
+1. **Permission Issues**: Re-run `./scripts/init.sh` to ensure all IAM roles are granted
+2. **GitHub Configuration**: Verify environment variables are in "Terraform" environment, not repository variables
+3. **Resource Conflicts**: Use `gcloud` commands to check for existing resources with same names
+4. **API Enablement**: Some organizations may require manual API enablement through Console
 
 ### 🔄 CI/CD Improvement Lessons
 
