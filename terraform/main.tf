@@ -1,5 +1,5 @@
 # Configure Terraform and required providers
-# Updated: Added import blocks for existing network infrastructure
+# Updated: Use new resource names to avoid conflicts with existing infrastructure
 terraform {
   required_version = ">= 1.0"
   required_providers {
@@ -61,45 +61,27 @@ resource "random_id" "suffix" {
 
 # Create VPC network for Cloud SQL
 resource "google_compute_network" "vpc_network" {
-  name                    = "${var.app_name}-vpc"
+  name                    = "${var.app_name}-vpc-v2"
   auto_create_subnetworks = false
   depends_on              = [google_project_service.apis]
 }
 
-# Import existing VPC network if it exists
-import {
-  to = google_compute_network.vpc_network
-  id = "projects/${var.project_id}/global/networks/${var.app_name}-vpc"
-}
-
 # Create subnet for VPC connector
 resource "google_compute_subnetwork" "vpc_connector_subnet" {
-  name          = "${var.app_name}-connector-subnet"
+  name          = "${var.app_name}-connector-subnet-v2"
   ip_cidr_range = "10.8.0.0/28"
   region        = var.region
   network       = google_compute_network.vpc_network.id
 }
 
-# Import existing subnet if it exists
-import {
-  to = google_compute_subnetwork.vpc_connector_subnet
-  id = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.app_name}-connector-subnet"
-}
-
 # Allocate IP range for private service connection
 resource "google_compute_global_address" "private_ip_range" {
-  name          = "${var.app_name}-private-ip"
+  name          = "${var.app_name}-private-ip-v2"
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
   prefix_length = 24
   network       = google_compute_network.vpc_network.id
   depends_on    = [google_project_service.apis]
-}
-
-# Import existing global address if it exists
-import {
-  to = google_compute_global_address.private_ip_range
-  id = "projects/${var.project_id}/global/addresses/${var.app_name}-private-ip"
 }
 
 # Create private VPC connection for Cloud SQL
@@ -112,7 +94,7 @@ resource "google_service_networking_connection" "private_vpc_connection" {
 
 # Create VPC Connector for Cloud Run to Cloud SQL communication
 resource "google_vpc_access_connector" "connector" {
-  name          = "${var.app_name}-connector"
+  name          = "${var.app_name}-connector-v2"
   region        = var.region
   network       = google_compute_network.vpc_network.name
   ip_cidr_range = "10.8.0.0/28"
