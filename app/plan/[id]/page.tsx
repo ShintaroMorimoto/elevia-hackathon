@@ -1,14 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Target, Edit, Save, X, Loader2, Trash2 } from 'lucide-react';
+import { Target, Save, X, Loader2, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -21,7 +20,6 @@ import {
 } from '@radix-ui/react-icons';
 import {
   loadPlanData,
-  toggleOKRCompletion,
   updateOKRProgress,
   type PlanData,
 } from '@/app/utils/plan-detail-helpers';
@@ -41,6 +39,19 @@ export default function PlanDetailPage({
   const [editingKeyResult, setEditingKeyResult] = useState<string | null>(null);
   const [tempValue, setTempValue] = useState<string>('');
   const [tempTargetValue, setTempTargetValue] = useState<string>('');
+  const [tempUnit, setTempUnit] = useState<string>('');
+  const [editingKeyResultDesc, setEditingKeyResultDesc] = useState<
+    string | null
+  >(null);
+  const [tempKeyResultDesc, setTempKeyResultDesc] = useState<string>('');
+  const [addingKeyResult, setAddingKeyResult] = useState<{
+    type: 'yearly' | 'quarterly';
+    okrId: string;
+  } | null>(null);
+  const [newKeyResultDesc, setNewKeyResultDesc] = useState<string>('');
+  const [newKeyResultTarget, setNewKeyResultTarget] = useState<string>('');
+  const [newKeyResultUnit, setNewKeyResultUnit] = useState<string>('');
+  const [savingNewKeyResult, setSavingNewKeyResult] = useState<boolean>(false);
   const [editingOKR, setEditingOKR] = useState<{
     id: string;
     type: 'yearly' | 'quarterly';
@@ -69,6 +80,10 @@ export default function PlanDetailPage({
   const [newOKRObjective, setNewOKRObjective] = useState<string>('');
   const [newOKRQuarter, setNewOKRQuarter] = useState<number>(1);
   const [savingNewOKR, setSavingNewOKR] = useState<boolean>(false);
+
+  // Ref for auto-focusing Textarea
+  const keyResultDescTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const okrObjectiveTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Load plan data from database
   useEffect(() => {
@@ -106,6 +121,26 @@ export default function PlanDetailPage({
 
     loadPlan();
   }, [params, session, status, router]);
+
+  // Auto-focus Textarea when editing Key Result description
+  useEffect(() => {
+    if (editingKeyResultDesc && keyResultDescTextareaRef.current) {
+      // Small delay to ensure the Textarea is rendered
+      setTimeout(() => {
+        keyResultDescTextareaRef.current?.focus();
+      }, 100);
+    }
+  }, [editingKeyResultDesc]);
+
+  // Auto-focus Textarea when editing OKR objective
+  useEffect(() => {
+    if (editingOKR && okrObjectiveTextareaRef.current) {
+      // Small delay to ensure the Textarea is rendered
+      setTimeout(() => {
+        okrObjectiveTextareaRef.current?.focus();
+      }, 100);
+    }
+  }, [editingOKR]);
 
   // Show loading state
   if (isLoading) {
@@ -149,31 +184,12 @@ export default function PlanDetailPage({
     setExpandedOKRs(newExpanded);
   };
 
-  const handleToggleOKRCompletion = async (
-    okrId: string,
-    currentStatus: boolean,
-    okrType: 'yearly' | 'quarterly',
-  ) => {
-    try {
-      await toggleOKRCompletion(okrId, currentStatus, okrType);
-
-      // Reload plan data to reflect changes
-      const updatedPlanData = await loadPlanData(
-        goalId,
-        session?.user?.id || '',
-      );
-      setPlanData(updatedPlanData);
-    } catch (error) {
-      console.error('Error toggling OKR completion:', error);
-      setError('OKRステータスの更新に失敗しました');
-    }
-  };
-
   const handleProgressUpdate = async (
     keyResultId: string,
     newCurrentValue: number,
     targetValue: number,
     newTargetValue?: number,
+    newUnit?: string,
   ) => {
     // Set loading state
     setLoadingStates((prev) => ({ ...prev, [keyResultId]: true }));
@@ -222,6 +238,7 @@ export default function PlanDetailPage({
         newCurrentValue,
         targetValue,
         newTargetValue,
+        newUnit,
       );
 
       // Reload plan data to get accurate progress calculations
@@ -229,6 +246,8 @@ export default function PlanDetailPage({
       setPlanData(finalPlanData);
       setEditingKeyResult(null);
       setTempValue('');
+      setTempTargetValue('');
+      setTempUnit('');
     } catch (error) {
       console.error('Error updating progress:', error);
       setError('進捗の更新に失敗しました');
@@ -248,15 +267,18 @@ export default function PlanDetailPage({
     keyResultId: string,
     currentValue: number,
     targetValue: number,
+    unit?: string,
   ) => {
     setEditingKeyResult(keyResultId);
     setTempValue(currentValue.toString());
     setTempTargetValue(targetValue.toString());
+    setTempUnit(unit || '');
   };
 
   const handleSaveEdit = async (
     keyResultId: string,
     originalTargetValue: number,
+    originalUnit: string = '',
     forceHighValue: boolean = false,
   ) => {
     const newValue = parseFloat(tempValue);
@@ -295,11 +317,16 @@ export default function PlanDetailPage({
     // Only pass newTargetValue if it's different from original
     const targetValueToUpdate =
       newTargetValue !== originalTargetValue ? newTargetValue : undefined;
+
+    // Only pass newUnit if it's different from original
+    const unitToUpdate = tempUnit !== originalUnit ? tempUnit : undefined;
+
     await handleProgressUpdate(
       keyResultId,
       newValue,
       originalTargetValue,
       targetValueToUpdate,
+      unitToUpdate,
     );
   };
 
@@ -309,7 +336,12 @@ export default function PlanDetailPage({
     // Get the current target value for the confirmation
     const originalTarget = parseFloat(tempTargetValue);
     setConfirmingHighValue(null);
-    await handleSaveEdit(confirmingHighValue.keyResultId, originalTarget, true);
+    await handleSaveEdit(
+      confirmingHighValue.keyResultId,
+      originalTarget,
+      tempUnit,
+      true,
+    );
   };
 
   const handleCancelHighValue = () => {
@@ -320,10 +352,11 @@ export default function PlanDetailPage({
     e: React.KeyboardEvent,
     keyResultId: string,
     targetValue: number,
+    originalUnit: string = '',
   ) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      handleSaveEdit(keyResultId, targetValue);
+      handleSaveEdit(keyResultId, targetValue, originalUnit);
     } else if (e.key === 'Escape') {
       e.preventDefault();
       handleCancelEdit();
@@ -334,6 +367,143 @@ export default function PlanDetailPage({
     setEditingKeyResult(null);
     setTempValue('');
     setTempTargetValue('');
+    setTempUnit('');
+  };
+
+  const handleStartKeyResultDescEdit = (
+    keyResultId: string,
+    currentDesc: string,
+  ) => {
+    setEditingKeyResultDesc(keyResultId);
+    setTempKeyResultDesc(currentDesc);
+  };
+
+  const handleSaveKeyResultDescEdit = async () => {
+    if (!editingKeyResultDesc || tempKeyResultDesc.trim().length < 5) {
+      setError('Key Resultの説明は5文字以上である必要があります');
+      return;
+    }
+
+    const trimmedDesc = tempKeyResultDesc.trim();
+
+    try {
+      setError('');
+
+      // Key Result description更新のServer Actionを呼び出し
+      const { updateKeyResult } = await import('@/actions/okr');
+      await updateKeyResult(editingKeyResultDesc, { description: trimmedDesc });
+
+      // データを再読み込みして画面を更新
+      const updatedPlanData = await loadPlanData(
+        goalId,
+        session?.user?.id || '',
+      );
+      setPlanData(updatedPlanData);
+      setEditingKeyResultDesc(null);
+      setTempKeyResultDesc('');
+    } catch (error) {
+      console.error('Error updating Key Result description:', error);
+      setError('Key Resultの更新に失敗しました');
+    }
+  };
+
+  const handleCancelKeyResultDescEdit = () => {
+    setEditingKeyResultDesc(null);
+    setTempKeyResultDesc('');
+  };
+
+  const handleKeyResultDescKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSaveKeyResultDescEdit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancelKeyResultDescEdit();
+    }
+  };
+
+  const handleOKRObjectiveKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSaveOKREdit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancelOKREdit();
+    }
+  };
+
+  const handleStartAddKeyResult = (
+    type: 'yearly' | 'quarterly',
+    okrId: string,
+  ) => {
+    setAddingKeyResult({ type, okrId });
+    setNewKeyResultDesc('');
+    setNewKeyResultTarget('');
+    setNewKeyResultUnit('');
+  };
+
+  const handleSaveNewKeyResult = async () => {
+    if (!addingKeyResult || !isNewKeyResultValid()) return;
+
+    const trimmedDesc = newKeyResultDesc.trim();
+    const targetValue = parseFloat(newKeyResultTarget);
+    setSavingNewKeyResult(true);
+
+    try {
+      const { createKeyResult } = await import('@/actions/okr');
+
+      if (addingKeyResult.type === 'yearly') {
+        await createKeyResult({
+          yearlyOkrId: addingKeyResult.okrId,
+          description: trimmedDesc,
+          targetValue: targetValue.toString(),
+          currentValue: '0',
+          unit: newKeyResultUnit.trim() || null,
+        });
+      } else {
+        await createKeyResult({
+          quarterlyOkrId: addingKeyResult.okrId,
+          description: trimmedDesc,
+          targetValue: targetValue.toString(),
+          currentValue: '0',
+          unit: newKeyResultUnit.trim() || null,
+        });
+      }
+
+      // データを再読み込みして画面を更新
+      const updatedPlanData = await loadPlanData(
+        goalId,
+        session?.user?.id || '',
+      );
+      setPlanData(updatedPlanData);
+      setAddingKeyResult(null);
+      setNewKeyResultDesc('');
+      setNewKeyResultTarget('');
+      setNewKeyResultUnit('');
+    } catch (error) {
+      console.error('Error creating Key Result:', error);
+      setError('Key Resultの作成に失敗しました');
+    } finally {
+      setSavingNewKeyResult(false);
+    }
+  };
+
+  const handleCancelAddKeyResult = () => {
+    setAddingKeyResult(null);
+    setNewKeyResultDesc('');
+    setNewKeyResultTarget('');
+    setNewKeyResultUnit('');
+  };
+
+  const isNewKeyResultValid = () => {
+    const trimmedDesc = newKeyResultDesc.trim();
+    const targetValue = parseFloat(newKeyResultTarget);
+    return (
+      trimmedDesc.length >= 5 &&
+      trimmedDesc.length <= 200 &&
+      !isNaN(targetValue) &&
+      targetValue > 0
+    );
   };
 
   const handleStartOKREdit = (
@@ -595,25 +765,72 @@ export default function PlanDetailPage({
               <Card key={yearlyOKR.id} className="glass border-none shadow-md">
                 <CardContent className="p-0">
                   <div className="flex items-center p-4">
-                    <div className="flex items-center space-x-3 flex-1">
-                      <Checkbox
-                        checked={yearlyOKR.progressPercentage >= 100}
-                        onCheckedChange={() =>
-                          handleToggleOKRCompletion(
-                            yearlyOKR.id,
-                            yearlyOKR.progressPercentage >= 100,
-                            'yearly',
-                          )
-                        }
-                      />
+                    <div className="flex items-center flex-1">
                       <button
                         type="button"
                         className="flex-1 text-left hover:bg-gray-50 transition-colors p-2 -m-2 rounded"
                         onClick={() => toggleOKR(yearlyOKR.id)}
                       >
-                        <h3 className="font-semibold text-gray-900">
-                          {year}年: {yearlyOKR.objective}
-                        </h3>
+                        {editingOKR &&
+                        editingOKR.id === yearlyOKR.id &&
+                        editingOKR.type === 'yearly' ? (
+                          <div
+                            className="flex flex-col gap-2 bg-blue-50 p-2 rounded border border-blue-200"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Textarea
+                              ref={okrObjectiveTextareaRef}
+                              value={tempObjective}
+                              onChange={(e) => setTempObjective(e.target.value)}
+                              onKeyDown={handleOKRObjectiveKeyDown}
+                              className="min-h-[60px] text-sm font-semibold"
+                              placeholder="年次Objectiveを入力してください"
+                            />
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSaveOKREdit();
+                                }}
+                                disabled={savingOKR || !isEditingOKRValid()}
+                              >
+                                {savingOKR ? (
+                                  <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                ) : (
+                                  <Save className="w-3 h-3 mr-1" />
+                                )}
+                                保存
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCancelOKREdit();
+                                }}
+                              >
+                                <X className="w-3 h-3 mr-1" />
+                                キャンセル
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <h3
+                            className="font-semibold text-gray-900 cursor-pointer hover:text-primary-sunrise transition-colors p-1 rounded hover:bg-primary-sunrise/10"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleStartOKREdit(
+                                yearlyOKR.id,
+                                'yearly',
+                                yearlyOKR.objective,
+                              );
+                            }}
+                            title="クリックして編集"
+                          >
+                            {year}年次Objective: {yearlyOKR.objective}
+                          </h3>
+                        )}
                         <p className="text-sm text-gray-600">
                           進捗: {yearProgress}%
                         </p>
@@ -623,20 +840,6 @@ export default function PlanDetailPage({
                       </button>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          handleStartOKREdit(
-                            yearlyOKR.id,
-                            'yearly',
-                            yearlyOKR.objective,
-                          )
-                        }
-                        title="OKRを編集"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -682,11 +885,71 @@ export default function PlanDetailPage({
                               >
                                 <div className="flex items-center justify-between">
                                   <div className="flex-1">
-                                    {keyResult.result}
+                                    {editingKeyResultDesc === keyResult.id ? (
+                                      <div
+                                        className="flex flex-col gap-2 bg-blue-50 p-2 rounded border border-blue-200"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <Textarea
+                                          ref={keyResultDescTextareaRef}
+                                          value={tempKeyResultDesc}
+                                          onChange={(e) =>
+                                            setTempKeyResultDesc(e.target.value)
+                                          }
+                                          onKeyDown={handleKeyResultDescKeyDown}
+                                          className="min-h-[60px] text-sm"
+                                          placeholder="Key Resultの説明を入力してください"
+                                        />
+                                        <div className="flex items-center gap-2">
+                                          <Button
+                                            size="sm"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleSaveKeyResultDescEdit();
+                                            }}
+                                            disabled={
+                                              tempKeyResultDesc.trim().length <
+                                              5
+                                            }
+                                          >
+                                            <Save className="w-3 h-3 mr-1" />
+                                            保存
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleCancelKeyResultDescEdit();
+                                            }}
+                                          >
+                                            <X className="w-3 h-3 mr-1" />
+                                            キャンセル
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleStartKeyResultDescEdit(
+                                            keyResult.id,
+                                            keyResult.result,
+                                          )
+                                        }
+                                        className="text-left hover:bg-gray-100 p-1 rounded transition-colors text-sm w-full"
+                                        title="クリックして説明を編集"
+                                      >
+                                        {keyResult.result}
+                                      </button>
+                                    )}
                                   </div>
                                   <div className="flex items-center space-x-2">
                                     {editingKeyResult === keyResult.id ? (
-                                      <div className="flex flex-col gap-2 bg-white/80 p-3 rounded border border-neutral-200 min-w-[280px]">
+                                      <div
+                                        className="flex flex-col gap-2 bg-white/80 p-3 rounded border border-neutral-200 min-w-[280px]"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
                                         <div className="flex items-center gap-2">
                                           <Label className="text-xs font-medium text-neutral-700 w-12">
                                             実績:
@@ -702,6 +965,7 @@ export default function PlanDetailPage({
                                                 e,
                                                 keyResult.id,
                                                 keyResult.targetValue,
+                                                keyResult.unit || '',
                                               )
                                             }
                                             className="w-20 h-8 text-sm border-neutral-300 focus:border-primary-sunrise"
@@ -726,12 +990,28 @@ export default function PlanDetailPage({
                                                 e,
                                                 keyResult.id,
                                                 keyResult.targetValue,
+                                                keyResult.unit || '',
                                               )
                                             }
                                             className="w-20 h-8 text-sm border-neutral-300 focus:border-primary-sunrise"
                                             min="1"
                                             step="1"
                                             placeholder="目標値"
+                                          />
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <Label className="text-xs font-medium text-neutral-700 w-12">
+                                            単位:
+                                          </Label>
+                                          <Input
+                                            type="text"
+                                            value={tempUnit}
+                                            onChange={(e) =>
+                                              setTempUnit(e.target.value)
+                                            }
+                                            className="w-20 h-8 text-sm border-neutral-300 focus:border-primary-sunrise"
+                                            placeholder="単位"
+                                            maxLength={10}
                                           />
                                         </div>
                                         <div className="flex items-center gap-2 mt-1">
@@ -743,6 +1023,7 @@ export default function PlanDetailPage({
                                               handleSaveEdit(
                                                 keyResult.id,
                                                 keyResult.targetValue,
+                                                keyResult.unit || '',
                                               )
                                             }
                                             disabled={
@@ -776,6 +1057,7 @@ export default function PlanDetailPage({
                                               keyResult.id,
                                               keyResult.currentValue,
                                               keyResult.targetValue,
+                                              keyResult.unit || '',
                                             )
                                           }
                                           className="text-primary-sunrise hover:text-primary-daylight font-semibold text-lg px-2 py-1 rounded hover:bg-primary-sunrise/10 transition-colors border border-dashed border-primary-sunrise/30 hover:border-primary-sunrise/60"
@@ -793,6 +1075,7 @@ export default function PlanDetailPage({
                                               keyResult.id,
                                               keyResult.currentValue,
                                               keyResult.targetValue,
+                                              keyResult.unit || '',
                                             )
                                           }
                                           className="text-primary-sunrise hover:text-primary-daylight font-semibold text-lg px-2 py-1 rounded hover:bg-primary-sunrise/10 transition-colors border border-dashed border-primary-sunrise/30 hover:border-primary-sunrise/60"
@@ -800,6 +1083,11 @@ export default function PlanDetailPage({
                                         >
                                           {keyResult.targetValue}
                                         </button>
+                                        {keyResult.unit && (
+                                          <span className="text-sm font-medium text-neutral-600 ml-1">
+                                            {keyResult.unit}
+                                          </span>
+                                        )}
                                         <span className="text-sm bg-primary-sunrise/10 text-primary-sunrise px-2 py-1 rounded font-medium ml-2">
                                           {Math.round(
                                             (keyResult.currentValue /
@@ -815,6 +1103,19 @@ export default function PlanDetailPage({
                               </div>
                             ))}
                           </div>
+                          <div className="px-4 pb-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full text-xs"
+                              onClick={() =>
+                                handleStartAddKeyResult('yearly', yearlyOKR.id)
+                              }
+                            >
+                              <PlusIcon className="w-3 h-3 mr-1" />
+                              年次Key Resultを追加
+                            </Button>
+                          </div>
                         </div>
                       )}
 
@@ -827,27 +1128,78 @@ export default function PlanDetailPage({
                               className="p-4 pl-12 border-b border-gray-100 last:border-b-0"
                             >
                               <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-3">
-                                  <Checkbox
-                                    checked={
-                                      quarterlyOKR.progressPercentage >= 100
-                                    }
-                                    onCheckedChange={() =>
-                                      handleToggleOKRCompletion(
-                                        quarterlyOKR.id,
-                                        quarterlyOKR.progressPercentage >= 100,
-                                        'quarterly',
-                                      )
-                                    }
-                                  />
+                                <div className="flex items-center">
                                   <div>
-                                    <p className="font-medium text-gray-900">
-                                      {quarterlyOKR.objective}
-                                    </p>
-                                    <p className="text-sm text-gray-600">
-                                      Q{quarterlyOKR.quarter}
-                                    </p>
+                                    {editingOKR &&
+                                    editingOKR.id === quarterlyOKR.id &&
+                                    editingOKR.type === 'quarterly' ? (
+                                      <div
+                                        className="flex flex-col gap-1.5 bg-blue-50 p-2 rounded border border-blue-200"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <Textarea
+                                          ref={okrObjectiveTextareaRef}
+                                          value={tempObjective}
+                                          onChange={(e) =>
+                                            setTempObjective(e.target.value)
+                                          }
+                                          onKeyDown={handleOKRObjectiveKeyDown}
+                                          className="min-h-[50px] text-xs font-medium"
+                                          placeholder="四半期Objectiveを入力してください"
+                                        />
+                                        <div className="flex items-center gap-1">
+                                          <Button
+                                            size="sm"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleSaveOKREdit();
+                                            }}
+                                            disabled={
+                                              savingOKR || !isEditingOKRValid()
+                                            }
+                                            className="h-6 px-2 text-xs"
+                                          >
+                                            {savingOKR ? (
+                                              <Loader2 className="w-3 h-3 animate-spin" />
+                                            ) : (
+                                              <Save className="w-3 h-3" />
+                                            )}
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleCancelOKREdit();
+                                            }}
+                                            className="h-6 px-2 text-xs"
+                                          >
+                                            <X className="w-3 h-3" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <p
+                                        className="font-medium text-gray-900 cursor-pointer hover:text-primary-sunrise transition-colors p-1 rounded hover:bg-primary-sunrise/10"
+                                        onClick={() =>
+                                          handleStartOKREdit(
+                                            quarterlyOKR.id,
+                                            'quarterly',
+                                            quarterlyOKR.objective,
+                                          )
+                                        }
+                                        title="クリックして編集"
+                                      >
+                                        Q{quarterlyOKR.quarter} Objective:{' '}
+                                        {quarterlyOKR.objective}
+                                      </p>
+                                    )}
                                     <div className="mt-2 space-y-1">
+                                      {quarterlyOKR.keyResults.length > 0 && (
+                                        <h5 className="font-medium text-neutral-800 mb-1 text-xs">
+                                          Q{quarterlyOKR.quarter} Key Results
+                                        </h5>
+                                      )}
                                       {quarterlyOKR.keyResults.length > 0 ? (
                                         quarterlyOKR.keyResults.map(
                                           (keyResult) => (
@@ -857,12 +1209,85 @@ export default function PlanDetailPage({
                                             >
                                               <div className="flex items-center justify-between">
                                                 <div className="flex-1 text-xs">
-                                                  {keyResult.result}
+                                                  {editingKeyResultDesc ===
+                                                  keyResult.id ? (
+                                                    <div
+                                                      className="flex flex-col gap-1.5 bg-blue-50 p-2 rounded border border-blue-200"
+                                                      onClick={(e) =>
+                                                        e.stopPropagation()
+                                                      }
+                                                    >
+                                                      <Textarea
+                                                        ref={
+                                                          keyResultDescTextareaRef
+                                                        }
+                                                        value={
+                                                          tempKeyResultDesc
+                                                        }
+                                                        onChange={(e) =>
+                                                          setTempKeyResultDesc(
+                                                            e.target.value,
+                                                          )
+                                                        }
+                                                        onKeyDown={
+                                                          handleKeyResultDescKeyDown
+                                                        }
+                                                        className="min-h-[50px] text-xs"
+                                                        placeholder="Key Resultの説明を入力してください"
+                                                      />
+                                                      <div className="flex items-center gap-1">
+                                                        <Button
+                                                          size="sm"
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleSaveKeyResultDescEdit();
+                                                          }}
+                                                          disabled={
+                                                            tempKeyResultDesc.trim()
+                                                              .length < 5
+                                                          }
+                                                          className="h-6 px-2 text-xs"
+                                                        >
+                                                          <Save className="w-3 h-3" />
+                                                        </Button>
+                                                        <Button
+                                                          size="sm"
+                                                          variant="outline"
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleCancelKeyResultDescEdit();
+                                                          }}
+                                                          className="h-6 px-2 text-xs"
+                                                        >
+                                                          <X className="w-3 h-3" />
+                                                        </Button>
+                                                      </div>
+                                                    </div>
+                                                  ) : (
+                                                    <button
+                                                      type="button"
+                                                      onClick={() =>
+                                                        handleStartKeyResultDescEdit(
+                                                          keyResult.id,
+                                                          keyResult.result,
+                                                        )
+                                                      }
+                                                      className="text-left hover:bg-gray-100 p-1 rounded transition-colors text-xs w-full"
+                                                      title="クリックして説明を編集"
+                                                    >
+                                                      {keyResult.result}
+                                                    </button>
+                                                  )}
                                                 </div>
                                                 <div className="flex items-center space-x-1">
                                                   {editingKeyResult ===
                                                   keyResult.id ? (
-                                                    <div className="flex flex-col gap-1.5 bg-white/80 p-2 rounded border border-neutral-200 min-w-[220px]">
+                                                    <div
+                                                      className="flex flex-col gap-1.5 bg-white/80 p-2 rounded border border-neutral-200 min-w-[220px]"
+                                                      onClick={(e) =>
+                                                        e.stopPropagation()
+                                                      }
+                                                    >
                                                       <div className="flex items-center gap-1">
                                                         <Label className="text-xs font-medium text-neutral-700 w-8">
                                                           実績:
@@ -880,6 +1305,8 @@ export default function PlanDetailPage({
                                                               e,
                                                               keyResult.id,
                                                               keyResult.targetValue,
+                                                              keyResult.unit ||
+                                                                '',
                                                             )
                                                           }
                                                           className="w-16 h-6 text-xs border-neutral-300 focus:border-primary-sunrise"
@@ -908,12 +1335,31 @@ export default function PlanDetailPage({
                                                               e,
                                                               keyResult.id,
                                                               keyResult.targetValue,
+                                                              keyResult.unit ||
+                                                                '',
                                                             )
                                                           }
                                                           className="w-16 h-6 text-xs border-neutral-300 focus:border-primary-sunrise"
                                                           min="1"
                                                           step="1"
                                                           placeholder="目標"
+                                                        />
+                                                      </div>
+                                                      <div className="flex items-center gap-1">
+                                                        <Label className="text-xs font-medium text-neutral-700 w-8">
+                                                          単位:
+                                                        </Label>
+                                                        <Input
+                                                          type="text"
+                                                          value={tempUnit}
+                                                          onChange={(e) =>
+                                                            setTempUnit(
+                                                              e.target.value,
+                                                            )
+                                                          }
+                                                          className="w-16 h-6 text-xs border-neutral-300 focus:border-primary-sunrise"
+                                                          placeholder="単位"
+                                                          maxLength={10}
                                                         />
                                                       </div>
                                                       <div className="flex items-center gap-1">
@@ -925,6 +1371,8 @@ export default function PlanDetailPage({
                                                             handleSaveEdit(
                                                               keyResult.id,
                                                               keyResult.targetValue,
+                                                              keyResult.unit ||
+                                                                '',
                                                             )
                                                           }
                                                           disabled={
@@ -961,6 +1409,8 @@ export default function PlanDetailPage({
                                                             keyResult.id,
                                                             keyResult.currentValue,
                                                             keyResult.targetValue,
+                                                            keyResult.unit ||
+                                                              '',
                                                           )
                                                         }
                                                         className="text-primary-sunrise hover:text-primary-daylight font-semibold text-sm px-1.5 py-0.5 rounded hover:bg-primary-sunrise/10 transition-colors border border-dashed border-primary-sunrise/30 hover:border-primary-sunrise/60"
@@ -977,6 +1427,8 @@ export default function PlanDetailPage({
                                                             keyResult.id,
                                                             keyResult.currentValue,
                                                             keyResult.targetValue,
+                                                            keyResult.unit ||
+                                                              '',
                                                           )
                                                         }
                                                         className="text-primary-sunrise hover:text-primary-daylight font-semibold text-sm px-1.5 py-0.5 rounded hover:bg-primary-sunrise/10 transition-colors border border-dashed border-primary-sunrise/30 hover:border-primary-sunrise/60"
@@ -984,6 +1436,11 @@ export default function PlanDetailPage({
                                                       >
                                                         {keyResult.targetValue}
                                                       </button>
+                                                      {keyResult.unit && (
+                                                        <span className="text-xs font-medium text-gray-600 ml-1">
+                                                          {keyResult.unit}
+                                                        </span>
+                                                      )}
                                                       <span className="text-xs bg-primary-sunrise/10 text-primary-sunrise px-1.5 py-0.5 rounded font-medium ml-1">
                                                         {Math.round(
                                                           (keyResult.currentValue /
@@ -1012,20 +1469,6 @@ export default function PlanDetailPage({
                                     variant="ghost"
                                     size="sm"
                                     onClick={() =>
-                                      handleStartOKREdit(
-                                        quarterlyOKR.id,
-                                        'quarterly',
-                                        quarterlyOKR.objective,
-                                      )
-                                    }
-                                    title="OKRを編集"
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() =>
                                       handleStartOKRDelete(
                                         quarterlyOKR.id,
                                         'quarterly',
@@ -1038,6 +1481,22 @@ export default function PlanDetailPage({
                                     <Trash2 className="w-4 h-4" />
                                   </Button>
                                 </div>
+                              </div>
+                              <div className="px-4 pb-2 pl-12">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="w-full text-xs"
+                                  onClick={() =>
+                                    handleStartAddKeyResult(
+                                      'quarterly',
+                                      quarterlyOKR.id,
+                                    )
+                                  }
+                                >
+                                  <PlusIcon className="w-3 h-3 mr-1" />Q
+                                  {quarterlyOKR.quarter} Key Resultを追加
+                                </Button>
                               </div>
                             </div>
                           ))}
@@ -1077,84 +1536,6 @@ export default function PlanDetailPage({
             </Button>
           </CardContent>
         </Card>
-
-        {/* OKR Edit Modal */}
-        {editingOKR && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg shadow-lg max-w-md w-full">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">
-                    {editingOKR.type === 'yearly' ? '年次' : '四半期'}OKRを編集
-                  </h2>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleCancelOKREdit}
-                    disabled={savingOKR}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="grid gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="objective">目標 (Objective)</Label>
-                    <Textarea
-                      id="objective"
-                      value={tempObjective}
-                      onChange={(e) => setTempObjective(e.target.value)}
-                      placeholder="具体的で測定可能な目標を入力してください"
-                      className="min-h-[100px]"
-                    />
-                    <div
-                      className={`text-xs ${
-                        tempObjective.trim().length < 10
-                          ? 'text-red-500'
-                          : tempObjective.trim().length > 200
-                            ? 'text-red-500'
-                            : 'text-gray-500'
-                      }`}
-                    >
-                      {tempObjective.length}/200文字
-                      {tempObjective.trim().length < 10 && (
-                        <span className="ml-2 text-red-500">
-                          （最低10文字必要）
-                        </span>
-                      )}
-                      {tempObjective.trim().length > 200 && (
-                        <span className="ml-2 text-red-500">
-                          （200文字を超えています）
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex justify-end space-x-2 mt-6">
-                  <Button
-                    variant="outline"
-                    onClick={handleCancelOKREdit}
-                    disabled={savingOKR}
-                  >
-                    キャンセル
-                  </Button>
-                  <Button
-                    onClick={handleSaveOKREdit}
-                    disabled={savingOKR || !isEditingOKRValid()}
-                  >
-                    {savingOKR ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        保存中...
-                      </>
-                    ) : (
-                      '保存'
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* OKR Delete Confirmation Modal */}
         {deletingOKR && (
@@ -1366,6 +1747,110 @@ export default function PlanDetailPage({
                     disabled={savingNewOKR || !isNewOKRValid()}
                   >
                     {savingNewOKR ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        作成中...
+                      </>
+                    ) : (
+                      <>
+                        <PlusIcon className="w-4 h-4 mr-2" />
+                        作成
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Key Result Add Modal */}
+        {addingKeyResult && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-lg max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold">
+                    {addingKeyResult.type === 'yearly' ? '年次' : '四半期'}Key
+                    Resultを追加
+                  </h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleCancelAddKeyResult}
+                    disabled={savingNewKeyResult}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="grid gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="new-kr-desc">説明</Label>
+                    <Textarea
+                      id="new-kr-desc"
+                      value={newKeyResultDesc}
+                      onChange={(e) => setNewKeyResultDesc(e.target.value)}
+                      placeholder="具体的で測定可能なKey Resultを入力してください"
+                      className="min-h-[80px]"
+                    />
+                    <div
+                      className={`text-xs ${
+                        newKeyResultDesc.trim().length < 5
+                          ? 'text-red-500'
+                          : newKeyResultDesc.trim().length > 200
+                            ? 'text-red-500'
+                            : 'text-gray-500'
+                      }`}
+                    >
+                      {newKeyResultDesc.length}/200文字
+                      {newKeyResultDesc.trim().length < 5 && (
+                        <span className="ml-2 text-red-500">
+                          （最低5文字必要）
+                        </span>
+                      )}
+                      {newKeyResultDesc.trim().length > 200 && (
+                        <span className="ml-2 text-red-500">
+                          （200文字を超えています）
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="new-kr-target">目標値</Label>
+                    <Input
+                      id="new-kr-target"
+                      type="number"
+                      value={newKeyResultTarget}
+                      onChange={(e) => setNewKeyResultTarget(e.target.value)}
+                      placeholder="100"
+                      min="0.1"
+                      step="0.1"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="new-kr-unit">単位（任意）</Label>
+                    <Input
+                      id="new-kr-unit"
+                      value={newKeyResultUnit}
+                      onChange={(e) => setNewKeyResultUnit(e.target.value)}
+                      placeholder="例: 個、件、%、時間"
+                      maxLength={10}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-2 mt-6">
+                  <Button
+                    variant="outline"
+                    onClick={handleCancelAddKeyResult}
+                    disabled={savingNewKeyResult}
+                  >
+                    キャンセル
+                  </Button>
+                  <Button
+                    onClick={handleSaveNewKeyResult}
+                    disabled={savingNewKeyResult || !isNewKeyResultValid()}
+                  >
+                    {savingNewKeyResult ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         作成中...

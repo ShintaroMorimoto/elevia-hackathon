@@ -40,6 +40,7 @@ ${request.yearlyBreakdown
 7. リスク要因と対策を考慮する
 8. 月次マイルストーンを設定
 9. targetValueは99,999,999以下の数値に制限する（データベース制約のため）
+10. 【重要】Objectiveには「2025年:」「Q1:」などの時期表記を含めない。内容のみを記載する
 
 【出力形式】
 以下のJSON形式で回答してください：
@@ -52,7 +53,7 @@ ${request.yearlyBreakdown
       "startMonth": 1,
       "endMonth": 12,
       "isPartialYear": false,
-      "objective": "具体的で測定可能な年次目標",
+      "objective": "具体的で測定可能な年次目標（時期は含めず、内容のみ記載）",
       "rationale": "なぜこの目標を設定するのかの理由",
       "keyMilestones": [
         {

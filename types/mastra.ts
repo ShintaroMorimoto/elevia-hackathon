@@ -1,6 +1,6 @@
 /**
  * Mastra統合用の共通型定義
- * 
+ *
  * @description UI、Server Actions、Mastraワークフロー間で使用される型を統一
  */
 
@@ -53,7 +53,10 @@ export interface DynamicConversationAnalysis extends ConversationAnalysis {
   isReadyToProceed: boolean;
   missingCriticalInfo: string[];
   conversationQuality: 'low' | 'medium' | 'high';
-  suggestedNextAction: 'continue_conversation' | 'proceed_to_planning' | 'clarify_goal';
+  suggestedNextAction:
+    | 'continue_conversation'
+    | 'proceed_to_planning'
+    | 'clarify_goal';
   reasoning: string;
 }
 
@@ -78,6 +81,7 @@ export interface KeyResult {
   description: string;
   targetValue: number;
   currentValue: number;
+  unit?: string;
 }
 
 /**
@@ -131,11 +135,23 @@ export interface GeneratedPlan {
  * ChatMessageのバリデーション
  */
 export function validateChatMessage(message: ChatMessage): void {
-  if (!message.role || typeof message.role !== 'string' || message.role.trim() === '') {
-    throw new Error('ChatMessage: role is required and must be a non-empty string');
+  if (
+    !message.role ||
+    typeof message.role !== 'string' ||
+    message.role.trim() === ''
+  ) {
+    throw new Error(
+      'ChatMessage: role is required and must be a non-empty string',
+    );
   }
-  if (!message.content || typeof message.content !== 'string' || message.content.trim() === '') {
-    throw new Error('ChatMessage: content is required and must be a non-empty string');
+  if (
+    !message.content ||
+    typeof message.content !== 'string' ||
+    message.content.trim() === ''
+  ) {
+    throw new Error(
+      'ChatMessage: content is required and must be a non-empty string',
+    );
   }
 }
 
@@ -143,13 +159,22 @@ export function validateChatMessage(message: ChatMessage): void {
  * KeyResultのバリデーション
  */
 export function validateKeyResult(keyResult: KeyResult): void {
-  if (!keyResult.description || typeof keyResult.description !== 'string' || keyResult.description.trim() === '') {
-    throw new Error('KeyResult: description is required and must be a non-empty string');
+  if (
+    !keyResult.description ||
+    typeof keyResult.description !== 'string' ||
+    keyResult.description.trim() === ''
+  ) {
+    throw new Error(
+      'KeyResult: description is required and must be a non-empty string',
+    );
   }
   if (typeof keyResult.targetValue !== 'number' || keyResult.targetValue < 0) {
     throw new Error('KeyResult: targetValue must be a non-negative number');
   }
-  if (typeof keyResult.currentValue !== 'number' || keyResult.currentValue < 0) {
+  if (
+    typeof keyResult.currentValue !== 'number' ||
+    keyResult.currentValue < 0
+  ) {
     throw new Error('KeyResult: currentValue must be a non-negative number');
   }
 }
@@ -158,20 +183,37 @@ export function validateKeyResult(keyResult: KeyResult): void {
  * YearlyOKRのバリデーション
  */
 export function validateYearlyOKR(yearlyOKR: YearlyOKR): void {
-  if (typeof yearlyOKR.year !== 'number' || yearlyOKR.year < 2020 || yearlyOKR.year > 2100) {
-    throw new Error('YearlyOKR: year must be a valid year between 2020 and 2100');
+  if (
+    typeof yearlyOKR.year !== 'number' ||
+    yearlyOKR.year < 2020 ||
+    yearlyOKR.year > 2100
+  ) {
+    throw new Error(
+      'YearlyOKR: year must be a valid year between 2020 and 2100',
+    );
   }
-  if (!yearlyOKR.objective || typeof yearlyOKR.objective !== 'string' || yearlyOKR.objective.trim() === '') {
-    throw new Error('YearlyOKR: objective is required and must be a non-empty string');
+  if (
+    !yearlyOKR.objective ||
+    typeof yearlyOKR.objective !== 'string' ||
+    yearlyOKR.objective.trim() === ''
+  ) {
+    throw new Error(
+      'YearlyOKR: objective is required and must be a non-empty string',
+    );
   }
-  if (!Array.isArray(yearlyOKR.keyResults) || yearlyOKR.keyResults.length === 0) {
+  if (
+    !Array.isArray(yearlyOKR.keyResults) ||
+    yearlyOKR.keyResults.length === 0
+  ) {
     throw new Error('YearlyOKR: keyResults must be a non-empty array');
   }
   yearlyOKR.keyResults.forEach((kr, index) => {
     try {
       validateKeyResult(kr);
     } catch (error) {
-      throw new Error(`YearlyOKR: keyResults[${index}] - ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `YearlyOKR: keyResults[${index}] - ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   });
 }
@@ -180,23 +222,44 @@ export function validateYearlyOKR(yearlyOKR: YearlyOKR): void {
  * QuarterlyOKRのバリデーション
  */
 export function validateQuarterlyOKR(quarterlyOKR: QuarterlyOKR): void {
-  if (typeof quarterlyOKR.year !== 'number' || quarterlyOKR.year < 2020 || quarterlyOKR.year > 2100) {
-    throw new Error('QuarterlyOKR: year must be a valid year between 2020 and 2100');
+  if (
+    typeof quarterlyOKR.year !== 'number' ||
+    quarterlyOKR.year < 2020 ||
+    quarterlyOKR.year > 2100
+  ) {
+    throw new Error(
+      'QuarterlyOKR: year must be a valid year between 2020 and 2100',
+    );
   }
-  if (typeof quarterlyOKR.quarter !== 'number' || quarterlyOKR.quarter < 1 || quarterlyOKR.quarter > 4) {
+  if (
+    typeof quarterlyOKR.quarter !== 'number' ||
+    quarterlyOKR.quarter < 1 ||
+    quarterlyOKR.quarter > 4
+  ) {
     throw new Error('QuarterlyOKR: quarter must be between 1 and 4');
   }
-  if (!quarterlyOKR.objective || typeof quarterlyOKR.objective !== 'string' || quarterlyOKR.objective.trim() === '') {
-    throw new Error('QuarterlyOKR: objective is required and must be a non-empty string');
+  if (
+    !quarterlyOKR.objective ||
+    typeof quarterlyOKR.objective !== 'string' ||
+    quarterlyOKR.objective.trim() === ''
+  ) {
+    throw new Error(
+      'QuarterlyOKR: objective is required and must be a non-empty string',
+    );
   }
-  if (!Array.isArray(quarterlyOKR.keyResults) || quarterlyOKR.keyResults.length === 0) {
+  if (
+    !Array.isArray(quarterlyOKR.keyResults) ||
+    quarterlyOKR.keyResults.length === 0
+  ) {
     throw new Error('QuarterlyOKR: keyResults must be a non-empty array');
   }
   quarterlyOKR.keyResults.forEach((kr, index) => {
     try {
       validateKeyResult(kr);
     } catch (error) {
-      throw new Error(`QuarterlyOKR: keyResults[${index}] - ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `QuarterlyOKR: keyResults[${index}] - ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   });
 }
@@ -211,20 +274,24 @@ export function validateOKRPlan(okrPlan: OKRPlan): void {
   if (!Array.isArray(okrPlan.quarterly)) {
     throw new Error('OKRPlan: quarterly must be an array');
   }
-  
+
   okrPlan.yearly.forEach((yearly, index) => {
     try {
       validateYearlyOKR(yearly);
     } catch (error) {
-      throw new Error(`OKRPlan: yearly[${index}] - ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `OKRPlan: yearly[${index}] - ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   });
-  
+
   okrPlan.quarterly.forEach((quarterly, index) => {
     try {
       validateQuarterlyOKR(quarterly);
     } catch (error) {
-      throw new Error(`OKRPlan: quarterly[${index}] - ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `OKRPlan: quarterly[${index}] - ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
     }
   });
 }
@@ -236,39 +303,65 @@ export function validateGeneratedPlan(generatedPlan: GeneratedPlan): void {
   if (typeof generatedPlan.success !== 'boolean') {
     throw new Error('GeneratedPlan: success must be a boolean');
   }
-  if (!generatedPlan.planId || typeof generatedPlan.planId !== 'string' || generatedPlan.planId.trim() === '') {
-    throw new Error('GeneratedPlan: planId is required and must be a non-empty string');
+  if (
+    !generatedPlan.planId ||
+    typeof generatedPlan.planId !== 'string' ||
+    generatedPlan.planId.trim() === ''
+  ) {
+    throw new Error(
+      'GeneratedPlan: planId is required and must be a non-empty string',
+    );
   }
-  
+
   try {
     validateOKRPlan(generatedPlan.okrPlan);
   } catch (error) {
-    throw new Error(`GeneratedPlan: okrPlan - ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(
+      `GeneratedPlan: okrPlan - ${error instanceof Error ? error.message : 'Unknown error'}`,
+    );
   }
-  
+
   // analysis オブジェクトのバリデーション
   const { analysis } = generatedPlan;
   if (!analysis || typeof analysis !== 'object') {
-    throw new Error('GeneratedPlan: analysis is required and must be an object');
+    throw new Error(
+      'GeneratedPlan: analysis is required and must be an object',
+    );
   }
-  
+
   if (!analysis.userMotivation || typeof analysis.userMotivation !== 'string') {
-    throw new Error('GeneratedPlan: analysis.userMotivation is required and must be a string');
+    throw new Error(
+      'GeneratedPlan: analysis.userMotivation is required and must be a string',
+    );
   }
-  
+
   if (!Array.isArray(analysis.keyInsights)) {
     throw new Error('GeneratedPlan: analysis.keyInsights must be an array');
   }
-  
-  if (typeof analysis.readinessLevel !== 'number' || analysis.readinessLevel < 0 || analysis.readinessLevel > 10) {
-    throw new Error('GeneratedPlan: analysis.readinessLevel must be a number between 0 and 10');
+
+  if (
+    typeof analysis.readinessLevel !== 'number' ||
+    analysis.readinessLevel < 0 ||
+    analysis.readinessLevel > 10
+  ) {
+    throw new Error(
+      'GeneratedPlan: analysis.readinessLevel must be a number between 0 and 10',
+    );
   }
-  
+
   if (!Array.isArray(analysis.recommendedActions)) {
-    throw new Error('GeneratedPlan: analysis.recommendedActions must be an array');
+    throw new Error(
+      'GeneratedPlan: analysis.recommendedActions must be an array',
+    );
   }
-  
-  if (typeof analysis.completionPercentage !== 'number' || analysis.completionPercentage < 0 || analysis.completionPercentage > 100) {
-    throw new Error('GeneratedPlan: analysis.completionPercentage must be a number between 0 and 100');
+
+  if (
+    typeof analysis.completionPercentage !== 'number' ||
+    analysis.completionPercentage < 0 ||
+    analysis.completionPercentage > 100
+  ) {
+    throw new Error(
+      'GeneratedPlan: analysis.completionPercentage must be a number between 0 and 100',
+    );
   }
 }
