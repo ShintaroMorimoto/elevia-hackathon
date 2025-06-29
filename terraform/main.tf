@@ -1,4 +1,5 @@
 # Configure Terraform and required providers
+# Updated: Added necessary IAM permissions to init.sh for GitHub Actions
 terraform {
   required_version = ">= 1.0"
   required_providers {
