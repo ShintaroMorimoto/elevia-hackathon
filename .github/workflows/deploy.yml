@@ -45,7 +45,7 @@ jobs:
         id: repo-info
         run: |
           # Get Artifact Registry repository from Terraform outputs
-          REPO_URL="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/elevia-repo"
+          REPO_URL="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/app-repo"
           echo "repository_url=$REPO_URL" >> $GITHUB_OUTPUT
           echo "image_tag=$REPO_URL/${{ env.SERVICE_NAME }}:${{ github.sha }}" >> $GITHUB_OUTPUT
           echo "latest_tag=$REPO_URL/${{ env.SERVICE_NAME }}:latest" >> $GITHUB_OUTPUT
