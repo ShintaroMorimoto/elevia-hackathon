@@ -36,7 +36,7 @@ provider "google-beta" {
 # Enable required APIs
 resource "google_project_service" "apis" {
   for_each = toset([
-    "sqladmin.googleapis.com",  # Fixed: correct API name for Cloud SQL
+    "sqladmin.googleapis.com", # Fixed: correct API name for Cloud SQL
     "cloudresourcemanager.googleapis.com",
     "compute.googleapis.com",
     "run.googleapis.com",
@@ -120,7 +120,7 @@ resource "google_sql_database_instance" "postgres" {
   settings {
     tier                        = var.db_tier
     deletion_protection_enabled = var.deletion_protection
-    
+
     database_flags {
       name  = "cloudsql.iam_authentication"
       value = "on"

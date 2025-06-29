@@ -21,7 +21,7 @@ variable "db_tier" {
   description = "The machine type for Cloud SQL instance"
   type        = string
   default     = "db-f1-micro"
-  
+
   validation {
     condition = contains([
       "db-f1-micro", "db-g1-small", "db-n1-standard-1", "db-n1-standard-2",
@@ -48,7 +48,7 @@ variable "db_password" {
   description = "The database user password"
   type        = string
   sensitive   = true
-  
+
   validation {
     condition     = length(var.db_password) >= 8
     error_message = "Database password must be at least 8 characters long."
@@ -60,7 +60,7 @@ variable "nextauth_secret" {
   description = "Secret key for NextAuth.js"
   type        = string
   sensitive   = true
-  
+
   validation {
     condition     = length(var.nextauth_secret) >= 32
     error_message = "NextAuth secret must be at least 32 characters long."
@@ -72,7 +72,7 @@ variable "max_instances" {
   description = "Maximum number of Cloud Run instances"
   type        = number
   default     = 10
-  
+
   validation {
     condition     = var.max_instances > 0 && var.max_instances <= 100
     error_message = "Max instances must be between 1 and 100."
