@@ -1,5 +1,5 @@
 # Configure Terraform and required providers
-# Updated: Added all necessary VPC and networking permissions to workload identity pools
+# Updated: Changed VPC connector CIDR range to 10.9.0.0/28 to avoid subnet conflicts
 terraform {
   required_version = ">= 1.0"
   required_providers {
@@ -69,7 +69,7 @@ resource "google_compute_network" "vpc_network" {
 # Create subnet for VPC connector
 resource "google_compute_subnetwork" "vpc_connector_subnet" {
   name          = "${var.app_name}-connector-subnet-v2"
-  ip_cidr_range = "10.8.0.0/28"
+  ip_cidr_range = "10.9.0.0/28"
   region        = var.region
   network       = google_compute_network.vpc_network.id
 }
@@ -97,7 +97,7 @@ resource "google_vpc_access_connector" "connector" {
   name          = "${var.app_name}-connector-v2"
   region        = var.region
   network       = google_compute_network.vpc_network.name
-  ip_cidr_range = "10.8.0.0/28"
+  ip_cidr_range = "10.9.0.0/28"
 
   depends_on = [
     google_project_service.apis,
