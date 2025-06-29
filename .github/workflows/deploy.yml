@@ -148,9 +148,9 @@ jobs:
           export DB_PASS="${{ secrets.DB_PASS }}"
           export DB_NAME="${{ secrets.DB_NAME }}"
           
-          # Run migrations
-          pnpm run db:migrate
-        continue-on-error: true
+          # Run database schema push (more reliable than migrate for initial setup)
+          pnpm run db:push
+        continue-on-error: false
 
       - name: Infrastructure Setup Notice
         if: steps.tf-outputs.outputs.infrastructure_ready == 'false'
