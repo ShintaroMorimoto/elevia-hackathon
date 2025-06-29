@@ -63,17 +63,17 @@ jobs:
     - name: Create terraform.tfvars
       run: |
         {
-          echo 'project_id = "${{ vars.GOOGLE_CLOUD_PROJECT_ID }}"'
-          echo 'region = "asia-northeast1"'
-          echo 'app_name = "elevia"'
-          echo 'db_user = "${{ secrets.DB_USER }}"'
-          echo 'db_password = "${{ secrets.DB_PASS }}"'
-          echo 'db_name = "${{ secrets.DB_NAME }}"'
-          echo 'nextauth_secret = "${{ secrets.AUTH_SECRET }}"'
-          echo 'custom_domain = ""'
-          echo 'deletion_protection = true'
-          echo 'max_instances = 10'
-          echo 'db_tier = "db-f1-micro"'
+          echo "project_id = \"${{ vars.GOOGLE_CLOUD_PROJECT_ID }}\""
+          echo "region = \"asia-northeast1\""
+          echo "app_name = \"elevia\""
+          echo "db_user = \"${{ secrets.DB_USER }}\""
+          echo "db_password = \"${{ secrets.DB_PASS }}\""
+          echo "db_name = \"${{ secrets.DB_NAME }}\""
+          echo "nextauth_secret = \"${{ secrets.AUTH_SECRET }}\""
+          echo "custom_domain = \"\""
+          echo "deletion_protection = true"
+          echo "max_instances = 10"
+          echo "db_tier = \"db-f1-micro\""
         } > terraform.tfvars
 
     - name: Debug terraform.tfvars
