@@ -76,6 +76,16 @@ jobs:
           echo 'db_tier = "db-f1-micro"'
         } > terraform.tfvars
 
+    - name: Debug terraform.tfvars
+      run: |
+        echo "=== terraform.tfvars content ==="
+        cat terraform.tfvars
+        echo "=== end of file ==="
+        echo "=== file with line numbers ==="
+        cat -n terraform.tfvars
+        echo "=== hexdump of file ==="
+        hexdump -C terraform.tfvars
+
     - name: Terraform fmt
       id: fmt
       run: terraform fmt -check
