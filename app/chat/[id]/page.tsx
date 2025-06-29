@@ -68,6 +68,30 @@ export default function ChatPage({
     scrollToBottom();
   }, [scrollToBottom]);
 
+  // Mock progress calculation based on user message count
+  useEffect(() => {
+    const userMessages = messages.filter((msg) => msg.role === 'user');
+    const mockProgress = Math.min(1, userMessages.length * 0.2); // 20% per message, max 100%
+    setInformationSufficiency(mockProgress);
+
+    // Update conversation quality based on progress
+    if (mockProgress >= 0.8) {
+      setConversationQuality('high');
+    } else if (mockProgress >= 0.4) {
+      setConversationQuality('medium');
+    } else {
+      setConversationQuality('low');
+    }
+
+    // Suggest planning when progress >= 70%
+    if (mockProgress >= 0.7) {
+      setSuggestedNextAction('proceed_to_planning');
+      setReasoning(
+        '十分な情報が集まりました！計画作成に進むことをお勧めします。',
+      );
+    }
+  }, [messages]);
+
   // Initialize chat session with Mastra integration
   useEffect(() => {
     const abortController = new AbortController();
@@ -257,25 +281,26 @@ export default function ChatPage({
       setConversationDepth(result.conversationDepth);
       setConversationComplete(result.isComplete);
 
-      // AI駆動動的フロー制御の状態更新
-      if (result.informationSufficiency !== undefined) {
-        setInformationSufficiency(result.informationSufficiency);
-      }
-      if (result.conversationQuality) {
-        setConversationQuality(result.conversationQuality);
-      }
-      if (result.suggestedNextAction) {
-        setSuggestedNextAction(result.suggestedNextAction);
-      }
-      if (result.reasoning) {
-        setReasoning(result.reasoning);
-      }
+      // Mock progress is now handled by useEffect based on message count
+      // AI駆動動的フロー制御の状態更新 - temporarily disabled for mock implementation
+      // if (result.informationSufficiency !== undefined) {
+      //   setInformationSufficiency(result.informationSufficiency);
+      // }
+      // if (result.conversationQuality) {
+      //   setConversationQuality(result.conversationQuality);
+      // }
+      // if (result.suggestedNextAction) {
+      //   setSuggestedNextAction(result.suggestedNextAction);
+      // }
+      // if (result.reasoning) {
+      //   setReasoning(result.reasoning);
+      // }
 
-      // AI駆動の提案表示判定
-      if (
-        result.suggestedNextAction === 'proceed_to_planning' ||
-        (result.informationSufficiency && result.informationSufficiency >= 0.7)
-      ) {
+      // Show suggestion based on mock progress (handled by useEffect)
+      const userMessages =
+        messages.filter((msg) => msg.role === 'user').length + 1; // +1 for current message
+      if (userMessages >= 4) {
+        // Show after 4 messages (80% progress)
         setTimeout(() => {
           setShowSuggestion(true);
         }, 1000);
@@ -335,29 +360,43 @@ export default function ChatPage({
                 AIヒアリング
               </h1>
               <p className="text-sm text-neutral-600">
-                情報充実度: {Math.round(informationSufficiency * 100)}% |{' '}
-                <span className="font-medium text-primary-sunrise">
-                  {conversationQuality}
+                情報充実度:{' '}
+                <span className="font-semibold text-primary-sunrise">
+                  {Math.round(informationSufficiency * 100)}%
+                </span>{' '}
+                |{' '}
+                <span
+                  className={`font-medium capitalize ${
+                    conversationQuality === 'high'
+                      ? 'text-primary-sky'
+                      : conversationQuality === 'medium'
+                        ? 'text-primary-daylight'
+                        : 'text-primary-sunrise'
+                  }`}
+                >
+                  {conversationQuality} quality
                 </span>
               </p>
             </div>
           </div>
-          <div className="w-24 h-3 bg-neutral-200/80 rounded-full overflow-hidden">
+          <div className="w-32 h-4 bg-neutral-200/80 rounded-full overflow-hidden border border-neutral-300/50">
             <div
-              className={`h-3 rounded-full transition-all duration-500 ${
+              className={`h-full rounded-full transition-all duration-700 ease-in-out ${
                 informationSufficiency >= 0.8
-                  ? 'bg-gradient-daylight'
+                  ? 'bg-gradient-to-r from-primary-daylight to-primary-sky'
                   : informationSufficiency >= 0.5
-                    ? 'bg-gradient-sunrise'
-                    : 'bg-gradient-dawn'
+                    ? 'bg-gradient-to-r from-primary-sunrise to-primary-daylight'
+                    : informationSufficiency >= 0.2
+                      ? 'bg-gradient-to-r from-primary-dawn to-primary-sunrise'
+                      : 'bg-primary-dawn'
               }`}
-              style={{ width: `${informationSufficiency * 100}%` }}
+              style={{ width: `${Math.max(5, informationSufficiency * 100)}%` }}
             />
           </div>
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-6 space-y-6 max-w-4xl mx-auto w-full">
+      <main className="flex-1 overflow-y-auto p-6 pb-32 space-y-6 max-w-4xl mx-auto w-full">
         {messages.map((message) => (
           <div
             key={message.id}
@@ -438,7 +477,7 @@ export default function ChatPage({
                       />
                     </div>
                     <span className="text-sm text-neutral-600 ml-2">
-                      AIが返答を準備中...
+                      考えています...
                     </span>
                   </div>
                 </CardContent>
@@ -452,7 +491,7 @@ export default function ChatPage({
           <div className="flex justify-start mb-4">
             <div className="flex max-w-[85%]">
               <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-sunrise mr-3 flex items-center justify-center shadow-md">
-                <Sparkles className="w-5 h-5 text-white" />
+                <Sparkles className="w-5 h-5 text-neutral-800" />
               </div>
               <div className="bg-gradient-to-br from-primary-sunrise/10 to-primary-daylight/10 border border-primary-sunrise/20 rounded-xl p-5 backdrop-blur-sm">
                 <div className="mb-3">
@@ -485,7 +524,7 @@ export default function ChatPage({
                       size="sm"
                       variant="primary"
                     >
-                      <Sparkles className="w-3 h-3 mr-1" />
+                      <Sparkles className="w-3 h-3 mr-1 text-neutral-800" />
                       計画を作成する
                     </Button>
                   ) : (
@@ -517,50 +556,53 @@ export default function ChatPage({
         <div ref={messagesEndRef} />
       </main>
 
-      <footer className="bg-white border-t border-gray-200 p-4 space-y-3">
-        {/* チャット入力フォーム - 常に表示 */}
-        <div className="flex space-x-2">
-          <Input
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder="テキストで回答を入力..."
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage(inputValue);
-              }
-            }}
-            disabled={isTyping}
-          />
+      <footer className="fixed bottom-0 left-0 right-0 bg-white/95 border-t border-gray-200 p-4 space-y-3 z-40 backdrop-blur-md shadow-lg">
+        <div className="max-w-4xl mx-auto w-full">
+          {/* チャット入力フォーム - 常に表示 */}
+          <div className="flex space-x-2">
+            <Input
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder="テキストで回答を入力..."
+              className="flex-1 min-h-[44px] text-base md:text-sm"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage(inputValue);
+                }
+              }}
+              disabled={isTyping}
+            />
+            <Button
+              onClick={() => handleSendMessage(inputValue)}
+              disabled={!inputValue.trim() || isTyping}
+              className="min-h-[44px] min-w-[44px] px-3"
+            >
+              <PaperPlaneIcon className="w-5 h-5" />
+            </Button>
+          </div>
+
+          {/* 手動計画作成ボタン - 常時表示 */}
           <Button
-            onClick={() => handleSendMessage(inputValue)}
-            disabled={!inputValue.trim() || isTyping}
-            size="icon"
+            onClick={handleCreatePlan}
+            className={`w-full min-h-[48px] text-base font-medium ${
+              suggestedNextAction === 'proceed_to_planning' ||
+              informationSufficiency >= 0.6
+                ? 'bg-primary-sunrise hover:bg-primary-daylight text-neutral-800'
+                : 'bg-accent-purple hover:bg-primary-dawn text-neutral-800'
+            }`}
+            disabled={informationSufficiency < 0.2}
           >
-            <PaperPlaneIcon className="w-4 h-4" />
+            <Sparkles className="w-5 h-5 mr-2 text-neutral-800" />
+            {suggestedNextAction === 'proceed_to_planning'
+              ? '計画を作成する（推奨）'
+              : informationSufficiency >= 0.6
+                ? 'この内容で計画を作成する'
+                : informationSufficiency >= 0.2
+                  ? 'この内容でとりあえず計画作成'
+                  : '情報不足のため作成不可'}
           </Button>
         </div>
-
-        {/* 手動計画作成ボタン - 常時表示 */}
-        <Button
-          onClick={handleCreatePlan}
-          className={`w-full ${
-            suggestedNextAction === 'proceed_to_planning' ||
-            informationSufficiency >= 0.6
-              ? 'bg-primary-sunrise hover:bg-primary-daylight'
-              : 'bg-accent-purple hover:bg-primary-dawn'
-          }`}
-          disabled={informationSufficiency < 0.2}
-        >
-          <Sparkles className="w-4 h-4 mr-2" />
-          {suggestedNextAction === 'proceed_to_planning'
-            ? '計画を作成する（推奨）'
-            : informationSufficiency >= 0.6
-              ? 'この内容で計画を作成する'
-              : informationSufficiency >= 0.2
-                ? 'この内容でとりあえず計画作成'
-                : '情報不足のため作成不可'}
-        </Button>
       </footer>
     </div>
   );

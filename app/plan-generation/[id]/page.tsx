@@ -157,7 +157,17 @@ export default function PlanGenerationPage({
         notInitialized: !initializationRef.current,
       });
     }
-  }, [params, session, status, router, isLoading, isProcessing, isComplete, error, goalId]);
+  }, [
+    params,
+    session,
+    status,
+    router,
+    isLoading,
+    isProcessing,
+    isComplete,
+    error,
+    goalId,
+  ]);
 
   // Prevent user from leaving page during processing
   useEffect(() => {
@@ -179,7 +189,7 @@ export default function PlanGenerationPage({
     };
   }, [isProcessing, isComplete]);
 
-  // Real-time plan generation with progress updates
+  // Mock plan generation with 50-second progress (10 seconds per step)
   const generatePlanWithRealTimeProgress = useCallback(
     async (
       goalId: string,
@@ -188,35 +198,37 @@ export default function PlanGenerationPage({
       chatHistory: Array<{ role: string; content: string }>,
     ) => {
       try {
-        // Step 1: Analyze chat history
+        // Step 1: Analyze chat history (10 seconds)
         setCurrentStep(0);
         setProcessingStatus('チャット履歴を分析中...');
-        await new Promise((resolve) => setTimeout(resolve, 1000)); // Brief pause for UX
+        await new Promise((resolve) => setTimeout(resolve, 10000));
 
-        // Step 2: Evaluate goal details
+        // Step 2: Evaluate goal details (10 seconds)
         setCurrentStep(1);
         setProcessingStatus('目標の詳細を評価中...');
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 10000));
 
-        // Step 3: Generate OKR plan
+        // Step 3: Generate OKR plan (10 seconds) - Real DB save + Mock display
         setCurrentStep(2);
         setProcessingStatus('OKRプランを生成中...');
 
-        const generatedPlan = await generatePlanWithMastra(
-          goalId,
-          userId,
-          goalData,
-          chatHistory,
-        );
+        // Parallel execution: Mock display + Real DB save
+        const [_, generatedPlan] = await Promise.all([
+          new Promise((resolve) => setTimeout(resolve, 10000)), // Mock 10 seconds
+          generatePlanWithMastra(goalId, userId, goalData, chatHistory), // Real DB save
+        ]);
 
-        // Step 4: Save to database
+        // Step 4: Save to database (10 seconds) - Already completed above
         setCurrentStep(3);
         setProcessingStatus('データベースに保存中...');
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 10000));
 
-        // Step 5: Complete
+        // Step 5: Complete (10 seconds)
         setCurrentStep(4);
         setProcessingStatus('ロードマップが完成しました！');
+        await new Promise((resolve) => setTimeout(resolve, 10000));
+
+        // Real completion with actual planId
         setGeneratedPlanId(generatedPlan.planId);
         setIsComplete(true);
         setIsProcessing(false);
@@ -226,16 +238,8 @@ export default function PlanGenerationPage({
         sessionStorage.removeItem(processingKey);
       } catch (error) {
         console.error('Plan generation failed:', error);
-
-        // 既存計画がある場合の特別なエラーメッセージ
-        if (error instanceof Error && error.message === 'EXISTING_PLAN_FOUND') {
-          setError(
-            'この目標には既にOKR計画が存在します。新しい計画を作成するには、既存の計画を削除してから再実行してください。',
-          );
-        } else {
-          setError('計画の生成に失敗しました');
-        }
-        setIsProcessing(false); // Reset processing flag on error
+        setError('計画の生成に失敗しました');
+        setIsProcessing(false);
 
         // Clear processing timestamp on error
         const processingKey = `planGeneration_${goalId}`;
@@ -325,94 +329,79 @@ export default function PlanGenerationPage({
         />
       </div>
 
-      {/* Processing overlay to prevent user interaction */}
-      {isProcessing && !isComplete ? (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="glass rounded-2xl p-8 shadow-2xl text-center max-w-sm">
-            <div className="w-12 h-12 border-3 border-primary-sunrise border-t-transparent rounded-full animate-spin mx-auto mb-6" />
-            <p className="text-neutral-800 font-semibold text-lg">
-              計画を生成中...
-            </p>
-            <p className="text-sm text-neutral-600 mt-3">
-              ページを閉じずにお待ちください
-            </p>
-          </div>
-        </div>
-      ) : (
-        <Card className="w-full max-w-lg glass border-none shadow-2xl relative z-10">
-          <CardContent className="p-10 text-center">
-            <div className="mb-8">
-              {isComplete ? (
-                <div className="w-20 h-20 bg-gradient-daylight rounded-full flex items-center justify-center mx-auto mb-6 shadow-glow-accent animate-celebration">
-                  <CheckCircle className="w-10 h-10 text-neutral-800" />
-                </div>
-              ) : (
-                <div className="w-20 h-20 bg-gradient-sunrise rounded-full flex items-center justify-center mx-auto mb-6 shadow-glow-primary">
-                  <Sparkles className="w-10 h-10 text-neutral-800 animate-pulse" />
-                </div>
-              )}
-
-              <h2 className="text-2xl font-bold text-neutral-800 mb-4">
-                {isComplete ? (
-                  <span className="bg-gradient-to-r from-primary-sunrise to-primary-daylight bg-clip-text text-transparent">
-                    計画が完成しました！
-                  </span>
-                ) : (
-                  '計画を生成中'
-                )}
-              </h2>
-
-              {!isComplete && (
-                <>
-                  <p className="text-neutral-700 mb-4 font-medium">
-                    {processingStatus || steps[currentStep]}
-                  </p>
-                  <p className="text-sm text-neutral-600 mb-8">
-                    AI計画生成には通常30-60秒程度お時間をいただきます
-                  </p>
-                </>
-              )}
-            </div>
-
+      <Card className="w-full max-w-lg glass border-none shadow-2xl relative z-10">
+        <CardContent className="p-10 text-center">
+          <div className="mb-8">
             {isComplete ? (
-              <>
-                <p className="text-neutral-700 mb-8 text-lg">
-                  あなたの目標を実現するための、
-                  <br />
-                  <span className="font-medium text-primary-sunrise">
-                    パーソナライズされたロードマップ
-                  </span>
-                  が完成しました。
-                </p>
-                <Button onClick={handleViewPlan} size="lg" className="w-full">
-                  <ArrowRightIcon className="w-5 h-5 mr-2" />
-                  計画を確認する
-                </Button>
-              </>
+              <div className="w-20 h-20 bg-gradient-daylight rounded-full flex items-center justify-center mx-auto mb-6 shadow-glow-accent animate-celebration">
+                <CheckCircle className="w-10 h-10 text-neutral-800" />
+              </div>
             ) : (
+              <div className="w-20 h-20 bg-gradient-sunrise rounded-full flex items-center justify-center mx-auto mb-6 shadow-glow-primary">
+                <Sparkles className="w-10 h-10 text-neutral-800 animate-pulse" />
+              </div>
+            )}
+
+            <h2 className="text-2xl font-bold text-neutral-800 mb-4">
+              {isComplete ? (
+                <span className="bg-gradient-to-r from-primary-sunrise to-primary-daylight bg-clip-text text-transparent">
+                  計画が完成しました！
+                </span>
+              ) : (
+                '計画を生成中'
+              )}
+            </h2>
+
+            {!isComplete && (
               <>
-                <div className="space-y-4 mb-8">
-                  <div className="flex items-center justify-center">
-                    <span className="text-sm font-medium text-neutral-600">
-                      {steps[currentStep] || '計画を生成中...'}
-                    </span>
-                  </div>
-                </div>
-                <div className="w-full bg-neutral-200/60 rounded-full h-3 overflow-hidden">
-                  <div
-                    className="bg-gradient-sunrise h-3 rounded-full transition-all duration-500 relative overflow-hidden"
-                    style={{
-                      width: `${((currentStep + 1) / steps.length) * 100}%`,
-                    }}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer bg-[length:200%_100%]" />
-                  </div>
-                </div>
+                <p className="text-neutral-700 mb-4 font-medium">
+                  {processingStatus || steps[currentStep]}
+                </p>
+                <p className="text-sm text-neutral-600 mb-8">
+                  AI計画生成には通常30-60秒程度お時間をいただきます
+                </p>
               </>
             )}
-          </CardContent>
-        </Card>
-      )}
+          </div>
+
+          {isComplete ? (
+            <>
+              <p className="text-neutral-700 mb-8 text-lg">
+                あなたの目標を実現するための、
+                <br />
+                <span className="font-medium text-primary-sunrise">
+                  パーソナライズされたロードマップ
+                </span>
+                が完成しました。
+              </p>
+              <Button onClick={handleViewPlan} size="lg" className="w-full">
+                <ArrowRightIcon className="w-5 h-5 mr-2" />
+                計画を確認する
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="space-y-4 mb-8">
+                <div className="flex items-center justify-center">
+                  <span className="text-sm font-medium text-neutral-600">
+                    {steps[currentStep] || '計画を生成中...'}
+                  </span>
+                </div>
+              </div>
+              <div className="w-full bg-neutral-200/60 rounded-full h-3 overflow-hidden">
+                <div
+                  className="bg-gradient-sunrise h-3 rounded-full transition-all duration-500 relative overflow-hidden"
+                  style={{
+                    width: `${((currentStep + 1) / steps.length) * 100}%`,
+                  }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer bg-[length:200%_100%]" />
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
