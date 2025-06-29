@@ -40,7 +40,7 @@ export default function ChatPage({
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [chatSessionId, setChatSessionId] = useState<string>('');
   const [_conversationComplete, setConversationComplete] = useState(false);
@@ -57,6 +57,7 @@ export default function ChatPage({
   >('continue_conversation');
   const [reasoning, setReasoning] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   const initializationRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -201,6 +202,7 @@ export default function ChatPage({
 
         setMessages([welcomeMessage, firstQuestion]);
         setIsInitialized(true);
+        setIsInitializing(false);
         setIsLoading(false);
       } catch (error) {
         if (abortController.signal.aborted) {
@@ -379,24 +381,40 @@ export default function ChatPage({
               </p>
             </div>
           </div>
-          <div className="w-32 h-4 bg-neutral-200/80 rounded-full overflow-hidden border border-neutral-300/50">
-            <div
-              className={`h-full rounded-full transition-all duration-700 ease-in-out ${
-                informationSufficiency >= 0.8
-                  ? 'bg-gradient-to-r from-primary-daylight to-primary-sky'
-                  : informationSufficiency >= 0.5
-                    ? 'bg-gradient-to-r from-primary-sunrise to-primary-daylight'
-                    : informationSufficiency >= 0.2
-                      ? 'bg-gradient-to-r from-primary-dawn to-primary-sunrise'
-                      : 'bg-primary-dawn'
-              }`}
-              style={{ width: `${Math.max(5, informationSufficiency * 100)}%` }}
-            />
-          </div>
         </div>
       </header>
 
       <main className="flex-1 overflow-y-auto p-6 pb-32 space-y-6 max-w-4xl mx-auto w-full">
+        {isInitializing && messages.length === 0 && (
+          <div className="flex justify-start">
+            <div className="flex">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-white border border-neutral-200 mr-3 flex items-center justify-center shadow-md">
+                <Bot className="w-5 h-5 text-primary-sunrise" />
+              </div>
+              <Card className="bg-white/90 backdrop-blur-sm border border-neutral-200 shadow-md">
+                <CardContent className="p-4">
+                  <div className="flex items-center space-x-2">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-primary-sunrise rounded-full animate-bounce" />
+                      <div
+                        className="w-2 h-2 bg-primary-sunrise rounded-full animate-bounce"
+                        style={{ animationDelay: '0.1s' }}
+                      />
+                      <div
+                        className="w-2 h-2 bg-primary-sunrise rounded-full animate-bounce"
+                        style={{ animationDelay: '0.2s' }}
+                      />
+                    </div>
+                    <span className="text-sm text-neutral-600 ml-2">
+                      AIが最初の質問を準備中...
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
+
         {messages.map((message) => (
           <div
             key={message.id}
@@ -502,12 +520,6 @@ export default function ChatPage({
                     <span className="text-xs text-primary-sunrise capitalize font-medium">
                       {conversationQuality} quality
                     </span>
-                  </div>
-                  <div className="w-full bg-neutral-200/60 rounded-full h-2 mb-2 overflow-hidden">
-                    <div
-                      className="bg-gradient-sunrise h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${informationSufficiency * 100}%` }}
-                    ></div>
                   </div>
                 </div>
 

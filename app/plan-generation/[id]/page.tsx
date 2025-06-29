@@ -22,20 +22,12 @@ export default function PlanGenerationPage({
   const [goalId, setGoalId] = useState<string>('');
   const [currentStep, setCurrentStep] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [generatedPlanId, setGeneratedPlanId] = useState<string>('');
   const [processingStatus, setProcessingStatus] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(true);
   const initializationRef = useRef(false); // Prevent React Strict Mode double execution
-
-  const steps = [
-    'チャット履歴を分析中...',
-    '目標の詳細を評価中...',
-    'OKRプランを生成中...',
-    'データベースに保存中...',
-    'ロードマップが完成しました！',
-  ];
 
   // Initialize plan generation with Mastra
   // biome-ignore lint/correctness/useExhaustiveDependencies: Function only needs to run once on mount
@@ -201,12 +193,12 @@ export default function PlanGenerationPage({
         // Step 1: Analyze chat history (10 seconds)
         setCurrentStep(0);
         setProcessingStatus('チャット履歴を分析中...');
-        await new Promise((resolve) => setTimeout(resolve, 10000));
+        await new Promise((resolve) => setTimeout(resolve, 12000));
 
         // Step 2: Evaluate goal details (10 seconds)
         setCurrentStep(1);
         setProcessingStatus('目標の詳細を評価中...');
-        await new Promise((resolve) => setTimeout(resolve, 10000));
+        await new Promise((resolve) => setTimeout(resolve, 12000));
 
         // Step 3: Generate OKR plan (10 seconds) - Real DB save + Mock display
         setCurrentStep(2);
@@ -214,18 +206,20 @@ export default function PlanGenerationPage({
 
         // Parallel execution: Mock display + Real DB save
         const [_, generatedPlan] = await Promise.all([
-          new Promise((resolve) => setTimeout(resolve, 10000)), // Mock 10 seconds
+          new Promise((resolve) => setTimeout(resolve, 12000)), // Mock 10 seconds
           generatePlanWithMastra(goalId, userId, goalData, chatHistory), // Real DB save
         ]);
 
         // Step 4: Save to database (10 seconds) - Already completed above
         setCurrentStep(3);
-        setProcessingStatus('データベースに保存中...');
+        setProcessingStatus('生成したプランの確認中...');
         await new Promise((resolve) => setTimeout(resolve, 10000));
 
         // Step 5: Complete (10 seconds)
         setCurrentStep(4);
-        setProcessingStatus('ロードマップが完成しました！');
+        setProcessingStatus(
+          'ロードマップが完成しました！もう少々お待ちください。',
+        );
         await new Promise((resolve) => setTimeout(resolve, 10000));
 
         // Real completion with actual planId
@@ -348,17 +342,17 @@ export default function PlanGenerationPage({
                   計画が完成しました！
                 </span>
               ) : (
-                '計画を生成中'
+                'OKRを立案中🧐'
               )}
             </h2>
 
             {!isComplete && (
               <>
                 <p className="text-neutral-700 mb-4 font-medium">
-                  {processingStatus || steps[currentStep]}
+                  {processingStatus}
                 </p>
                 <p className="text-sm text-neutral-600 mb-8">
-                  AI計画生成には通常30-60秒程度お時間をいただきます
+                  30-60秒かかります。どんなOKRが完成するか、想像しながらお待ちください🙇
                 </p>
               </>
             )}
@@ -370,36 +364,16 @@ export default function PlanGenerationPage({
                 あなたの目標を実現するための、
                 <br />
                 <span className="font-medium text-primary-sunrise">
-                  パーソナライズされたロードマップ
+                  パーソナライズされたOKR
                 </span>
-                が完成しました。
+                が完成しました！
               </p>
               <Button onClick={handleViewPlan} size="lg" className="w-full">
                 <ArrowRightIcon className="w-5 h-5 mr-2" />
-                計画を確認する
+                OKRを確認する
               </Button>
             </>
-          ) : (
-            <>
-              <div className="space-y-4 mb-8">
-                <div className="flex items-center justify-center">
-                  <span className="text-sm font-medium text-neutral-600">
-                    {steps[currentStep] || '計画を生成中...'}
-                  </span>
-                </div>
-              </div>
-              <div className="w-full bg-neutral-200/60 rounded-full h-3 overflow-hidden">
-                <div
-                  className="bg-gradient-sunrise h-3 rounded-full transition-all duration-500 relative overflow-hidden"
-                  style={{
-                    width: `${((currentStep + 1) / steps.length) * 100}%`,
-                  }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer bg-[length:200%_100%]" />
-                </div>
-              </div>
-            </>
-          )}
+          ) : null}
         </CardContent>
       </Card>
     </div>
