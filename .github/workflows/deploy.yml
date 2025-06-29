@@ -96,7 +96,6 @@ jobs:
               --set-env-vars="CLOUD_SQL_CONNECTION_NAME=${{ steps.tf-outputs.outputs.cloud_sql_connection }}" \
               --set-env-vars="DB_NAME=elevia_db" \
               --set-env-vars="DB_USER=elevia_user" \
-              --set-env-vars="AUTH_URL=${{ steps.deploy-url.outputs.url }}" \
               --set-secrets="DB_PASS=elevia-db-password:latest" \
               --set-secrets="AUTH_SECRET=elevia-nextauth-secret:latest" \
               --vpc-connector=elevia-connector-v2 \
@@ -124,6 +123,15 @@ jobs:
             --format='value(status.url)')
           echo "url=$URL" >> $GITHUB_OUTPUT
           echo "::notice title=Deployment Complete::Application deployed to $URL"
+
+      - name: Update AUTH_URL
+        if: steps.tf-outputs.outputs.infrastructure_ready == 'true'
+        run: |
+          echo "Setting AUTH_URL to ${{ steps.deploy-url.outputs.url }}"
+          gcloud run services update ${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --set-env-vars="AUTH_URL=${{ steps.deploy-url.outputs.url }}" \
+            --quiet
 
 
       - name: Run database migrations
