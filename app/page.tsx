@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Target } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { GoogleSignInButton, SignOutButton } from '@/components/auth-buttons';
 import { getGoalsWithProgress } from '@/actions/goals';
@@ -46,8 +47,14 @@ function LoginPage() {
 
       <Card className="w-full max-w-md glass relative z-10">
         <CardHeader className="text-center pb-2">
-          <div className="mx-auto w-16 h-16 bg-primary-sunrise rounded-2xl flex items-center justify-center mb-6 shadow-lg">
-            <Target className="w-8 h-8 text-neutral-800" />
+          <div className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-lg overflow-hidden">
+            <Image
+              src="/logo.jpeg"
+              alt="Elevia Logo"
+              width={64}
+              height={64}
+              className="w-full h-full object-cover"
+            />
           </div>
           <CardTitle className="text-3xl font-bold text-neutral-800">
             Elevia
@@ -100,22 +107,26 @@ async function DashboardPage({ user, userId }: DashboardPageProps) {
 
       {/* Header with Horizon Journey Theme */}
       <header className="glass border-b border-white/20 px-6 py-4 sticky top-0 z-40 backdrop-blur-xl">
-        <div className="flex items-center justify-between max-w-4xl mx-auto">
-          <div className="flex items-center space-x-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-sunrise rounded-xl flex items-center justify-center shadow-glow-primary">
-                <Target className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-primary-dawn to-primary-sunrise bg-clip-text text-transparent">
-                  My Journey
-                </h1>
-                {user?.name && (
-                  <p className="text-sm text-neutral-600">
-                    {user.name}さんの10xな成長への旅🚀
-                  </p>
-                )}
-              </div>
+        <div className="flex items-center justify-between max-w-4xl mx-auto min-h-[60px]">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-glow-primary overflow-hidden flex-shrink-0">
+              <Image
+                src="/logo.jpeg"
+                alt="Elevia Logo"
+                width={40}
+                height={40}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="flex flex-col justify-center">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary-dawn to-primary-sunrise bg-clip-text text-transparent leading-none">
+                My Journey
+              </h1>
+              {user?.name && (
+                <p className="text-sm text-neutral-600 leading-none mt-1">
+                  {user.name}さんの10xな成長への旅🚀
+                </p>
+              )}
             </div>
           </div>
           <div className="flex items-center space-x-3">
