@@ -68,7 +68,7 @@ jobs:
           # Get Cloud SQL connection name from Terraform state
           cd terraform
           terraform init \
-            -backend-config="bucket=terraform-state-${{ vars.GOOGLE_CLOUD_PROJECT_ID }}" \
+            -backend-config="bucket=${{ vars.GOOGLE_CLOUD_PROJECT_ID }}-terraform-state" \
             -backend-config="prefix=terraform/state"
           
           CLOUD_SQL_CONNECTION=$(terraform output -raw cloud_sql_connection_name)
