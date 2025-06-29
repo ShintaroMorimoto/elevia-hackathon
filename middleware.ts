@@ -5,8 +5,11 @@ export default auth((req) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
 
-  // Auth API routes - always allow
-  if (nextUrl.pathname.startsWith('/api/auth')) {
+  // Auth API routes and migration API - always allow
+  if (
+    nextUrl.pathname.startsWith('/api/auth') ||
+    nextUrl.pathname.startsWith('/api/migrate')
+  ) {
     return NextResponse.next();
   }
 
