@@ -95,10 +95,11 @@ resource "google_service_networking_connection" "private_vpc_connection" {
 
 # Create VPC Connector for Cloud Run to Cloud SQL communication
 resource "google_vpc_access_connector" "connector" {
-  name          = "${var.app_name}-connector-v2"
-  region        = var.region
-  network       = google_compute_network.vpc_network.name
-  ip_cidr_range = "10.9.0.0/28"
+  name   = "${var.app_name}-connector-v2"
+  region = var.region
+  subnet {
+    name = google_compute_subnetwork.vpc_connector_subnet.name
+  }
 
   depends_on = [
     google_project_service.apis,
