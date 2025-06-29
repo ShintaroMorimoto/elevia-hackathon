@@ -1,6 +1,10 @@
 # Deployment Guide - Elevia OKR Application
 
-This guide explains how to deploy the Elevia OKR application to Google Cloud Platform using Terraform and GitHub Actions.
+This guide explains how to deploy the Elevia OKR application to Google Cloud Platform using **GitHub Actions CI/CD** with Terraform and automated container deployment.
+
+## 🚀 CI/CD First Approach
+
+This project uses **GitHub Actions for all deployments**. Manual commands are provided for reference only - all actual deployments should use the automated CI/CD pipeline.
 
 ## Prerequisites
 
@@ -17,12 +21,23 @@ Before deploying, ensure you have:
 ## Infrastructure Overview
 
 The deployment consists of:
-- **Cloud SQL (PostgreSQL)** - Database
-- **Cloud Run** - Application runtime
-- **VPC** - Private networking
+- **Cloud SQL (PostgreSQL)** - Database with private IP
+- **Cloud Run** - Application runtime with VPC access
+- **VPC** - Private networking with connector
 - **Artifact Registry** - Container images
-- **Secret Manager** - Sensitive data
-- **GitHub Actions** - CI/CD pipeline
+- **Secret Manager** - Sensitive data (DB passwords, secrets)
+- **GitHub Actions** - CI/CD pipeline with Workload Identity Federation
+
+## Architecture
+
+### Production Environment (Cloud Run)
+- **Database Connection**: VPC direct connection to Cloud SQL private IP
+- **Secret Management**: Secret Manager injection for DB_PASS and AUTH_SECRET
+- **Security**: No exposed passwords, VPC-only database access
+
+### Development Environment  
+- **Database Connection**: Cloud SQL Proxy on localhost:5432
+- **Configuration**: Individual environment variables from .env.local
 
 ## Step 1: Initial Setup
 
@@ -67,21 +82,22 @@ GOOGLE_VERTEX_PROJECT_ID=your-project-id
 GOOGLE_VERTEX_LOCATION=asia-northeast1
 ```
 
-### 1.3 Initialize Google Cloud Workload Identity
+### 1.3 Initialize Google Cloud Workload Identity (One-time Setup)
+
+**Note**: This is a one-time setup that only needs to be run once per project.
 
 ```bash
-# Make the init script executable
-chmod +x ./scripts/init.sh
-
-# Run the initialization script
-./scripts/init.sh
+# Make the init script executable and run
+chmod +x ./scripts/init.sh && ./scripts/init.sh
 ```
 
-This script will:
-- Enable required APIs
-- Create Workload Identity Federation
-- Set up service accounts
-- Create GCS bucket for Terraform state
+This script configures:
+- Workload Identity Federation for GitHub Actions
+- Required Google Cloud APIs
+- Service accounts and IAM permissions  
+- GCS bucket for Terraform state management
+
+**The script is idempotent** - running it multiple times is safe.
 
 ## Step 2: Configure GitHub Repository
 
@@ -98,7 +114,7 @@ WORKLOAD_IDENTITY_PROVIDER=github
 
 ### 2.2 Set Repository Secrets
 
-Add these **Secrets**:
+Add these **Secrets** (these will be stored in Google Secret Manager):
 
 ```
 DB_USER=elevia_user
@@ -106,133 +122,135 @@ DB_PASS=your-secure-database-password
 DB_NAME=elevia_db
 ```
 
-## Step 3: Configure Terraform
+**Note**: These values will be automatically stored in Secret Manager by Terraform and injected into Cloud Run at runtime. You don't need to manually create secrets in Google Cloud Console.
 
-### 3.1 Create Terraform Variables
+## Step 3: Setup GitHub Actions Workflows
 
-```bash
-cd terraform
-cp terraform.tfvars.example terraform.tfvars
-```
+The deployment is fully automated through GitHub Actions using **Direct Workload Identity Federation**. Once the repository variables and secrets are configured, deployments happen automatically on push to main branch.
 
-Edit `terraform.tfvars`:
+### 3.1 GitHub Actions Workflows Created
 
-```hcl
-# Required values
-project_id = "your-gcp-project-id"
-db_password = "your-secure-database-password"
-nextauth_secret = "your-32-character-nextauth-secret"
+**Infrastructure Workflow (`.github/workflows/terraform.yml`)**:
+- ✅ **Direct Workload Identity Federation**: No service account needed for GitHub Actions authentication
+- ✅ **Terraform Plan on PRs**: Automatic plan comments on pull requests  
+- ✅ **Terraform Apply on Main**: Automatic infrastructure deployment on merge
+- ✅ **30-minute timeout**: Handles Cloud SQL creation time
 
-# Optional overrides
-# region = "asia-northeast1"
-# app_name = "elevia"
-# db_tier = "db-f1-micro"  # Use db-g1-small+ for production
-# max_instances = 10
-# deletion_protection = true
-```
+**Application Workflow (`.github/workflows/deploy.yml`)**:
+- ✅ **Full CI Pipeline**: Lint, test, build, deploy
+- ✅ **Docker Build/Push**: Automatic container creation and push to Artifact Registry
+- ✅ **Cloud Run Deployment**: Zero-downtime rolling deployment
+- ✅ **Database Migration**: Automatic Drizzle migrations
+- ✅ **Direct WIF Authentication**: Secure authentication without service account keys
 
-### 3.2 Initialize Terraform
+### 3.2 Terraform Configuration (Automated)
 
-```bash
-# Initialize Terraform with remote state
-terraform init -backend-config="bucket=your-project-id-terraform-state"
+Terraform variables are managed through the GitHub Actions workflow. The `terraform.tfvars` file is automatically generated from repository secrets and variables.
 
-# Plan the deployment
-terraform plan
-
-# Apply the infrastructure (or use GitHub Actions)
-terraform apply
-```
+**Key Terraform Improvements Already Applied**:
+- ✅ **Timeout Configuration**: 30-minute timeouts for Cloud SQL operations
+- ✅ **Dependency Management**: Explicit dependencies prevent race conditions  
+- ✅ **API Corrections**: Uses correct `sqladmin.googleapis.com` API name
+- ✅ **Direct Workload Identity Federation**: No service account keys for GitHub Actions
 
 ## Step 4: Deploy via GitHub Actions
 
-### 4.1 Infrastructure Deployment (First Time)
+### 4.1 Automated Deployment Process
 
-1. Create a pull request with your Terraform configuration
-2. GitHub Actions will run `terraform plan` and post results
-3. Review the plan carefully
-4. Merge the PR to main branch
-5. GitHub Actions will run `terraform apply` and create:
-   - Cloud SQL PostgreSQL instance
-   - VPC network and connector
-   - Artifact Registry repository
-   - Service accounts and IAM roles
+The deployment process is **fully automated**:
 
-### 4.2 Application Deployment
+1. **Push to main branch** triggers the deployment workflow
+2. **GitHub Actions automatically**:
+   - Runs tests and linting
+   - Deploys infrastructure via Terraform (if changes detected)
+   - Builds and pushes Docker image to Artifact Registry
+   - Deploys to Cloud Run with Secret Manager integration
+   - Runs database migrations automatically
 
-After infrastructure is ready:
+### 4.2 Deployment Workflow Features
 
-1. Push code changes to main branch
-2. GitHub Actions will:
-   - Run tests and linting
-   - Build Docker image
-   - Push to Artifact Registry
-   - Deploy to Cloud Run
-   - Run database migrations
+**Infrastructure Management**:
+- ✅ **Direct Workload Identity Federation**: Secure authentication without service account keys
+- ✅ Terraform plan on pull requests (with plan comments)
+- ✅ Terraform apply on main branch merges
+- ✅ 30-minute timeout handling for Cloud SQL
+- ✅ Automatic dependency resolution
 
-**注意**: 初回デプロイ時は、まずTerraformでインフラストラクチャを作成してから、アプリケーションをデプロイしてください。
+**Application Deployment**:
+- ✅ **Direct WIF Authentication**: No service account keys needed
+- ✅ Full CI pipeline (lint, test, build)
+- ✅ Automated Docker build and push to Artifact Registry
+- ✅ Zero-downtime Cloud Run deployment
+- ✅ Automatic database migrations with Drizzle
+- ✅ Secret Manager integration (no exposed credentials)
+- ✅ VPC-only database access (production security)
 
-## Step 5: Database Setup
+**No manual intervention required** - the entire process is automated from code push to production deployment.
 
-### 5.1 Get Cloud SQL Connection Name
+## Step 5: Database Setup (Automated)
 
-After Terraform deployment, get the connection name:
+### 5.1 Production Database Configuration
 
-```bash
-# Get the connection name from Terraform outputs
-cd terraform
-terraform output cloud_sql_connection_name
+**Database setup is fully automated** through the GitHub Actions deployment:
 
-# Update your .env.local file with this value
-# CLOUD_SQL_CONNECTION_NAME=your-project-id:asia-northeast1:elevia-postgres-abcd1234
-```
+- ✅ Cloud SQL PostgreSQL instance creation (with 30-minute timeout)
+- ✅ Database and user creation via Terraform
+- ✅ VPC-only access (no public IP)
+- ✅ Secret Manager integration for credentials
+- ✅ Automatic migrations during deployment
 
-### 5.2 Local Development Database
+### 5.2 Local Development Setup
 
-For local development with Cloud SQL Proxy:
+For local development, connect to the Cloud SQL instance:
 
 ```bash
 # Install Cloud SQL Proxy
 gcloud components install cloud-sql-proxy
 
-# Start proxy (use connection name from Terraform output)
+# Get connection name from deployment outputs
+terraform output cloud_sql_connection_name
+
+# Start proxy for local development
 cloud_sql_proxy -instances=YOUR_CONNECTION_NAME=tcp:5432
 
-# Generate database schema
+# Run development setup
 pnpm run db:generate
-
-# Run migrations
 pnpm run db:migrate
-
-# Open database studio
-pnpm run db:studio
+pnpm run dev
 ```
 
-### 5.2 Production Database
+**Environment Detection**:
+- **Development**: Uses Cloud SQL Proxy on localhost:5432
+- **Production**: Uses VPC direct connection with Secret Manager
 
-Database migrations run automatically during deployment via GitHub Actions.
+## Step 6: Verify Deployment (Automated)
 
-## Step 6: Verify Deployment
+### 6.1 Deployment Verification
 
-### 6.1 Check Infrastructure
+**GitHub Actions automatically verifies**:
+- ✅ Infrastructure deployment status
+- ✅ Docker image build and push
+- ✅ Cloud Run service health
+- ✅ Database connectivity
+- ✅ Application startup and readiness
 
+### 6.2 Access Your Application
+
+1. **Cloud Run URL**: Automatically provided in GitHub Actions logs
+2. **Application Health**: Built-in health checks verify deployment
+3. **Monitoring**: Cloud Logging and Monitoring automatically configured
+
+**Manual verification commands** (optional):
 ```bash
-# Get Terraform outputs
-cd terraform
-terraform output
+# View deployment outputs
+terraform output cloud_run_url
 
-# Check Cloud Run service
+# Check service status
 gcloud run services list --platform=managed
 
-# Check Cloud SQL instance
-gcloud sql instances list
+# View application logs
+gcloud logs read --service=elevia --platform=managed
 ```
-
-### 6.2 Test Application
-
-1. Get the Cloud Run URL from Terraform outputs or GitHub Actions logs
-2. Access the application in your browser
-3. Test user registration and OKR creation
 
 ## Step 7: Custom Domain (Optional)
 
@@ -276,17 +294,71 @@ Cloud Run automatically scales based on traffic. Adjust `max_instances` in Terra
 
 ### Common Issues
 
-1. **Database Connection Errors**
-   - Check VPC connector configuration
-   - Verify database credentials in Secret Manager
-   - Ensure Cloud SQL instance is running
+1. **Permission Errors During Terraform Apply**
+   
+   **Error**: `Permission denied to enable service [cloudsql.googleapis.com]` or `Service 'cloudsql.googleapis.com' is an internal service; it cannot be used outside of its own organization.`
+   
+   **Cause**: This error occurs due to organization policy restrictions that limit which services can be enabled in the project.
+   
+   **Solutions**:
+   
+   **Option A: Contact Organization Administrator**
+   - Contact your Google Cloud organization administrator to:
+     - Enable Cloud SQL API at the organization level
+     - Remove organization policy constraints that prevent API enablement
+     - Grant appropriate permissions for the sandbox project
+   
+   **Option B: Use a Personal Google Cloud Project**
+   - Create a new Google Cloud project using your personal Google account
+   - Use that project for development/testing purposes
+   - Update `.env.local` and `terraform.tfvars` with the new project ID
+   
+   **Option C: Alternative Architecture**
+   - Modify the Terraform configuration to use external database services (like Supabase or AWS RDS)
+   - Update the application to connect to external databases instead of Cloud SQL
+   
+   **Manual verification of current APIs**:
+   ```bash
+   # Check which APIs are currently enabled
+   gcloud services list --enabled --project=sandbox-morimoto-s1
+   
+   # Check organization policies that might be blocking API enablement
+   gcloud resource-manager org-policies list --project=sandbox-morimoto-s1
+   ```
+   
+   **If APIs can be enabled manually through Console**:
+   - Go to Google Cloud Console → APIs & Services → Library
+   - Search for and enable each required API manually:
+     - Cloud SQL Admin API
+     - Compute Engine API
+     - Cloud Run API
+     - Artifact Registry API
+     - VPC Access API
+     - Service Networking API
+   - Then retry: `terraform apply`
 
-2. **Build Failures**
+2. **Database Connection Errors**
+   - **Production**: Check VPC connector configuration and Secret Manager access
+   - **Development**: Ensure Cloud SQL Proxy is running on localhost:5432
+   - Verify Cloud SQL instance is running: `gcloud sql instances list`
+   - Check logs: `gcloud logs read --service=elevia --platform=managed`
+
+2. **Secret Manager Issues**
+   - Verify secrets exist: `gcloud secrets list`
+   - Check Cloud Run service account has `secretmanager.secretAccessor` role
+   - Ensure DB_PASS and AUTH_SECRET are properly set in Terraform
+
+3. **Environment Detection Issues**
+   - Check `K_SERVICE` environment variable is set in Cloud Run
+   - Verify `NODE_ENV=production` in Cloud Run
+   - Review database connection logs in Cloud Logging
+
+4. **Build Failures**
    - Check Docker build logs in GitHub Actions
-   - Verify all dependencies are installed
+   - Verify all dependencies are installed (including @google-cloud/cloud-sql-connector)
    - Check for TypeScript/linting errors
 
-3. **Permission Errors**
+5. **Permission Errors**
    - Verify Workload Identity Federation setup
    - Check service account permissions
    - Ensure GitHub variables/secrets are set correctly
@@ -294,11 +366,25 @@ Cloud Run automatically scales based on traffic. Adjust `max_instances` in Terra
 ### Logs and Debugging
 
 ```bash
-# View Cloud Run logs
+# View Cloud Run logs (shows database connection attempts)
 gcloud logs read --service=elevia --platform=managed
+
+# View recent logs with filter
+gcloud logs read --service=elevia --platform=managed --limit=50 --format="table(timestamp,severity,textPayload)"
+
+# Check Secret Manager access
+gcloud secrets versions access latest --secret=elevia-db-password
+gcloud secrets versions access latest --secret=elevia-nextauth-secret
 
 # View Cloud SQL logs
 gcloud sql operations list --instance=elevia-postgres-xxxx
+
+# Test VPC connectivity from Cloud Run
+gcloud run jobs create test-connection \
+  --image=gcr.io/google.com/cloudsdktool/cloud-sdk:latest \
+  --task-timeout=300 \
+  --command=sh \
+  --args="-c","apt-get update && apt-get install -y postgresql-client && psql postgresql://USER:PASS@PRIVATE_IP:5432/DATABASE -c 'SELECT NOW();'"
 
 # View Terraform state
 terraform show
@@ -306,11 +392,19 @@ terraform show
 
 ## Security Considerations
 
-- Database passwords are stored in Google Secret Manager
-- Cloud SQL uses private networking (VPC)
-- Workload Identity Federation eliminates long-lived service account keys
-- All traffic to Cloud Run is automatically HTTPS
-- Regular security updates via automated deployments
+- **Secret Management**: Database passwords and NextAuth secrets stored in Google Secret Manager
+- **Network Security**: Cloud SQL uses private IP with VPC-only access
+- **No Service Account Keys**: Workload Identity Federation eliminates long-lived keys
+- **Runtime Security**: Secrets injected at runtime, never stored in code or containers
+- **HTTPS Only**: All traffic to Cloud Run is automatically HTTPS
+- **IAM Principle of Least Privilege**: Cloud Run service account has minimal required permissions
+- **Regular Updates**: Automated security updates via CI/CD pipeline
+
+### Secret Manager Security
+- Secrets are encrypted at rest and in transit
+- Access logs available for audit
+- Version management for secret rotation
+- Cloud Run service account requires explicit `secretmanager.secretAccessor` permission
 
 ## Cost Optimization
 
@@ -319,4 +413,94 @@ terraform show
 - Terraform state includes deletion protection for production data
 - Consider upgrading to larger instances for production workloads
 
+## Environment Configuration Details
+
+### Production Environment Variables (Cloud Run)
+
+The following environment variables are automatically configured by Terraform:
+
+```bash
+# Set by Terraform
+NODE_ENV=production
+CLOUD_SQL_CONNECTION_NAME=project:region:instance  # From terraform output
+DB_NAME=elevia_db
+DB_USER=elevia_user
+NEXTAUTH_URL=https://your-cloud-run-url
+
+# Injected from Secret Manager
+DB_PASS=***  # From Secret Manager secret: elevia-db-password
+AUTH_SECRET=***  # From Secret Manager secret: elevia-nextauth-secret
+
+# Cloud Run specific
+K_SERVICE=elevia  # Automatically set by Cloud Run
+```
+
+### Development Environment Variables (.env.local)
+
+```bash
+# Required for development
+CLOUD_SQL_CONNECTION_NAME=project:region:instance  # From terraform output
+DB_USER=elevia_user
+DB_PASS=your-local-password  # Same as Terraform variable
+DB_NAME=elevia_db
+NEXTAUTH_URL=http://localhost:3000
+AUTH_SECRET=your-32-char-secret  # Same as Terraform variable
+
+# Optional
+DB_HOST=127.0.0.1  # For Cloud SQL Proxy
+DB_PORT=5432
+```
+
+### Environment Detection Logic
+
+The application automatically detects the environment:
+
+```typescript
+const isProduction = process.env.NODE_ENV === 'production';
+const isCloudRun = process.env.K_SERVICE !== undefined;
+
+if (isProduction && isCloudRun) {
+  // Use VPC direct connection
+} else {
+  // Use Cloud SQL Connector
+}
+```
+
 For additional support, refer to the Google Cloud documentation or open an issue in the repository.
+
+---
+
+## Summary: CI/CD-First Deployment Architecture
+
+### 🎯 Design Philosophy
+
+This deployment uses a **CI/CD-first approach** where:
+
+- ✅ **Infrastructure as Code**: Terraform with proper timeout and dependency management
+- ✅ **Automated Deployment**: GitHub Actions handles all deployment steps
+- ✅ **Security**: Direct Workload Identity Federation (no service account keys)
+- ✅ **Zero-Downtime**: Cloud Run with rolling deployments
+- ✅ **Production-Ready**: VPC networking, Secret Manager, private databases
+
+### 🔧 Technical Improvements Applied
+
+**Terraform Configuration**:
+- **30-minute timeouts** for Cloud SQL operations (handles 15-20 minute creation time)
+- **Explicit dependencies** prevent resource creation race conditions
+- **Correct API names** (`sqladmin.googleapis.com` instead of `cloudsql.googleapis.com`)
+- **Direct Workload Identity Federation** for secure GitHub Actions authentication
+
+**Application Architecture**:
+- **Cloud Run** with VPC connector for private database access
+- **Secret Manager** for credential management (no environment variables)
+- **Artifact Registry** for container images
+- **Automatic scaling** from 0 to 10 instances
+
+### 🚀 Next Steps
+
+1. **Setup GitHub Actions workflows** (see next section)
+2. **Push to main branch** to trigger automated deployment
+3. **Monitor deployment** through GitHub Actions logs
+4. **Access application** via automatically generated Cloud Run URL
+
+The entire infrastructure and application stack deploys automatically with a single git push.

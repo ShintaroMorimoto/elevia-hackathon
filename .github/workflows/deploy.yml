@@ -56,14 +56,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Authenticate to Google Cloud
+      - name: Authenticate to Google Cloud (Direct Workload Identity Federation)
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: 'projects/${{ vars.GOOGLE_CLOUD_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ vars.WORKLOAD_IDENTITY_POOL }}/providers/${{ vars.WORKLOAD_IDENTITY_PROVIDER }}'
-          service_account: '${{ vars.GOOGLE_CLOUD_PROJECT_ID }}@${{ vars.GOOGLE_CLOUD_PROJECT_ID }}.iam.gserviceaccount.com'
+          workload_identity_provider: projects/${{ vars.GOOGLE_CLOUD_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ vars.WORKLOAD_IDENTITY_POOL }}/providers/${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
+          project_id: ${{ vars.GOOGLE_CLOUD_PROJECT_ID }}
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.9.0'
 
       - name: Configure Docker to use gcloud as credential helper
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
@@ -88,6 +93,18 @@ jobs:
         run: |
           docker push ${{ steps.repo-info.outputs.image_tag }}
           docker push ${{ steps.repo-info.outputs.latest_tag }}
+
+      - name: Get Terraform outputs for deployment
+        id: tf-outputs
+        run: |
+          # Get Cloud SQL connection name from Terraform state
+          cd terraform
+          terraform init \
+            -backend-config="bucket=terraform-state-${{ vars.GOOGLE_CLOUD_PROJECT_ID }}" \
+            -backend-config="prefix=terraform/state"
+          
+          CLOUD_SQL_CONNECTION=$(terraform output -raw cloud_sql_connection_name)
+          echo "cloud_sql_connection=$CLOUD_SQL_CONNECTION" >> $GITHUB_OUTPUT
 
       - name: Deploy to Cloud Run
         run: |
@@ -114,13 +131,13 @@ jobs:
           pnpm install --frozen-lockfile
           
           # Set environment variables for migration
-          export CLOUD_SQL_CONNECTION_NAME="${{ vars.GOOGLE_CLOUD_PROJECT_ID }}:${{ env.REGION }}:elevia-postgres-$(openssl rand -hex 4)"
+          export CLOUD_SQL_CONNECTION_NAME="${{ steps.tf-outputs.outputs.cloud_sql_connection }}"
           export DB_USER="${{ secrets.DB_USER }}"
           export DB_PASS="${{ secrets.DB_PASS }}"
           export DB_NAME="${{ secrets.DB_NAME }}"
           
           # Run migrations
-          pnpm drizzle-kit migrate
+          pnpm run db:migrate
         continue-on-error: true
 
       - name: Add deployment summary

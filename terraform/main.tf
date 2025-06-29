@@ -36,7 +36,7 @@ provider "google-beta" {
 # Enable required APIs
 resource "google_project_service" "apis" {
   for_each = toset([
-    "cloudsql.googleapis.com",
+    "sqladmin.googleapis.com",  # Fixed: correct API name for Cloud SQL
     "cloudresourcemanager.googleapis.com",
     "compute.googleapis.com",
     "run.googleapis.com",
@@ -109,6 +109,13 @@ resource "google_sql_database_instance" "postgres" {
   name             = "${var.app_name}-postgres-${random_id.suffix.hex}"
   database_version = "POSTGRES_15"
   region           = var.region
+
+  # Proper timeout for Cloud SQL creation (can take 15-20 minutes)
+  timeouts {
+    create = "30m"
+    update = "30m"
+    delete = "30m"
+  }
 
   settings {
     tier                        = var.db_tier
