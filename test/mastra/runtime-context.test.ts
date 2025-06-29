@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { RuntimeContext } from '@mastra/core/di';
-import { generateOKRTool, analyzeChatHistoryTool } from '@/src/mastra/tools/okr-tools';
+import {
+  generateOKRTool,
+  analyzeChatHistoryTool,
+} from '@/src/mastra/tools/okr-tools';
 
 describe('Mastra RuntimeContext Tests', () => {
   describe('generateOKRTool', () => {
@@ -16,6 +19,7 @@ describe('Mastra RuntimeContext Tests', () => {
 
       const result = await generateOKRTool.execute({
         context,
+        runtimeContext: new RuntimeContext(),
       });
 
       expect(result).toBeDefined();
@@ -57,6 +61,7 @@ describe('Mastra RuntimeContext Tests', () => {
 
       const result = await analyzeChatHistoryTool.execute({
         context,
+        runtimeContext: new RuntimeContext(),
       });
 
       expect(result).toBeDefined();

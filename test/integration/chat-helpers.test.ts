@@ -197,7 +197,14 @@ describe('Chat Helpers with Mastra Integration', () => {
 
       vi.mocked(generateNextQuestion).mockResolvedValue({
         success: true,
-        data: { question: 'AIからの質問', type: 'question', depth: 1 },
+        data: {
+          question: 'AIからの質問',
+          type: 'question',
+          depth: 1,
+          reasoning: 'AI question generation',
+          shouldComplete: false,
+          confidence: 0.8,
+        },
       });
 
       vi.mocked(analyzeConversationDepth).mockResolvedValue({

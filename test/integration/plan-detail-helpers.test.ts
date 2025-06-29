@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { loadPlanData, updateOKRProgress, toggleOKRCompletion } from '@/app/utils/plan-detail-helpers';
+import {
+  loadPlanData,
+  updateOKRProgress,
+  toggleOKRCompletion,
+} from '@/app/utils/plan-detail-helpers';
 
 // Mock Server Actions for isolated testing
 vi.mock('@/actions/goals', () => ({
@@ -24,16 +28,23 @@ describe('Plan Detail Helpers with Database Integration', () => {
     it('should load goal data with yearly and quarterly OKRs from database', async () => {
       // Arrange
       const { getGoal } = await import('@/actions/goals');
-      const { getYearlyOKRs, getQuarterlyOKRs, getKeyResults } = await import('@/actions/okr');
+      const { getYearlyOKRs, getQuarterlyOKRs, getKeyResults } = await import(
+        '@/actions/okr'
+      );
 
       vi.mocked(getGoal).mockResolvedValue({
         success: true,
-        data: { 
-          id: 'goal-1', 
-          title: '5年後に1億円稼ぐ', 
+        data: {
+          id: 'goal-1',
+          title: '5年後に1億円稼ぐ',
           dueDate: '2029-12-31',
-          userId: 'user-1'
-        }
+          userId: 'user-1',
+          description: null,
+          status: 'active',
+          progressPercentage: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
       });
 
       vi.mocked(getYearlyOKRs).mockResolvedValue({
@@ -43,9 +54,13 @@ describe('Plan Detail Helpers with Database Integration', () => {
             id: 'yearly-1',
             targetYear: 2025,
             objective: '基盤構築の年',
-            progressPercentage: '0'
-          }
-        ]
+            progressPercentage: '0',
+            goalId: 'goal-1',
+            sortOrder: 1,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
       });
 
       vi.mocked(getQuarterlyOKRs).mockResolvedValue({
@@ -56,9 +71,13 @@ describe('Plan Detail Helpers with Database Integration', () => {
             yearlyOkrId: 'yearly-1',
             targetQuarter: 1,
             objective: 'ビジネス開始',
-            progressPercentage: '0'
-          }
-        ]
+            progressPercentage: '0',
+            targetYear: 2025,
+            sortOrder: 1,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
       });
 
       vi.mocked(getKeyResults).mockResolvedValue({
@@ -70,18 +89,23 @@ describe('Plan Detail Helpers with Database Integration', () => {
             quarterlyOkrId: null,
             description: '売上10万円達成',
             targetValue: '100000',
-            currentValue: '0'
-          }
-        ]
+            currentValue: '0',
+            unit: '円',
+            sortOrder: 1,
+            achievementRate: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
       });
 
       const goalId = 'goal-1';
       const userId = 'user-1';
-      
+
       const expectedResult = {
         goal: expect.objectContaining({
           title: '5年後に1億円稼ぐ',
-          deadline: '2029-12-31'
+          deadline: '2029-12-31',
         }),
         yearlyOKRs: expect.arrayContaining([
           expect.objectContaining({
@@ -90,43 +114,43 @@ describe('Plan Detail Helpers with Database Integration', () => {
             quarterlyOKRs: expect.arrayContaining([
               expect.objectContaining({
                 quarter: 1,
-                objective: 'ビジネス開始'
-              })
+                objective: 'ビジネス開始',
+              }),
             ]),
             keyResults: expect.arrayContaining([
               expect.objectContaining({
                 result: '売上10万円達成',
                 targetValue: 100000,
-                currentValue: 0
-              })
-            ])
-          })
+                currentValue: 0,
+              }),
+            ]),
+          }),
         ]),
-        totalProgress: expect.any(Number)
+        totalProgress: expect.any(Number),
       };
 
       // Act & Assert
-      await expect(
-        loadPlanData(goalId, userId)
-      ).resolves.toEqual(expectedResult);
+      await expect(loadPlanData(goalId, userId)).resolves.toEqual(
+        expectedResult,
+      );
     });
 
     it('should handle goal not found error', async () => {
       // Arrange
       const { getGoal } = await import('@/actions/goals');
-      
+
       vi.mocked(getGoal).mockResolvedValue({
         success: false,
-        error: 'Goal not found'
+        error: 'Goal not found',
       });
 
       const invalidGoalId = 'invalid-goal';
       const userId = 'user-1';
 
       // Act & Assert
-      await expect(
-        loadPlanData(invalidGoalId, userId)
-      ).rejects.toThrow('Failed to load plan data for goal invalid-goal: Goal not found');
+      await expect(loadPlanData(invalidGoalId, userId)).rejects.toThrow(
+        'Failed to load plan data for goal invalid-goal: Goal not found',
+      );
     });
   });
 
@@ -137,7 +161,19 @@ describe('Plan Detail Helpers with Database Integration', () => {
 
       vi.mocked(updateKeyResult).mockResolvedValue({
         success: true,
-        data: { id: 'kr-1', currentValue: 50000 }
+        data: {
+          id: 'kr-1',
+          currentValue: '50000',
+          description: '売上10万円達成',
+          targetValue: '100000',
+          unit: '円',
+          sortOrder: 1,
+          yearlyOkrId: 'yearly-1',
+          quarterlyOkrId: null,
+          achievementRate: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
       });
 
       const keyResultId = 'kr-1';
@@ -148,23 +184,23 @@ describe('Plan Detail Helpers with Database Integration', () => {
         success: true,
         progress: 50, // (50000 / 100000) * 100
         data: expect.objectContaining({
-          currentValue: 50000
-        })
+          currentValue: 50000,
+        }),
       };
 
       // Act & Assert
       await expect(
-        updateOKRProgress(keyResultId, newCurrentValue, targetValue)
+        updateOKRProgress(keyResultId, newCurrentValue, targetValue),
       ).resolves.toEqual(expectedResult);
     });
 
     it('should handle database update errors', async () => {
       // Arrange
       const { updateKeyResult } = await import('@/actions/okr');
-      
+
       vi.mocked(updateKeyResult).mockResolvedValue({
         success: false,
-        error: 'Database update failed'
+        error: 'Database update failed',
       });
 
       const keyResultId = 'kr-1';
@@ -173,7 +209,7 @@ describe('Plan Detail Helpers with Database Integration', () => {
 
       // Act & Assert
       await expect(
-        updateOKRProgress(keyResultId, newCurrentValue, targetValue)
+        updateOKRProgress(keyResultId, newCurrentValue, targetValue),
       ).rejects.toThrow('Database update failed');
     });
   });
@@ -185,7 +221,16 @@ describe('Plan Detail Helpers with Database Integration', () => {
 
       vi.mocked(updateYearlyOkr).mockResolvedValue({
         success: true,
-        data: { id: 'yearly-1', progressPercentage: '100.00' }
+        data: {
+          id: 'yearly-1',
+          progressPercentage: '100.00',
+          goalId: 'goal-1',
+          objective: '基盤構築の年',
+          targetYear: 2025,
+          sortOrder: 1,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
       });
 
       const okrId = 'yearly-1';
@@ -196,13 +241,13 @@ describe('Plan Detail Helpers with Database Integration', () => {
         success: true,
         newStatus: true,
         data: expect.objectContaining({
-          progressPercentage: "100.00"
-        })
+          progressPercentage: '100.00',
+        }),
       };
 
       // Act & Assert
       await expect(
-        toggleOKRCompletion(okrId, currentStatus, okrType)
+        toggleOKRCompletion(okrId, currentStatus, okrType),
       ).resolves.toEqual(expectedResult);
     });
 
@@ -212,7 +257,17 @@ describe('Plan Detail Helpers with Database Integration', () => {
 
       vi.mocked(updateQuarterlyOkr).mockResolvedValue({
         success: true,
-        data: { id: 'quarterly-1', progressPercentage: '100.00' }
+        data: {
+          id: 'quarterly-1',
+          progressPercentage: '100.00',
+          objective: 'ビジネス開始',
+          targetYear: 2025,
+          targetQuarter: 1,
+          yearlyOkrId: 'yearly-1',
+          sortOrder: 1,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
       });
 
       const okrId = 'quarterly-1';
@@ -223,13 +278,13 @@ describe('Plan Detail Helpers with Database Integration', () => {
         success: true,
         newStatus: true,
         data: expect.objectContaining({
-          progressPercentage: "100.00"
-        })
+          progressPercentage: '100.00',
+        }),
       };
 
       // Act & Assert
       await expect(
-        toggleOKRCompletion(okrId, currentStatus, okrType)
+        toggleOKRCompletion(okrId, currentStatus, okrType),
       ).resolves.toEqual(expectedResult);
     });
 
@@ -240,7 +295,7 @@ describe('Plan Detail Helpers with Database Integration', () => {
 
       // Act & Assert
       await expect(
-        toggleOKRCompletion(okrId, currentStatus, okrType)
+        toggleOKRCompletion(okrId, currentStatus, okrType),
       ).rejects.toThrow('Invalid OKR type');
     });
   });
