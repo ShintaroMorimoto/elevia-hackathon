@@ -85,13 +85,26 @@ jobs:
         run: |
           # Use Terraform-created service account if infrastructure is ready
           if [ "${{ steps.tf-outputs.outputs.infrastructure_ready }}" = "true" ]; then
-            echo "Deploying with Terraform-created service account..."
+            echo "Deploying with full configuration..."
             gcloud run deploy ${{ env.SERVICE_NAME }} \
               --image=${{ steps.repo-info.outputs.latest_tag }} \
               --region=${{ env.REGION }} \
               --platform=managed \
               --allow-unauthenticated \
               --service-account=elevia-run-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+              --set-env-vars="NODE_ENV=production" \
+              --set-env-vars="CLOUD_SQL_CONNECTION_NAME=${{ steps.tf-outputs.outputs.cloud_sql_connection }}" \
+              --set-env-vars="DB_NAME=elevia_db" \
+              --set-env-vars="DB_USER=elevia_user" \
+              --set-secrets="DB_PASS=elevia-db-password:latest" \
+              --set-secrets="NEXTAUTH_SECRET=elevia-nextauth-secret:latest" \
+              --set-env-vars="NEXTAUTH_URL=https://elevia-207161571323.asia-northeast1.run.app" \
+              --vpc-connector=elevia-connector-v2 \
+              --vpc-egress=private-ranges-only \
+              --timeout=300 \
+              --memory=1Gi \
+              --cpu=1 \
+              --max-instances=10 \
               --quiet
           else
             echo "Deploying without custom service account (infrastructure not ready)..."
