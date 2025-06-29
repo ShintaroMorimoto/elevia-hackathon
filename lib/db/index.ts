@@ -11,7 +11,7 @@ import { config } from 'dotenv';
  */
 const getEnv = (key: string): string => {
   const value = process.env[key];
-  if (\!value) {
+  if (!value) {
     throw new Error(`${key} environment variable not set`);
   }
   return value;
@@ -21,41 +21,66 @@ const getEnv = (key: string): string => {
 config({ path: '.env.local' });
 
 let pool: pg.Pool;
-let connector: Connector  < /dev/null |  undefined;
+let connector: Connector | undefined;
 
-// 本番環境（Cloud Run）では VPC 経由で直接接続
-// 開発環境では Cloud SQL Connector を使用
+// 環境判定
 const isProduction = process.env.NODE_ENV === 'production';
-const isCloudRun = process.env.K_SERVICE \!== undefined;
+const isCloudRun = process.env.K_SERVICE !== undefined;
+const isLocal = !isProduction && !process.env.CLOUD_SQL_CONNECTION_NAME;
 
 console.log('🔍 Database connection mode:', {
   isProduction,
   isCloudRun,
+  isLocal,
   nodeEnv: process.env.NODE_ENV,
-  kService: process.env.K_SERVICE
+  kService: process.env.K_SERVICE,
+  cloudSqlConnectionName: process.env.CLOUD_SQL_CONNECTION_NAME,
 });
 
 if (isProduction && isCloudRun) {
   // Cloud Run環境: VPC経由で直接接続
   console.log('📡 Using VPC direct connection for Cloud Run');
-  
+
   pool = new pg.Pool({
     user: getEnv('DB_USER'),
     password: getEnv('DB_PASS'),
     database: getEnv('DB_NAME'),
-    // Cloud RunからCloud SQLのプライベートIPに直接接続
-    // Terraformで設定されるCloud SQLのプライベートIPを使用
-    host: process.env.DB_HOST || '10.0.0.0', // フォールバック用デフォルト
+    host: process.env.DB_HOST || '10.0.0.0',
     port: 5432,
-    max: 5, // Cloud Run用に接続数を増加
+    max: 5,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,
-    ssl: false, // VPC内なのでSSL不要
+    ssl: false,
   });
+} else if (isLocal) {
+  // ローカル環境: DATABASE_URLまたはローカルDB設定を使用
+  console.log('🏠 Using local database connection');
+
+  if (process.env.DATABASE_URL) {
+    console.log('Using DATABASE_URL:', process.env.DATABASE_URL);
+    pool = new pg.Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 2,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    });
+  } else {
+    console.log('Using local DB settings');
+    pool = new pg.Pool({
+      user: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASS || 'mypassword',
+      database: process.env.DB_NAME || 'postgres',
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '5432'),
+      max: 2,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    });
+  }
 } else {
-  // 開発環境またはローカル環境: Cloud SQL Connectorを使用
+  // 開発環境でCloud SQL使用: Cloud SQL Connectorを使用
   console.log('🔌 Using Cloud SQL Connector for development');
-  
+
   try {
     connector = new Connector();
 
@@ -69,7 +94,7 @@ if (isProduction && isCloudRun) {
       user: getEnv('DB_USER'),
       password: getEnv('DB_PASS'),
       database: getEnv('DB_NAME'),
-      max: 2, // 開発環境用に制限
+      max: 2,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
     });
@@ -97,8 +122,6 @@ export async function testConnection() {
 }
 
 // アプリケーションがシャットダウンする際のリソースクリーンアップ
-// Next.jsのようなサーバーレス環境では必ずしも必要ではありませんが、
-// 長時間稼働するサーバーアプリケーションでは重要です。
 const cleanup = async () => {
   console.log('🧹 Cleaning up database connections...');
   try {

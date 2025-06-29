@@ -2,7 +2,7 @@
 
 import type React from 'react';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,6 +23,10 @@ export default function NewGoalPage() {
   const [deadline, setDeadline] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  
+  // Generate unique IDs for form elements
+  const goalId = useId();
+  const deadlineId = useId();
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -126,9 +130,9 @@ export default function NewGoalPage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="goal">達成したい夢・目標</Label>
+                <Label htmlFor={goalId}>達成したい夢・目標</Label>
                 <Textarea
-                  id="goal"
+                  id={goalId}
                   placeholder="例：5年後に1億円稼ぐ、世界一周旅行をする、起業して成功する..."
                   value={goal}
                   onChange={(e) => setGoal(e.target.value)}
@@ -141,9 +145,9 @@ export default function NewGoalPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="deadline">達成期限</Label>
+                <Label htmlFor={deadlineId}>達成期限</Label>
                 <Input
-                  id="deadline"
+                  id={deadlineId}
                   type="date"
                   value={deadline}
                   onChange={(e) => setDeadline(e.target.value)}

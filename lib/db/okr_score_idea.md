@@ -37,7 +37,7 @@ function checkQuantifiable(keyResult: string): number {
     /\d+[個件回人]/,       // 数値＋単位
     /\d+万円/,             // 金額
     /\d+時間/,             // 時間
-    /(増加 < /dev/null | 向上|達成)\s*\d+/ // 動詞＋数値
+    /(増加|向上|達成)\s*\d+/ // 動詞＋数値
   ];
   
   const matches = quantifiers.filter(regex => regex.test(keyResult));

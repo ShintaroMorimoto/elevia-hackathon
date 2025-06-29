@@ -156,7 +156,7 @@ export default function PlanGenerationPage({
         notInitialized: !initializationRef.current,
       });
     }
-  }, [params, session, status, router]);
+  }, [params, session, status, router, isLoading, isProcessing, isComplete, error, goalId]);
 
   // Prevent user from leaving page during processing
   useEffect(() => {

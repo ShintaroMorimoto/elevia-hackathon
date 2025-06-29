@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -84,6 +84,13 @@ export default function PlanDetailPage({
   // Ref for auto-focusing Textarea
   const keyResultDescTextareaRef = useRef<HTMLTextAreaElement>(null);
   const okrObjectiveTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Generate unique IDs for form elements
+  const newObjectiveId = useId();
+  const quarterSelectId = useId();
+  const newKrDescId = useId();
+  const newKrTargetId = useId();
+  const newKrUnitId = useId();
 
   // Load plan data from database
   useEffect(() => {
@@ -501,7 +508,7 @@ export default function PlanDetailPage({
     return (
       trimmedDesc.length >= 5 &&
       trimmedDesc.length <= 200 &&
-      !isNaN(targetValue) &&
+      !Number.isNaN(targetValue) &&
       targetValue > 0
     );
   };
@@ -776,7 +783,14 @@ export default function PlanDetailPage({
                         editingOKR.type === 'yearly' ? (
                           <div
                             className="flex flex-col gap-2 bg-blue-50 p-2 rounded border border-blue-200"
+                            role="button"
+                            tabIndex={0}
                             onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.stopPropagation();
+                              }
+                            }}
                           >
                             <Textarea
                               ref={okrObjectiveTextareaRef}
@@ -1404,6 +1418,7 @@ export default function PlanDetailPage({
                                                   ) : (
                                                     <>
                                                       <button
+                                                        type="button"
                                                         onClick={() =>
                                                           handleStartEdit(
                                                             keyResult.id,
@@ -1422,6 +1437,7 @@ export default function PlanDetailPage({
                                                         /{' '}
                                                       </span>
                                                       <button
+                                                        type="button"
                                                         onClick={() =>
                                                           handleStartEdit(
                                                             keyResult.id,
@@ -1684,9 +1700,9 @@ export default function PlanDetailPage({
                 </div>
                 <div className="grid gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="new-objective">目標 (Objective)</Label>
+                    <Label htmlFor={newObjectiveId}>目標 (Objective)</Label>
                     <Textarea
-                      id="new-objective"
+                      id={newObjectiveId}
                       value={newOKRObjective}
                       onChange={(e) => setNewOKRObjective(e.target.value)}
                       placeholder="具体的で測定可能な目標を入力してください"
@@ -1717,9 +1733,9 @@ export default function PlanDetailPage({
 
                   {addingOKR.type === 'quarterly' && (
                     <div className="grid gap-2">
-                      <Label htmlFor="quarter">四半期</Label>
+                      <Label htmlFor={quarterSelectId}>四半期</Label>
                       <select
-                        id="quarter"
+                        id={quarterSelectId}
                         value={newOKRQuarter}
                         onChange={(e) =>
                           setNewOKRQuarter(parseInt(e.target.value))
@@ -1785,9 +1801,9 @@ export default function PlanDetailPage({
                 </div>
                 <div className="grid gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="new-kr-desc">説明</Label>
+                    <Label htmlFor={newKrDescId}>説明</Label>
                     <Textarea
-                      id="new-kr-desc"
+                      id={newKrDescId}
                       value={newKeyResultDesc}
                       onChange={(e) => setNewKeyResultDesc(e.target.value)}
                       placeholder="具体的で測定可能なKey Resultを入力してください"
@@ -1816,9 +1832,9 @@ export default function PlanDetailPage({
                     </div>
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="new-kr-target">目標値</Label>
+                    <Label htmlFor={newKrTargetId}>目標値</Label>
                     <Input
-                      id="new-kr-target"
+                      id={newKrTargetId}
                       type="number"
                       value={newKeyResultTarget}
                       onChange={(e) => setNewKeyResultTarget(e.target.value)}
@@ -1828,9 +1844,9 @@ export default function PlanDetailPage({
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="new-kr-unit">単位（任意）</Label>
+                    <Label htmlFor={newKrUnitId}>単位（任意）</Label>
                     <Input
-                      id="new-kr-unit"
+                      id={newKrUnitId}
                       value={newKeyResultUnit}
                       onChange={(e) => setNewKeyResultUnit(e.target.value)}
                       placeholder="例: 個、件、%、時間"

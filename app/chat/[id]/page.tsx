@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -60,13 +60,13 @@ export default function ChatPage({
   const initializationRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [scrollToBottom]);
 
   // Initialize chat session with Mastra integration
   useEffect(() => {
@@ -207,7 +207,7 @@ export default function ChatPage({
         initializationRef.current = false;
       }
     };
-  }, [params, session]); // status, routerを依存関係から削除、isInitializedを追加
+  }, [params, session, status, isInitialized, router]);
 
   const handleSendMessage = async (content: string) => {
     if (!content.trim() || !chatSessionId || !goalId || !session?.user?.id)
@@ -393,9 +393,9 @@ export default function ChatPage({
                 </Card>
                 {message.options && (
                   <div className="mt-2 space-y-2">
-                    {message.options.map((option, index) => (
+                    {message.options.map((option) => (
                       <Button
-                        key={index}
+                        key={option}
                         variant="outline"
                         size="sm"
                         className="w-full justify-start text-left"
