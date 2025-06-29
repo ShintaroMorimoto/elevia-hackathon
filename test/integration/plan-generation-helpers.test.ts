@@ -33,7 +33,7 @@ describe('Plan Generation Helpers with Mastra Integration', () => {
 
       vi.mocked(getGoal).mockResolvedValue({
         success: true,
-        data: { id: 'goal-1', title: '5年後に1億円稼ぐ', userId: 'user-1', deadline: '2029-12-31' }
+        data: { id: 'goal-1', title: '5年後に1億円稼ぐ', userId: 'user-1', dueDate: '2029-12-31' }
       });
 
       vi.mocked(getChatMessages).mockResolvedValue({
@@ -94,20 +94,32 @@ describe('Plan Generation Helpers with Mastra Integration', () => {
       const mockGeneratedPlan = {
         success: true,
         data: {
-          yearlyOKRs: [
-            {
-              year: 2025,
-              objective: '基盤構築の年',
-              keyResults: ['売上10万円達成', 'スキル習得完了'],
-              quarterlyOKRs: [
-                {
-                  quarter: 1,
-                  objective: 'ビジネス開始',
-                  keyResults: ['副業開始', '初回売上']
-                }
-              ]
-            }
-          ]
+          success: true,
+          planId: 'goal-1',
+          okrPlan: {
+            yearly: [
+              {
+                year: 2025,
+                objective: '基盤構築の年',
+                keyResults: ['売上10万円達成', 'スキル習得完了']
+              }
+            ],
+            quarterly: [
+              {
+                year: 2025,
+                quarter: 1,
+                objective: 'ビジネス開始',
+                keyResults: ['副業開始', '初回売上']
+              }
+            ]
+          },
+          analysis: {
+            userMotivation: 'Test motivation',
+            keyInsights: 'Test insights',
+            readinessLevel: 'high',
+            recommendedActions: ['Test action'],
+            completionPercentage: 80
+          }
         }
       };
 

@@ -80,7 +80,7 @@ describe('Chat Helpers with Mastra Integration', () => {
     it('should process user message and generate AI response using Mastra', async () => {
       // Arrange
       const { addChatMessage } = await import('@/actions/chat');
-      const { generateNextQuestion } = await import('@/actions/ai-conversation');
+      const { generateNextQuestion, analyzeConversationDepth } = await import('@/actions/ai-conversation');
 
       vi.mocked(addChatMessage).mockResolvedValue({
         success: true,
@@ -90,6 +90,16 @@ describe('Chat Helpers with Mastra Integration', () => {
       vi.mocked(generateNextQuestion).mockResolvedValue({
         success: true,
         data: { question: 'なるほど、素晴らしい動機ですね', type: 'question', depth: 1 }
+      });
+
+      vi.mocked(analyzeConversationDepth).mockResolvedValue({
+        success: true,
+        data: { 
+          isReadyToProceed: false,
+          currentDepth: 2,
+          maxDepth: 5,
+          completionPercentage: 40
+        }
       });
 
       const sessionId = 'session-1';
@@ -102,6 +112,10 @@ describe('Chat Helpers with Mastra Integration', () => {
         aiResponse: expect.stringContaining('なるほど'),
         conversationDepth: 2,
         isComplete: false,
+        informationSufficiency: expect.any(Number),
+        conversationQuality: expect.any(String),
+        suggestedNextAction: expect.any(String),
+        reasoning: expect.any(String),
       };
 
       // Act & Assert
@@ -113,7 +127,7 @@ describe('Chat Helpers with Mastra Integration', () => {
     it('should save both user and AI messages to database', async () => {
       // Arrange
       const { addChatMessage } = await import('@/actions/chat');
-      const { generateNextQuestion } = await import('@/actions/ai-conversation');
+      const { generateNextQuestion, analyzeConversationDepth } = await import('@/actions/ai-conversation');
 
       vi.mocked(addChatMessage).mockResolvedValue({
         success: true,
@@ -123,6 +137,16 @@ describe('Chat Helpers with Mastra Integration', () => {
       vi.mocked(generateNextQuestion).mockResolvedValue({
         success: true,
         data: { question: 'AIからの質問', type: 'question', depth: 1 }
+      });
+
+      vi.mocked(analyzeConversationDepth).mockResolvedValue({
+        success: true,
+        data: { 
+          isReadyToProceed: false,
+          currentDepth: 2,
+          maxDepth: 5,
+          completionPercentage: 40
+        }
       });
 
       const sessionId = 'session-1';

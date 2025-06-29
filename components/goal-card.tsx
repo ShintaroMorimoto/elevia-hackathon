@@ -72,14 +72,32 @@ export function GoalCard({ goal }: GoalCardProps) {
   return (
     <Card
       className={cn(
-        'cursor-pointer transition-all duration-500 hover:scale-[1.02] group relative overflow-hidden',
+        'cursor-pointer transition-all duration-300 group relative overflow-hidden touch-feedback focus-visible',
+        'hover:shadow-lg hover:shadow-primary-sunrise/20 hover:border-primary-sunrise/30',
         getCardGradient(progressPercentage),
       )}
       onClick={handleCardClick}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleCardClick();
+        }
+      }}
     >
-      {/* Journey Background Effect */}
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-10 transition-opacity duration-500">
-        <div className="absolute inset-0 bg-gradient-hero" />
+      {/* Journey Background Effect - Subtle glow */}
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity duration-300">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary-sunrise/10 via-primary-daylight/10 to-primary-sky/10" />
+      </div>
+
+      {/* Progress-based border glow */}
+      <div className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+        <div className={cn(
+          'absolute inset-0 rounded-lg',
+          progressPercentage >= 100 ? 'ring-2 ring-primary-sky/40' :
+          progressPercentage >= 50 ? 'ring-2 ring-primary-daylight/40' :
+          'ring-2 ring-primary-sunrise/40'
+        )} />
       </div>
 
       <CardContent className="p-6 relative z-10">

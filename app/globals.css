@@ -50,18 +50,18 @@ body {
   background: var(--gradient-daylight);
 }
 
-/* Button Hover Effects */
+/* Button Hover Effects - Subtle and Journey-themed */
 .btn-glow:hover {
-  box-shadow: 0 0 20px rgba(255, 107, 107, 0.4);
-  transform: translateY(-2px);
-  transition: all 0.3s ease;
+  box-shadow: 0 0 12px rgba(255, 107, 107, 0.25);
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
 }
 
-/* Card Hover Effects */
+/* Card Hover Effects - Gentle elevation with light glow */
 .card-float:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s ease;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s ease;
 }
 
 /* Shimmer Effect for Loading */
@@ -74,6 +74,42 @@ body {
 /* Celebration Animation */
 .celebration {
   animation: celebration 0.6s ease-in-out;
+}
+
+/* Progress-based hover effects */
+.progress-hover-dawn:hover {
+  border-color: rgba(255, 107, 107, 0.3);
+  box-shadow: 0 0 12px rgba(255, 107, 107, 0.1);
+  transition: all 0.2s ease;
+}
+
+.progress-hover-sunrise:hover {
+  border-color: rgba(255, 213, 61, 0.3);
+  box-shadow: 0 0 12px rgba(255, 213, 61, 0.1);
+  transition: all 0.2s ease;
+}
+
+.progress-hover-complete:hover {
+  border-color: rgba(107, 207, 127, 0.3);
+  box-shadow: 0 0 12px rgba(107, 207, 127, 0.1);
+  transition: all 0.2s ease;
+}
+
+/* Touch-friendly active states for mobile */
+.touch-feedback {
+  transition: all 0.2s ease;
+}
+
+.touch-feedback:active {
+  transform: scale(0.98);
+  opacity: 0.8;
+}
+
+/* Enhanced focus states for accessibility */
+.focus-visible:focus-visible {
+  outline: 2px solid rgba(255, 107, 107, 0.6);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.2);
 }
 
 /* Custom Scrollbar */
