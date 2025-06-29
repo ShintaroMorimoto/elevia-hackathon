@@ -1,0 +1,11 @@
+project_id = "sandbox-morimoto-s1"
+region = "asia-northeast1"
+app_name = "elevia"
+db_user = "elevia_user"
+db_password = "temp-password-for-import"
+db_name = "elevia_db"
+nextauth_secret = "temp-secret-for-import"
+custom_domain = ""
+deletion_protection = true
+max_instances = 10
+db_tier = "db-f1-micro"
