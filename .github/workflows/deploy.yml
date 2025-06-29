@@ -96,6 +96,7 @@ jobs:
               --set-env-vars="CLOUD_SQL_CONNECTION_NAME=${{ steps.tf-outputs.outputs.cloud_sql_connection }}" \
               --set-env-vars="DB_NAME=elevia_db" \
               --set-env-vars="DB_USER=elevia_user" \
+              --set-env-vars="AUTH_URL=${{ steps.deploy-url.outputs.url }}" \
               --set-secrets="DB_PASS=elevia-db-password:latest" \
               --set-secrets="AUTH_SECRET=elevia-nextauth-secret:latest" \
               --vpc-connector=elevia-connector-v2 \
