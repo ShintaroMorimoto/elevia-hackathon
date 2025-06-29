@@ -69,10 +69,22 @@ if (isProduction && isCloudRun) {
     });
   } else {
     console.log('Using local DB settings');
+
+    // Validate required environment variables for local development
+    const requiredVars = ['DB_USER', 'DB_PASS', 'DB_NAME'];
+    const missing = requiredVars.filter((varName) => !process.env[varName]);
+
+    if (missing.length > 0) {
+      throw new Error(
+        `Missing required environment variables for local database: ${missing.join(', ')}\n` +
+          'Please set these in your .env.local file. See .env.template for reference.',
+      );
+    }
+
     pool = new pg.Pool({
-      user: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASS || 'mypassword',
-      database: process.env.DB_NAME || 'postgres',
+      user: getEnv('DB_USER'),
+      password: getEnv('DB_PASS'),
+      database: getEnv('DB_NAME'),
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '5432'),
       max: 2,

@@ -145,16 +145,16 @@ export async function handleUserMessage(
 
   const [questionResult, analysisResult] = await Promise.all([
     generateNextQuestion(goalId, userId, updatedHistory),
-    analyzeConversationDepth(updatedHistory, { 
-      id: goalId, 
-      userId, 
+    analyzeConversationDepth(updatedHistory, {
+      id: goalId,
+      userId,
       title: '',
       createdAt: new Date(),
       updatedAt: new Date(),
       description: null,
       dueDate: '',
       status: 'active',
-      progressPercentage: null
+      progressPercentage: null,
     }),
   ]);
 

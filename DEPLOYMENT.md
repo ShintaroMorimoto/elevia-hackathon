@@ -73,11 +73,10 @@ DB_USER=elevia_user
 DB_PASS=your-secure-database-password-min-8-chars
 DB_NAME=elevia_db
 
-# NextAuth Configuration
-NEXTAUTH_URL=https://your-domain.com  # Will be updated after deployment
-NEXTAUTH_SECRET=your-32-char-secret-key
+# NextAuth Configuration (NextAuth v5 automatically detects URL)
+AUTH_SECRET=your-32-char-secret-key
 
-# AI Configuration
+# AI Configuration (Vertex AI)
 GOOGLE_VERTEX_PROJECT_ID=your-project-id
 GOOGLE_VERTEX_LOCATION=asia-northeast1
 ```
@@ -121,7 +120,7 @@ WORKLOAD_IDENTITY_PROVIDER=github
 3. Add these **Environment secrets**:
 
 ```
-AUTH_SECRET=your-nextauth-secret-here    # NOTE: AUTH_SECRET not NEXTAUTH_SECRET
+AUTH_SECRET=your-nextauth-secret-here    # NextAuth v5 secret for session encryption
 DB_USER=elevia_user
 DB_PASS=your-secure-database-password
 DB_NAME=elevia_db
@@ -151,7 +150,7 @@ WORKLOAD_IDENTITY_PROVIDER=github
 **GitHub Environment "Terraform" Secrets** ✅
 ```bash
 # Verify with: gh api repos/:owner/:repo/environments/Terraform/secrets
-AUTH_SECRET=your-secret-here    # NOT NEXTAUTH_SECRET
+AUTH_SECRET=your-secret-here    # NextAuth v5 secret
 DB_USER=elevia_user
 DB_PASS=your-password
 DB_NAME=elevia_db
@@ -185,7 +184,9 @@ The deployment is fully automated through GitHub Actions using **Direct Workload
 - ✅ **Main Branch Only**: Triggers only on main branch push (no PR triggers)
 - ✅ **No Test Duplication**: Focuses solely on deployment activities
 - ✅ **Docker Build/Push**: Automatic container creation and push to Artifact Registry
-- ✅ **Cloud Run Deployment**: Zero-downtime rolling deployment
+- ✅ **Cloud Run Deployment**: Zero-downtime rolling deployment with comprehensive environment configuration
+- ✅ **Environment Variable Management**: Proper handling of environment variables with `--update-env-vars` for AUTH_URL updates
+- ✅ **Vertex AI Integration**: Automatic configuration of Vertex AI environment variables for OKR generation
 - ✅ **Database Migration**: Automatic Drizzle migrations
 - ✅ **Direct WIF Authentication**: Secure authentication without service account keys
 
@@ -318,7 +319,7 @@ gcloud run domain-mappings create \
 
 ### 7.2 Update Environment Variables
 
-Update `NEXTAUTH_URL` in your secrets to use the custom domain.
+NextAuth v5 automatically detects the domain from the request, no additional configuration needed.
 
 ## Monitoring and Maintenance
 
@@ -561,7 +562,7 @@ gcloud iam workload-identity-pools providers update-oidc github \
 
 **Correct Secret Names** (set these in GitHub Environment "Terraform" Secrets):
 ```
-AUTH_SECRET=your-nextauth-secret-here  # NOT NEXTAUTH_SECRET
+AUTH_SECRET=your-nextauth-secret-here  # NextAuth v5 secret
 DB_USER=elevia_user
 DB_PASS=your-secure-password
 DB_NAME=elevia_db
@@ -847,7 +848,11 @@ NODE_ENV=production
 CLOUD_SQL_CONNECTION_NAME=project:region:instance  # From terraform output
 DB_NAME=elevia_db
 DB_USER=elevia_user
-NEXTAUTH_URL=https://your-cloud-run-url
+AUTH_URL=https://your-cloud-run-url  # Updated automatically by deployment workflow
+
+# Vertex AI Configuration
+GOOGLE_VERTEX_PROJECT_ID=your-project-id  # For AI-powered OKR generation
+GOOGLE_VERTEX_LOCATION=asia-northeast1
 
 # Injected from Secret Manager
 DB_PASS=***  # From Secret Manager secret: elevia-db-password
@@ -1063,6 +1068,65 @@ If deployment fails on a fresh project:
 
 #### ⚠️ Critical Post-Deployment Issues
 
+#### Environment Variable Overwrite in Cloud Run Updates
+
+**Issue**: Cloud Run service loses all existing environment variables when updating AUTH_URL.
+
+**Symptoms**:
+```
+Error: DB_USER environment variable not set
+Error: CLOUD_SQL_CONNECTION_NAME environment variable not set
+```
+
+**Root Cause**: Using `--set-env-vars` instead of `--update-env-vars` in the deployment workflow overwrites all existing environment variables when updating AUTH_URL.
+
+**Critical Fix Applied**:
+```yaml
+# ❌ Wrong - overwrites all existing environment variables
+gcloud run services update ${{ env.SERVICE_NAME }} \
+  --region=${{ env.REGION }} \
+  --set-env-vars="AUTH_URL=${{ steps.deploy-url.outputs.url }}" \
+  --quiet
+
+# ✅ Correct - preserves existing environment variables
+gcloud run services update ${{ env.SERVICE_NAME }} \
+  --region=${{ env.REGION }} \
+  --update-env-vars="AUTH_URL=${{ steps.deploy-url.outputs.url }}" \
+  --quiet
+```
+
+**Impact**: This fix prevents the loss of critical environment variables like NODE_ENV, DB_USER, CLOUD_SQL_CONNECTION_NAME, etc., ensuring the application continues to function after AUTH_URL updates.
+
+**Prevention**: Always use `--update-env-vars` for single variable updates and `--set-env-vars` only for initial deployment or complete environment replacement.
+
+#### Vertex AI Configuration for OKR Generation
+
+**Requirement**: The application requires Vertex AI access for AI-powered OKR generation and conversation features.
+
+**Environment Variables Required**:
+```bash
+# Add to deployment workflow
+--set-env-vars="GOOGLE_VERTEX_PROJECT_ID=${{ env.PROJECT_ID }}" \
+--set-env-vars="GOOGLE_VERTEX_LOCATION=asia-northeast1" \
+```
+
+**Service Account Permissions Required**:
+```bash
+# Add to init.sh or manually grant
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:elevia-run-sa@$PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/aiplatform.user"
+```
+
+**Verification**:
+```bash
+# Check Cloud Run environment variables include Vertex AI configuration
+gcloud run services describe elevia --region=asia-northeast1 --format="export" | grep -i "VERTEX"
+
+# Verify service account has Vertex AI permissions
+gcloud projects get-iam-policy $PROJECT_ID --flatten="bindings[].members" --filter="bindings.members:elevia-run-sa@$PROJECT_ID.iam.gserviceaccount.com"
+```
+
 #### Cloud Run Service Environment Variable Configuration
 
 **Issue**: Cloud Run service deploys successfully but application fails to start with environment variable errors.
@@ -1089,8 +1153,7 @@ gcloud run deploy $SERVICE_NAME \
   --set-env-vars="DB_NAME=elevia_db" \
   --set-env-vars="DB_USER=elevia_user" \
   --set-secrets="DB_PASS=elevia-db-password:latest" \
-  --set-secrets="NEXTAUTH_SECRET=elevia-nextauth-secret:latest" \
-  --set-env-vars="NEXTAUTH_URL=https://your-cloud-run-url" \
+  --set-secrets="AUTH_SECRET=elevia-nextauth-secret:latest" \
   --vpc-connector=elevia-connector-v2 \
   --vpc-egress=private-ranges-only \
   --timeout=300 \

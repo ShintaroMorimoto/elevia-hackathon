@@ -3,18 +3,31 @@
 import { db } from '@/lib/db';
 import { chatSessions, chatMessages } from '@/lib/db/schema';
 import { eq, asc } from 'drizzle-orm';
-import type { NewChatSession, ChatSession, NewChatMessage, ChatMessage } from '@/lib/db/schema';
+import type {
+  NewChatSession,
+  ChatSession,
+  NewChatMessage,
+  ChatMessage,
+} from '@/lib/db/schema';
+import { requireAuthentication } from '@/lib/auth';
 
-export type ActionResult<T = any> = {
-  success: true;
-  data: T;
-} | {
-  success: false;
-  error: string;
-};
+export type ActionResult<T = any> =
+  | {
+      success: true;
+      data: T;
+    }
+  | {
+      success: false;
+      error: string;
+    };
 
-export async function createChatSession(sessionData: NewChatSession): Promise<ActionResult<ChatSession>> {
+export async function createChatSession(
+  sessionData: NewChatSession,
+): Promise<ActionResult<ChatSession>> {
   try {
+    // Authentication check
+    await requireAuthentication();
+
     // Validation
     if (!sessionData.goalId || sessionData.goalId.trim() === '') {
       return {
@@ -24,10 +37,13 @@ export async function createChatSession(sessionData: NewChatSession): Promise<Ac
     }
 
     // Create chat session
-    const result = await db.insert(chatSessions).values({
-      ...sessionData,
-      status: sessionData.status || 'active',
-    }).returning();
+    const result = await db
+      .insert(chatSessions)
+      .values({
+        ...sessionData,
+        status: sessionData.status || 'active',
+      })
+      .returning();
 
     if (result.length === 0) {
       return {
@@ -41,6 +57,10 @@ export async function createChatSession(sessionData: NewChatSession): Promise<Ac
       data: result[0],
     };
   } catch (error) {
+    // Re-throw authentication errors to allow proper error handling
+    if (error instanceof Error && error.name === 'AuthenticationError') {
+      throw error;
+    }
     console.error('Error creating chat session:', error);
     return {
       success: false,
@@ -49,8 +69,13 @@ export async function createChatSession(sessionData: NewChatSession): Promise<Ac
   }
 }
 
-export async function addChatMessage(messageData: NewChatMessage): Promise<ActionResult<ChatMessage>> {
+export async function addChatMessage(
+  messageData: NewChatMessage,
+): Promise<ActionResult<ChatMessage>> {
   try {
+    // Authentication check
+    await requireAuthentication();
+
     // Validation
     if (!messageData.sessionId || messageData.sessionId.trim() === '') {
       return {
@@ -66,14 +91,20 @@ export async function addChatMessage(messageData: NewChatMessage): Promise<Actio
       };
     }
 
-    if (!messageData.senderType || !['user', 'ai'].includes(messageData.senderType)) {
+    if (
+      !messageData.senderType ||
+      !['user', 'ai'].includes(messageData.senderType)
+    ) {
       return {
         success: false,
         error: 'Sender type must be user or ai',
       };
     }
 
-    if (typeof messageData.messageOrder !== 'number' || messageData.messageOrder < 0) {
+    if (
+      typeof messageData.messageOrder !== 'number' ||
+      messageData.messageOrder < 0
+    ) {
       return {
         success: false,
         error: 'Message order must be a non-negative number',
@@ -81,7 +112,10 @@ export async function addChatMessage(messageData: NewChatMessage): Promise<Actio
     }
 
     // Add chat message
-    const result = await db.insert(chatMessages).values(messageData).returning();
+    const result = await db
+      .insert(chatMessages)
+      .values(messageData)
+      .returning();
 
     if (result.length === 0) {
       return {
@@ -95,6 +129,10 @@ export async function addChatMessage(messageData: NewChatMessage): Promise<Actio
       data: result[0],
     };
   } catch (error) {
+    // Re-throw authentication errors to allow proper error handling
+    if (error instanceof Error && error.name === 'AuthenticationError') {
+      throw error;
+    }
     console.error('Error adding chat message:', error);
     return {
       success: false,
@@ -103,8 +141,13 @@ export async function addChatMessage(messageData: NewChatMessage): Promise<Actio
   }
 }
 
-export async function getChatMessages(sessionId: string): Promise<ActionResult<ChatMessage[]>> {
+export async function getChatMessages(
+  sessionId: string,
+): Promise<ActionResult<ChatMessage[]>> {
   try {
+    // Authentication check
+    await requireAuthentication();
+
     if (!sessionId || sessionId.trim() === '') {
       return {
         success: false,
@@ -123,6 +166,10 @@ export async function getChatMessages(sessionId: string): Promise<ActionResult<C
       data: result,
     };
   } catch (error) {
+    // Re-throw authentication errors to allow proper error handling
+    if (error instanceof Error && error.name === 'AuthenticationError') {
+      throw error;
+    }
     console.error('Error fetching chat messages:', error);
     return {
       success: false,
@@ -133,9 +180,12 @@ export async function getChatMessages(sessionId: string): Promise<ActionResult<C
 
 export async function updateChatSession(
   sessionId: string,
-  updateData: Partial<NewChatSession>
+  updateData: Partial<NewChatSession>,
 ): Promise<ActionResult<ChatSession>> {
   try {
+    // Authentication check
+    await requireAuthentication();
+
     if (!sessionId || sessionId.trim() === '') {
       return {
         success: false,
@@ -179,6 +229,10 @@ export async function updateChatSession(
       data: result[0],
     };
   } catch (error) {
+    // Re-throw authentication errors to allow proper error handling
+    if (error instanceof Error && error.name === 'AuthenticationError') {
+      throw error;
+    }
     console.error('Error updating chat session:', error);
     return {
       success: false,

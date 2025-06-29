@@ -48,3 +48,5 @@ terraform/terraform.tfstate*
 terraform/terraform.tfvars
 
 image
+
+SECURITY_AUDIT_REPORT.md

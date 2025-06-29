@@ -3,6 +3,11 @@ import { createChatSession, addChatMessage } from '@/actions/chat';
 import { generateNextQuestion } from '@/actions/ai-conversation';
 import { getGoal } from '@/actions/goals';
 
+// Mock NextAuth first to prevent module resolution issues
+vi.mock('@/auth', () => ({
+  auth: vi.fn(),
+}));
+
 // Mock the Server Actions for UI integration testing
 vi.mock('@/actions/chat');
 vi.mock('@/actions/ai-conversation');

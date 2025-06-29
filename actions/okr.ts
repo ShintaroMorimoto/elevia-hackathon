@@ -3,18 +3,33 @@
 import { db } from '@/lib/db';
 import { yearlyOkrs, quarterlyOkrs, keyResults } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
-import type { NewYearlyOkr, YearlyOkr, NewQuarterlyOkr, QuarterlyOkr, NewKeyResult, KeyResult } from '@/lib/db/schema';
+import type {
+  NewYearlyOkr,
+  YearlyOkr,
+  NewQuarterlyOkr,
+  QuarterlyOkr,
+  NewKeyResult,
+  KeyResult,
+} from '@/lib/db/schema';
+import { requireAuthentication } from '@/lib/auth';
 
-export type ActionResult<T = any> = {
-  success: true;
-  data: T;
-} | {
-  success: false;
-  error: string;
-};
+export type ActionResult<T = any> =
+  | {
+      success: true;
+      data: T;
+    }
+  | {
+      success: false;
+      error: string;
+    };
 
-export async function createYearlyOkr(okrData: NewYearlyOkr): Promise<ActionResult<YearlyOkr>> {
+export async function createYearlyOkr(
+  okrData: NewYearlyOkr,
+): Promise<ActionResult<YearlyOkr>> {
   try {
+    // Authentication check
+    await requireAuthentication();
+
     // Validation
     if (!okrData.objective || okrData.objective.trim() === '') {
       return {
@@ -30,7 +45,11 @@ export async function createYearlyOkr(okrData: NewYearlyOkr): Promise<ActionResu
       };
     }
 
-    if (!okrData.targetYear || okrData.targetYear < 2000 || okrData.targetYear > 2100) {
+    if (
+      !okrData.targetYear ||
+      okrData.targetYear < 2000 ||
+      okrData.targetYear > 2100
+    ) {
       return {
         success: false,
         error: 'Target year must be a valid year (2000-2100)',
@@ -38,11 +57,14 @@ export async function createYearlyOkr(okrData: NewYearlyOkr): Promise<ActionResu
     }
 
     // Create yearly OKR
-    const result = await db.insert(yearlyOkrs).values({
-      ...okrData,
-      progressPercentage: '0',
-      sortOrder: okrData.sortOrder || 0,
-    }).returning();
+    const result = await db
+      .insert(yearlyOkrs)
+      .values({
+        ...okrData,
+        progressPercentage: '0',
+        sortOrder: okrData.sortOrder || 0,
+      })
+      .returning();
 
     if (result.length === 0) {
       return {
@@ -56,6 +78,10 @@ export async function createYearlyOkr(okrData: NewYearlyOkr): Promise<ActionResu
       data: result[0],
     };
   } catch (error) {
+    // Re-throw authentication errors to allow proper error handling
+    if (error instanceof Error && error.name === 'AuthenticationError') {
+      throw error;
+    }
     console.error('Error creating yearly OKR:', error);
     return {
       success: false,
@@ -64,8 +90,13 @@ export async function createYearlyOkr(okrData: NewYearlyOkr): Promise<ActionResu
   }
 }
 
-export async function createQuarterlyOkr(okrData: NewQuarterlyOkr): Promise<ActionResult<QuarterlyOkr>> {
+export async function createQuarterlyOkr(
+  okrData: NewQuarterlyOkr,
+): Promise<ActionResult<QuarterlyOkr>> {
   try {
+    // Authentication check
+    await requireAuthentication();
+
     // Validation
     if (!okrData.objective || okrData.objective.trim() === '') {
       return {
@@ -81,14 +112,22 @@ export async function createQuarterlyOkr(okrData: NewQuarterlyOkr): Promise<Acti
       };
     }
 
-    if (!okrData.targetYear || okrData.targetYear < 2000 || okrData.targetYear > 2100) {
+    if (
+      !okrData.targetYear ||
+      okrData.targetYear < 2000 ||
+      okrData.targetYear > 2100
+    ) {
       return {
         success: false,
         error: 'Target year must be a valid year (2000-2100)',
       };
     }
 
-    if (!okrData.targetQuarter || okrData.targetQuarter < 1 || okrData.targetQuarter > 4) {
+    if (
+      !okrData.targetQuarter ||
+      okrData.targetQuarter < 1 ||
+      okrData.targetQuarter > 4
+    ) {
       return {
         success: false,
         error: 'Target quarter must be between 1 and 4',
@@ -96,11 +135,14 @@ export async function createQuarterlyOkr(okrData: NewQuarterlyOkr): Promise<Acti
     }
 
     // Create quarterly OKR
-    const result = await db.insert(quarterlyOkrs).values({
-      ...okrData,
-      progressPercentage: '0',
-      sortOrder: okrData.sortOrder || 0,
-    }).returning();
+    const result = await db
+      .insert(quarterlyOkrs)
+      .values({
+        ...okrData,
+        progressPercentage: '0',
+        sortOrder: okrData.sortOrder || 0,
+      })
+      .returning();
 
     if (result.length === 0) {
       return {
@@ -114,6 +156,10 @@ export async function createQuarterlyOkr(okrData: NewQuarterlyOkr): Promise<Acti
       data: result[0],
     };
   } catch (error) {
+    // Re-throw authentication errors to allow proper error handling
+    if (error instanceof Error && error.name === 'AuthenticationError') {
+      throw error;
+    }
     console.error('Error creating quarterly OKR:', error);
     return {
       success: false,
@@ -122,8 +168,13 @@ export async function createQuarterlyOkr(okrData: NewQuarterlyOkr): Promise<Acti
   }
 }
 
-export async function createKeyResult(krData: NewKeyResult): Promise<ActionResult<KeyResult>> {
+export async function createKeyResult(
+  krData: NewKeyResult,
+): Promise<ActionResult<KeyResult>> {
   try {
+    // Authentication check
+    await requireAuthentication();
+
     // Validation
     if (!krData.description || krData.description.trim() === '') {
       return {
@@ -143,24 +194,29 @@ export async function createKeyResult(krData: NewKeyResult): Promise<ActionResul
     if (!krData.yearlyOkrId && !krData.quarterlyOkrId) {
       return {
         success: false,
-        error: 'Key result must be associated with either yearly or quarterly OKR',
+        error:
+          'Key result must be associated with either yearly or quarterly OKR',
       };
     }
 
     if (krData.yearlyOkrId && krData.quarterlyOkrId) {
       return {
         success: false,
-        error: 'Key result cannot be associated with both yearly and quarterly OKR',
+        error:
+          'Key result cannot be associated with both yearly and quarterly OKR',
       };
     }
 
     // Create key result
-    const result = await db.insert(keyResults).values({
-      ...krData,
-      currentValue: krData.currentValue || '0',
-      achievementRate: '0',
-      sortOrder: krData.sortOrder || 0,
-    }).returning();
+    const result = await db
+      .insert(keyResults)
+      .values({
+        ...krData,
+        currentValue: krData.currentValue || '0',
+        achievementRate: '0',
+        sortOrder: krData.sortOrder || 0,
+      })
+      .returning();
 
     if (result.length === 0) {
       return {
@@ -174,6 +230,10 @@ export async function createKeyResult(krData: NewKeyResult): Promise<ActionResul
       data: result[0],
     };
   } catch (error) {
+    // Re-throw authentication errors to allow proper error handling
+    if (error instanceof Error && error.name === 'AuthenticationError') {
+      throw error;
+    }
     console.error('Error creating key result:', error);
     return {
       success: false,
@@ -182,7 +242,9 @@ export async function createKeyResult(krData: NewKeyResult): Promise<ActionResul
   }
 }
 
-export async function getOkrsByGoal(goalId: string): Promise<ActionResult<YearlyOkr[]>> {
+export async function getOkrsByGoal(
+  goalId: string,
+): Promise<ActionResult<YearlyOkr[]>> {
   try {
     if (!goalId || goalId.trim() === '') {
       return {
@@ -212,7 +274,7 @@ export async function getOkrsByGoal(goalId: string): Promise<ActionResult<Yearly
 
 export async function updateYearlyOkr(
   okrId: string,
-  updateData: Partial<NewYearlyOkr>
+  updateData: Partial<NewYearlyOkr>,
 ): Promise<ActionResult<YearlyOkr>> {
   try {
     if (!okrId || okrId.trim() === '') {
@@ -223,7 +285,10 @@ export async function updateYearlyOkr(
     }
 
     // Validate objective if provided
-    if (updateData.objective !== undefined && updateData.objective.trim() === '') {
+    if (
+      updateData.objective !== undefined &&
+      updateData.objective.trim() === ''
+    ) {
       return {
         success: false,
         error: 'Objective cannot be empty',
@@ -231,7 +296,10 @@ export async function updateYearlyOkr(
     }
 
     // Validate target year if provided
-    if (updateData.targetYear !== undefined && (updateData.targetYear < 2000 || updateData.targetYear > 2100)) {
+    if (
+      updateData.targetYear !== undefined &&
+      (updateData.targetYear < 2000 || updateData.targetYear > 2100)
+    ) {
       return {
         success: false,
         error: 'Target year must be a valid year (2000-2100)',
@@ -284,7 +352,7 @@ export async function updateYearlyOkr(
 
 export async function updateQuarterlyOkr(
   okrId: string,
-  updateData: Partial<NewQuarterlyOkr>
+  updateData: Partial<NewQuarterlyOkr>,
 ): Promise<ActionResult<QuarterlyOkr>> {
   try {
     if (!okrId || okrId.trim() === '') {
@@ -295,7 +363,10 @@ export async function updateQuarterlyOkr(
     }
 
     // Validate objective if provided
-    if (updateData.objective !== undefined && updateData.objective.trim() === '') {
+    if (
+      updateData.objective !== undefined &&
+      updateData.objective.trim() === ''
+    ) {
       return {
         success: false,
         error: 'Objective cannot be empty',
@@ -303,7 +374,10 @@ export async function updateQuarterlyOkr(
     }
 
     // Validate target quarter if provided
-    if (updateData.targetQuarter !== undefined && (updateData.targetQuarter < 1 || updateData.targetQuarter > 4)) {
+    if (
+      updateData.targetQuarter !== undefined &&
+      (updateData.targetQuarter < 1 || updateData.targetQuarter > 4)
+    ) {
       return {
         success: false,
         error: 'Target quarter must be between 1 and 4',
@@ -356,7 +430,7 @@ export async function updateQuarterlyOkr(
 
 export async function updateKeyResult(
   krId: string,
-  updateData: Partial<NewKeyResult>
+  updateData: Partial<NewKeyResult>,
 ): Promise<ActionResult<KeyResult>> {
   try {
     if (!krId || krId.trim() === '') {
@@ -367,7 +441,10 @@ export async function updateKeyResult(
     }
 
     // Validate description if provided
-    if (updateData.description !== undefined && updateData.description.trim() === '') {
+    if (
+      updateData.description !== undefined &&
+      updateData.description.trim() === ''
+    ) {
       return {
         success: false,
         error: 'Description cannot be empty',
@@ -389,8 +466,13 @@ export async function updateKeyResult(
     }
 
     // Calculate achievement rate if current value is being updated
-    let achievementRate = updateData.currentValue ? undefined : updateData.achievementRate;
-    if (updateData.currentValue !== undefined && updateData.targetValue !== undefined) {
+    let achievementRate = updateData.currentValue
+      ? undefined
+      : updateData.achievementRate;
+    if (
+      updateData.currentValue !== undefined &&
+      updateData.targetValue !== undefined
+    ) {
       const current = parseFloat(updateData.currentValue || '0');
       const target = parseFloat(updateData.targetValue || '0');
       if (!isNaN(current) && !isNaN(target) && target > 0) {
@@ -429,7 +511,9 @@ export async function updateKeyResult(
   }
 }
 
-export async function deleteYearlyOkr(okrId: string): Promise<ActionResult<undefined>> {
+export async function deleteYearlyOkr(
+  okrId: string,
+): Promise<ActionResult<undefined>> {
   try {
     if (!okrId || okrId.trim() === '') {
       return {
@@ -453,9 +537,7 @@ export async function deleteYearlyOkr(okrId: string): Promise<ActionResult<undef
     }
 
     // Delete OKR (cascading deletes will handle related records)
-    await db
-      .delete(yearlyOkrs)
-      .where(eq(yearlyOkrs.id, okrId));
+    await db.delete(yearlyOkrs).where(eq(yearlyOkrs.id, okrId));
 
     return {
       success: true,
@@ -470,7 +552,9 @@ export async function deleteYearlyOkr(okrId: string): Promise<ActionResult<undef
   }
 }
 
-export async function deleteQuarterlyOkr(okrId: string): Promise<ActionResult<undefined>> {
+export async function deleteQuarterlyOkr(
+  okrId: string,
+): Promise<ActionResult<undefined>> {
   try {
     if (!okrId || okrId.trim() === '') {
       return {
@@ -494,9 +578,7 @@ export async function deleteQuarterlyOkr(okrId: string): Promise<ActionResult<un
     }
 
     // Delete OKR (cascading deletes will handle related records)
-    await db
-      .delete(quarterlyOkrs)
-      .where(eq(quarterlyOkrs.id, okrId));
+    await db.delete(quarterlyOkrs).where(eq(quarterlyOkrs.id, okrId));
 
     return {
       success: true,
@@ -511,7 +593,9 @@ export async function deleteQuarterlyOkr(okrId: string): Promise<ActionResult<un
   }
 }
 
-export async function deleteKeyResult(krId: string): Promise<ActionResult<undefined>> {
+export async function deleteKeyResult(
+  krId: string,
+): Promise<ActionResult<undefined>> {
   try {
     if (!krId || krId.trim() === '') {
       return {
@@ -535,9 +619,7 @@ export async function deleteKeyResult(krId: string): Promise<ActionResult<undefi
     }
 
     // Delete Key Result
-    await db
-      .delete(keyResults)
-      .where(eq(keyResults.id, krId));
+    await db.delete(keyResults).where(eq(keyResults.id, krId));
 
     return {
       success: true,
@@ -552,7 +634,9 @@ export async function deleteKeyResult(krId: string): Promise<ActionResult<undefi
   }
 }
 
-export async function getYearlyOKRs(goalId: string): Promise<ActionResult<YearlyOkr[]>> {
+export async function getYearlyOKRs(
+  goalId: string,
+): Promise<ActionResult<YearlyOkr[]>> {
   try {
     if (!goalId || goalId.trim() === '') {
       return {
@@ -580,7 +664,9 @@ export async function getYearlyOKRs(goalId: string): Promise<ActionResult<Yearly
   }
 }
 
-export async function getQuarterlyOKRs(goalId: string): Promise<ActionResult<QuarterlyOkr[]>> {
+export async function getQuarterlyOKRs(
+  goalId: string,
+): Promise<ActionResult<QuarterlyOkr[]>> {
   try {
     if (!goalId || goalId.trim() === '') {
       return {
@@ -605,7 +691,11 @@ export async function getQuarterlyOKRs(goalId: string): Promise<ActionResult<Qua
       .from(quarterlyOkrs)
       .innerJoin(yearlyOkrs, eq(quarterlyOkrs.yearlyOkrId, yearlyOkrs.id))
       .where(eq(yearlyOkrs.goalId, goalId))
-      .orderBy(quarterlyOkrs.targetYear, quarterlyOkrs.targetQuarter, quarterlyOkrs.sortOrder);
+      .orderBy(
+        quarterlyOkrs.targetYear,
+        quarterlyOkrs.targetQuarter,
+        quarterlyOkrs.sortOrder,
+      );
 
     return {
       success: true,
@@ -620,7 +710,9 @@ export async function getQuarterlyOKRs(goalId: string): Promise<ActionResult<Qua
   }
 }
 
-export async function getKeyResults(goalId: string): Promise<ActionResult<KeyResult[]>> {
+export async function getKeyResults(
+  goalId: string,
+): Promise<ActionResult<KeyResult[]>> {
   try {
     if (!goalId || goalId.trim() === '') {
       return {
@@ -631,7 +723,7 @@ export async function getKeyResults(goalId: string): Promise<ActionResult<KeyRes
 
     // Get key results by joining with both yearly and quarterly OKRs to filter by goal
     // We need to get key results from both yearly OKRs and quarterly OKRs
-    
+
     // First, get key results from yearly OKRs
     const yearlyKeyResults = await db
       .select({
@@ -672,9 +764,9 @@ export async function getKeyResults(goalId: string): Promise<ActionResult<KeyRes
       .where(eq(yearlyOkrs.goalId, goalId));
 
     // Combine and sort all key results
-    const result = [...yearlyKeyResults, ...quarterlyKeyResults]
-      .sort((a, b) => a.sortOrder - b.sortOrder);
-
+    const result = [...yearlyKeyResults, ...quarterlyKeyResults].sort(
+      (a, b) => a.sortOrder - b.sortOrder,
+    );
 
     return {
       success: true,

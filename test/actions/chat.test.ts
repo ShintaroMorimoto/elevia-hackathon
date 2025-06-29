@@ -1,5 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { NewChatSession, ChatSession, NewChatMessage, ChatMessage } from '../../lib/db/schema';
+import type {
+  NewChatSession,
+  ChatSession,
+  NewChatMessage,
+  ChatMessage,
+} from '../../lib/db/schema';
+
+// Mock NextAuth first to prevent module resolution issues
+vi.mock('@/auth', () => ({
+  auth: vi.fn(),
+}));
 
 // Mock the database with proper chain methods
 const mockInsert = vi.fn();
@@ -21,12 +31,27 @@ vi.mock('../../lib/db', () => ({
   },
 }));
 
+// Mock authentication utility
+vi.mock('../../lib/auth', () => ({
+  requireAuthentication: vi.fn(),
+  AuthenticationError: class extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'AuthenticationError';
+    }
+  },
+}));
+
 // Chain mocks - setup default returns
 mockInsert.mockReturnValue({ values: mockValues });
 mockValues.mockReturnValue({ returning: mockReturning });
 mockSelect.mockReturnValue({ from: mockFrom });
 mockFrom.mockReturnValue({ where: mockWhere, orderBy: mockOrderBy });
-mockWhere.mockReturnValue({ orderBy: mockOrderBy, limit: mockLimit, returning: mockReturning });
+mockWhere.mockReturnValue({
+  orderBy: mockOrderBy,
+  limit: mockLimit,
+  returning: mockReturning,
+});
 mockOrderBy.mockReturnValue(Promise.resolve([]));
 mockLimit.mockReturnValue(Promise.resolve([]));
 mockUpdate.mockReturnValue({ set: mockSet });
@@ -34,12 +59,23 @@ mockSet.mockReturnValue({ where: mockWhere });
 mockReturning.mockReturnValue(Promise.resolve([]));
 
 // Dynamic import to ensure mock is loaded
-const { createChatSession, addChatMessage, getChatMessages, updateChatSession } = await import('../../actions/chat');
+const {
+  createChatSession,
+  addChatMessage,
+  getChatMessages,
+  updateChatSession,
+} = await import('../../actions/chat');
 
 describe('Chat Server Actions', () => {
   const mockGoalId = 'goal-123';
   const mockSessionId = 'session-123';
   const mockMessageId = 'message-123';
+
+  const mockUser = {
+    id: 'user-123',
+    email: 'test@example.com',
+    name: 'Test User',
+  };
 
   const mockNewChatSession: NewChatSession = {
     goalId: mockGoalId,
@@ -70,14 +106,23 @@ describe('Chat Server Actions', () => {
     createdAt: new Date(),
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+
+    // Mock successful authentication by default
+    const { requireAuthentication } = await import('../../lib/auth');
+    vi.mocked(requireAuthentication).mockResolvedValue(mockUser);
+
     // Reset chain mocks
     mockInsert.mockReturnValue({ values: mockValues });
     mockValues.mockReturnValue({ returning: mockReturning });
     mockSelect.mockReturnValue({ from: mockFrom });
     mockFrom.mockReturnValue({ where: mockWhere, orderBy: mockOrderBy });
-    mockWhere.mockReturnValue({ orderBy: mockOrderBy, limit: mockLimit, returning: mockReturning });
+    mockWhere.mockReturnValue({
+      orderBy: mockOrderBy,
+      limit: mockLimit,
+      returning: mockReturning,
+    });
     mockOrderBy.mockReturnValue(Promise.resolve([]));
     mockLimit.mockReturnValue(Promise.resolve([]));
     mockUpdate.mockReturnValue({ set: mockSet });
@@ -89,9 +134,9 @@ describe('Chat Server Actions', () => {
     it('should create a new chat session successfully', async () => {
       // Mock successful session creation
       mockReturning.mockResolvedValueOnce([mockChatSession]);
-      
+
       const result = await createChatSession(mockNewChatSession);
-      
+
       expect(result).toEqual({
         success: true,
         data: expect.objectContaining({
@@ -104,9 +149,9 @@ describe('Chat Server Actions', () => {
     it('should handle database errors gracefully', async () => {
       // Mock database error
       mockReturning.mockRejectedValueOnce(new Error('Database error'));
-      
+
       const result = await createChatSession(mockNewChatSession);
-      
+
       expect(result).toEqual({
         success: false,
         error: expect.any(String),
@@ -116,7 +161,7 @@ describe('Chat Server Actions', () => {
     it('should validate required fields', async () => {
       const invalidSession = { ...mockNewChatSession, goalId: '' };
       const result = await createChatSession(invalidSession);
-      
+
       expect(result).toEqual({
         success: false,
         error: 'Goal ID is required',
@@ -128,9 +173,9 @@ describe('Chat Server Actions', () => {
     it('should add a chat message successfully', async () => {
       // Mock successful message creation
       mockReturning.mockResolvedValueOnce([mockChatMessage]);
-      
+
       const result = await addChatMessage(mockNewChatMessage);
-      
+
       expect(result).toEqual({
         success: true,
         data: expect.objectContaining({
@@ -144,7 +189,7 @@ describe('Chat Server Actions', () => {
 
     it('should handle database errors gracefully', async () => {
       const result = await addChatMessage(mockNewChatMessage);
-      
+
       expect(result).toEqual({
         success: false,
         error: expect.any(String),
@@ -154,7 +199,7 @@ describe('Chat Server Actions', () => {
     it('should validate required fields', async () => {
       const invalidMessage = { ...mockNewChatMessage, content: '' };
       const result = await addChatMessage(invalidMessage);
-      
+
       expect(result).toEqual({
         success: false,
         error: 'Message content is required',
@@ -162,9 +207,12 @@ describe('Chat Server Actions', () => {
     });
 
     it('should validate sender type', async () => {
-      const invalidMessage = { ...mockNewChatMessage, senderType: 'invalid' as any };
+      const invalidMessage = {
+        ...mockNewChatMessage,
+        senderType: 'invalid' as any,
+      };
       const result = await addChatMessage(invalidMessage);
-      
+
       expect(result).toEqual({
         success: false,
         error: 'Sender type must be user or ai',
@@ -176,9 +224,9 @@ describe('Chat Server Actions', () => {
     it('should return messages for a specific session', async () => {
       // Mock successful message retrieval
       mockOrderBy.mockResolvedValueOnce([mockChatMessage]);
-      
+
       const result = await getChatMessages(mockSessionId);
-      
+
       expect(result).toEqual({
         success: true,
         data: expect.arrayContaining([
@@ -192,9 +240,9 @@ describe('Chat Server Actions', () => {
     it('should return empty array when session has no messages', async () => {
       // Mock empty message retrieval
       mockOrderBy.mockResolvedValueOnce([]);
-      
+
       const result = await getChatMessages('session-with-no-messages');
-      
+
       expect(result).toEqual({
         success: true,
         data: [],
@@ -204,9 +252,9 @@ describe('Chat Server Actions', () => {
     it('should handle database errors', async () => {
       // Mock database error
       mockOrderBy.mockRejectedValueOnce(new Error('Database error'));
-      
+
       const result = await getChatMessages('invalid-session');
-      
+
       expect(result).toEqual({
         success: false,
         error: expect.any(String),
@@ -215,7 +263,7 @@ describe('Chat Server Actions', () => {
 
     it('should validate session ID', async () => {
       const result = await getChatMessages('');
-      
+
       expect(result).toEqual({
         success: false,
         error: 'Session ID is required',
@@ -230,10 +278,10 @@ describe('Chat Server Actions', () => {
       // Mock successful update
       const updatedSession = { ...mockChatSession, status: 'completed' };
       mockReturning.mockResolvedValueOnce([updatedSession]);
-      
+
       const updateData = { status: 'completed' as const };
       const result = await updateChatSession(mockSessionId, updateData);
-      
+
       expect(result).toEqual({
         success: true,
         data: expect.objectContaining({
@@ -246,9 +294,11 @@ describe('Chat Server Actions', () => {
     it('should return not found for non-existent session', async () => {
       // Mock empty session check
       mockLimit.mockResolvedValueOnce([]);
-      
-      const result = await updateChatSession('non-existent-session', { status: 'completed' });
-      
+
+      const result = await updateChatSession('non-existent-session', {
+        status: 'completed',
+      });
+
       expect(result).toEqual({
         success: false,
         error: 'Chat session not found',
@@ -258,9 +308,11 @@ describe('Chat Server Actions', () => {
     it('should handle database errors', async () => {
       // Mock database error
       mockLimit.mockRejectedValueOnce(new Error('Database error'));
-      
-      const result = await updateChatSession('invalid-session', { status: 'completed' });
-      
+
+      const result = await updateChatSession('invalid-session', {
+        status: 'completed',
+      });
+
       expect(result).toEqual({
         success: false,
         error: expect.any(String),
@@ -269,7 +321,7 @@ describe('Chat Server Actions', () => {
 
     it('should validate session ID', async () => {
       const result = await updateChatSession('', { status: 'completed' });
-      
+
       expect(result).toEqual({
         success: false,
         error: 'Session ID is required',

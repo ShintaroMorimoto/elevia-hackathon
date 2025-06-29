@@ -5,17 +5,33 @@ import { goals } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import type { NewGoal, Goal } from '@/lib/db/schema';
 import { calculateGoalProgress } from '@/app/utils/plan-detail-helpers';
+import { requireAuthentication } from '@/lib/auth';
 
-export type ActionResult<T = any> = {
-  success: true;
-  data: T;
-} | {
-  success: false;
-  error: string;
-};
+export type ActionResult<T = any> =
+  | {
+      success: true;
+      data: T;
+    }
+  | {
+      success: false;
+      error: string;
+    };
 
-export async function createGoal(goalData: NewGoal): Promise<ActionResult<Goal>> {
+export async function createGoal(
+  goalData: NewGoal,
+): Promise<ActionResult<Goal>> {
   try {
+    // Authentication check
+    const user = await requireAuthentication();
+
+    // Authorization check
+    if (goalData.userId !== user.id) {
+      return {
+        success: false,
+        error: 'Unauthorized: Cannot create goal for different user',
+      };
+    }
+
     // Validation
     if (!goalData.title || goalData.title.trim() === '') {
       return {
@@ -42,7 +58,7 @@ export async function createGoal(goalData: NewGoal): Promise<ActionResult<Goal>>
     const dueDate = new Date(goalData.dueDate);
     const minDate = new Date();
     minDate.setFullYear(minDate.getFullYear() + 5);
-    
+
     if (dueDate < minDate) {
       return {
         success: false,
@@ -51,11 +67,14 @@ export async function createGoal(goalData: NewGoal): Promise<ActionResult<Goal>>
     }
 
     // Create goal
-    const result = await db.insert(goals).values({
-      ...goalData,
-      status: goalData.status || 'active',
-      progressPercentage: '0',
-    }).returning();
+    const result = await db
+      .insert(goals)
+      .values({
+        ...goalData,
+        status: goalData.status || 'active',
+        progressPercentage: '0',
+      })
+      .returning();
 
     if (result.length === 0) {
       return {
@@ -69,6 +88,10 @@ export async function createGoal(goalData: NewGoal): Promise<ActionResult<Goal>>
       data: result[0],
     };
   } catch (error) {
+    // Re-throw authentication errors to allow proper error handling
+    if (error instanceof Error && error.name === 'AuthenticationError') {
+      throw error;
+    }
     console.error('Error creating goal:', error);
     return {
       success: false,
@@ -79,6 +102,17 @@ export async function createGoal(goalData: NewGoal): Promise<ActionResult<Goal>>
 
 export async function getGoals(userId: string): Promise<ActionResult<Goal[]>> {
   try {
+    // Authentication check
+    const user = await requireAuthentication();
+
+    // Authorization check
+    if (userId !== user.id) {
+      return {
+        success: false,
+        error: 'Unauthorized: Cannot access goals for different user',
+      };
+    }
+
     if (!userId) {
       return {
         success: false,
@@ -97,6 +131,10 @@ export async function getGoals(userId: string): Promise<ActionResult<Goal[]>> {
       data: result,
     };
   } catch (error) {
+    // Re-throw authentication errors to allow proper error handling
+    if (error instanceof Error && error.name === 'AuthenticationError') {
+      throw error;
+    }
     console.error('Error fetching goals:', error);
     return {
       success: false,
@@ -105,8 +143,21 @@ export async function getGoals(userId: string): Promise<ActionResult<Goal[]>> {
   }
 }
 
-export async function getGoalsWithProgress(userId: string): Promise<ActionResult<Goal[]>> {
+export async function getGoalsWithProgress(
+  userId: string,
+): Promise<ActionResult<Goal[]>> {
   try {
+    // Authentication check
+    const user = await requireAuthentication();
+
+    // Authorization check
+    if (userId !== user.id) {
+      return {
+        success: false,
+        error: 'Unauthorized: Cannot access goals for different user',
+      };
+    }
+
     if (!userId) {
       return {
         success: false,
@@ -128,7 +179,7 @@ export async function getGoalsWithProgress(userId: string): Promise<ActionResult
           ...goal,
           progressPercentage: actualProgress.toString(),
         };
-      })
+      }),
     );
 
     return {
@@ -136,6 +187,10 @@ export async function getGoalsWithProgress(userId: string): Promise<ActionResult
       data: goalsWithProgress,
     };
   } catch (error) {
+    // Re-throw authentication errors to allow proper error handling
+    if (error instanceof Error && error.name === 'AuthenticationError') {
+      throw error;
+    }
     console.error('Error fetching goals with progress:', error);
     return {
       success: false,
@@ -144,8 +199,22 @@ export async function getGoalsWithProgress(userId: string): Promise<ActionResult
   }
 }
 
-export async function getGoal(goalId: string, userId: string): Promise<ActionResult<Goal>> {
+export async function getGoal(
+  goalId: string,
+  userId: string,
+): Promise<ActionResult<Goal>> {
   try {
+    // Authentication check
+    const user = await requireAuthentication();
+
+    // Authorization check
+    if (userId !== user.id) {
+      return {
+        success: false,
+        error: 'Unauthorized: Cannot access goal for different user',
+      };
+    }
+
     if (!goalId || !userId) {
       return {
         success: false,
@@ -171,6 +240,10 @@ export async function getGoal(goalId: string, userId: string): Promise<ActionRes
       data: result[0],
     };
   } catch (error) {
+    // Re-throw authentication errors to allow proper error handling
+    if (error instanceof Error && error.name === 'AuthenticationError') {
+      throw error;
+    }
     console.error('Error fetching goal:', error);
     return {
       success: false,
@@ -182,9 +255,20 @@ export async function getGoal(goalId: string, userId: string): Promise<ActionRes
 export async function updateGoal(
   goalId: string,
   userId: string,
-  updateData: Partial<NewGoal>
+  updateData: Partial<NewGoal>,
 ): Promise<ActionResult<Goal>> {
   try {
+    // Authentication check
+    const user = await requireAuthentication();
+
+    // Authorization check
+    if (userId !== user.id) {
+      return {
+        success: false,
+        error: 'Unauthorized: Cannot update goal for different user',
+      };
+    }
+
     if (!goalId || !userId) {
       return {
         success: false,
@@ -236,6 +320,10 @@ export async function updateGoal(
       data: result[0],
     };
   } catch (error) {
+    // Re-throw authentication errors to allow proper error handling
+    if (error instanceof Error && error.name === 'AuthenticationError') {
+      throw error;
+    }
     console.error('Error updating goal:', error);
     return {
       success: false,
@@ -244,8 +332,22 @@ export async function updateGoal(
   }
 }
 
-export async function deleteGoal(goalId: string, userId: string): Promise<ActionResult<undefined>> {
+export async function deleteGoal(
+  goalId: string,
+  userId: string,
+): Promise<ActionResult<undefined>> {
   try {
+    // Authentication check
+    const user = await requireAuthentication();
+
+    // Authorization check
+    if (userId !== user.id) {
+      return {
+        success: false,
+        error: 'Unauthorized: Cannot delete goal for different user',
+      };
+    }
+
     if (!goalId || !userId) {
       return {
         success: false,
@@ -277,6 +379,10 @@ export async function deleteGoal(goalId: string, userId: string): Promise<Action
       data: undefined,
     };
   } catch (error) {
+    // Re-throw authentication errors to allow proper error handling
+    if (error instanceof Error && error.name === 'AuthenticationError') {
+      throw error;
+    }
     console.error('Error deleting goal:', error);
     return {
       success: false,

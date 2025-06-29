@@ -1,5 +1,17 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { NewYearlyOkr, YearlyOkr, NewQuarterlyOkr, QuarterlyOkr, NewKeyResult, KeyResult } from '../../lib/db/schema';
+import type {
+  NewYearlyOkr,
+  YearlyOkr,
+  NewQuarterlyOkr,
+  QuarterlyOkr,
+  NewKeyResult,
+  KeyResult,
+} from '../../lib/db/schema';
+
+// Mock NextAuth first to prevent module resolution issues
+vi.mock('@/auth', () => ({
+  auth: vi.fn(),
+}));
 
 // Mock the database with proper chain methods
 const mockInsert = vi.fn();
@@ -23,12 +35,27 @@ vi.mock('../../lib/db', () => ({
   },
 }));
 
+// Mock authentication utility
+vi.mock('../../lib/auth', () => ({
+  requireAuthentication: vi.fn(),
+  AuthenticationError: class extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'AuthenticationError';
+    }
+  },
+}));
+
 // Chain mocks - setup default returns
 mockInsert.mockReturnValue({ values: mockValues });
 mockValues.mockReturnValue({ returning: mockReturning });
 mockSelect.mockReturnValue({ from: mockFrom });
 mockFrom.mockReturnValue({ where: mockWhere, orderBy: mockOrderBy });
-mockWhere.mockReturnValue({ orderBy: mockOrderBy, limit: mockLimit, returning: mockReturning });
+mockWhere.mockReturnValue({
+  orderBy: mockOrderBy,
+  limit: mockLimit,
+  returning: mockReturning,
+});
 mockOrderBy.mockReturnValue(Promise.resolve([]));
 mockLimit.mockReturnValue(Promise.resolve([]));
 mockUpdate.mockReturnValue({ set: mockSet });
@@ -37,17 +64,17 @@ mockDelete.mockReturnValue({ where: mockWhere });
 mockReturning.mockReturnValue(Promise.resolve([]));
 
 // Dynamic import to ensure mock is loaded
-const { 
-  createYearlyOkr, 
-  createQuarterlyOkr, 
-  createKeyResult, 
-  updateYearlyOkr, 
-  updateQuarterlyOkr, 
+const {
+  createYearlyOkr,
+  createQuarterlyOkr,
+  createKeyResult,
+  updateYearlyOkr,
+  updateQuarterlyOkr,
   updateKeyResult,
   getOkrsByGoal,
   deleteYearlyOkr,
   deleteQuarterlyOkr,
-  deleteKeyResult
+  deleteKeyResult,
 } = await import('../../actions/okr');
 
 describe('OKR Server Actions', () => {
@@ -55,6 +82,12 @@ describe('OKR Server Actions', () => {
   const mockYearlyOkrId = 'yearly-okr-123';
   const mockQuarterlyOkrId = 'quarterly-okr-123';
   const mockKeyResultId = 'key-result-123';
+
+  const mockUser = {
+    id: 'user-123',
+    email: 'test@example.com',
+    name: 'Test User',
+  };
 
   const mockNewYearlyOkr: NewYearlyOkr = {
     goalId: mockGoalId,
@@ -118,14 +151,23 @@ describe('OKR Server Actions', () => {
     updatedAt: new Date(),
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+
+    // Mock successful authentication by default
+    const { requireAuthentication } = await import('../../lib/auth');
+    vi.mocked(requireAuthentication).mockResolvedValue(mockUser);
+
     // Reset chain mocks
     mockInsert.mockReturnValue({ values: mockValues });
     mockValues.mockReturnValue({ returning: mockReturning });
     mockSelect.mockReturnValue({ from: mockFrom });
     mockFrom.mockReturnValue({ where: mockWhere, orderBy: mockOrderBy });
-    mockWhere.mockReturnValue({ orderBy: mockOrderBy, limit: mockLimit, returning: mockReturning });
+    mockWhere.mockReturnValue({
+      orderBy: mockOrderBy,
+      limit: mockLimit,
+      returning: mockReturning,
+    });
     mockOrderBy.mockReturnValue(Promise.resolve([]));
     mockLimit.mockReturnValue(Promise.resolve([]));
     mockUpdate.mockReturnValue({ set: mockSet });
@@ -138,9 +180,9 @@ describe('OKR Server Actions', () => {
     it('should create a new yearly OKR successfully', async () => {
       // Mock successful yearly OKR creation
       mockReturning.mockResolvedValueOnce([mockYearlyOkr]);
-      
+
       const result = await createYearlyOkr(mockNewYearlyOkr);
-      
+
       expect(result).toEqual({
         success: true,
         data: expect.objectContaining({
@@ -154,7 +196,7 @@ describe('OKR Server Actions', () => {
     it('should validate required fields', async () => {
       const invalidOkr = { ...mockNewYearlyOkr, objective: '' };
       const result = await createYearlyOkr(invalidOkr);
-      
+
       expect(result).toEqual({
         success: false,
         error: 'Objective is required',
@@ -164,7 +206,7 @@ describe('OKR Server Actions', () => {
     it('should validate target year', async () => {
       const invalidOkr = { ...mockNewYearlyOkr, targetYear: 1900 };
       const result = await createYearlyOkr(invalidOkr);
-      
+
       expect(result).toEqual({
         success: false,
         error: 'Target year must be a valid year (2000-2100)',
@@ -176,9 +218,9 @@ describe('OKR Server Actions', () => {
     it('should create a new quarterly OKR successfully', async () => {
       // Mock successful quarterly OKR creation
       mockReturning.mockResolvedValueOnce([mockQuarterlyOkr]);
-      
+
       const result = await createQuarterlyOkr(mockNewQuarterlyOkr);
-      
+
       expect(result).toEqual({
         success: true,
         data: expect.objectContaining({
@@ -192,7 +234,7 @@ describe('OKR Server Actions', () => {
     it('should validate target quarter', async () => {
       const invalidOkr = { ...mockNewQuarterlyOkr, targetQuarter: 5 };
       const result = await createQuarterlyOkr(invalidOkr);
-      
+
       expect(result).toEqual({
         success: false,
         error: 'Target quarter must be between 1 and 4',
@@ -204,9 +246,9 @@ describe('OKR Server Actions', () => {
     it('should create a new key result successfully', async () => {
       // Mock successful key result creation
       mockReturning.mockResolvedValueOnce([mockKeyResult]);
-      
+
       const result = await createKeyResult(mockNewKeyResult);
-      
+
       expect(result).toEqual({
         success: true,
         data: expect.objectContaining({
@@ -220,7 +262,7 @@ describe('OKR Server Actions', () => {
     it('should validate required fields', async () => {
       const invalidKr = { ...mockNewKeyResult, description: '' };
       const result = await createKeyResult(invalidKr);
-      
+
       expect(result).toEqual({
         success: false,
         error: 'Description is required',
@@ -230,7 +272,7 @@ describe('OKR Server Actions', () => {
     it('should validate target value', async () => {
       const invalidKr = { ...mockNewKeyResult, targetValue: '' };
       const result = await createKeyResult(invalidKr);
-      
+
       expect(result).toEqual({
         success: false,
         error: 'Target value is required',
@@ -238,12 +280,17 @@ describe('OKR Server Actions', () => {
     });
 
     it('should require either yearly or quarterly OKR association', async () => {
-      const invalidKr = { ...mockNewKeyResult, yearlyOkrId: null, quarterlyOkrId: null };
+      const invalidKr = {
+        ...mockNewKeyResult,
+        yearlyOkrId: null,
+        quarterlyOkrId: null,
+      };
       const result = await createKeyResult(invalidKr);
-      
+
       expect(result).toEqual({
         success: false,
-        error: 'Key result must be associated with either yearly or quarterly OKR',
+        error:
+          'Key result must be associated with either yearly or quarterly OKR',
       });
     });
   });
@@ -252,9 +299,9 @@ describe('OKR Server Actions', () => {
     it('should return OKRs for a specific goal', async () => {
       // Mock successful OKR retrieval
       mockOrderBy.mockResolvedValueOnce([mockYearlyOkr]);
-      
+
       const result = await getOkrsByGoal(mockGoalId);
-      
+
       expect(result).toEqual({
         success: true,
         data: expect.arrayContaining([
@@ -267,7 +314,7 @@ describe('OKR Server Actions', () => {
 
     it('should validate goal ID', async () => {
       const result = await getOkrsByGoal('');
-      
+
       expect(result).toEqual({
         success: false,
         error: 'Goal ID is required',
@@ -282,10 +329,10 @@ describe('OKR Server Actions', () => {
       // Mock successful update
       const updatedOkr = { ...mockYearlyOkr, objective: 'Updated Objective' };
       mockReturning.mockResolvedValueOnce([updatedOkr]);
-      
+
       const updateData = { objective: 'Updated Objective' };
       const result = await updateYearlyOkr(mockYearlyOkrId, updateData);
-      
+
       expect(result).toEqual({
         success: true,
         data: expect.objectContaining({
@@ -298,9 +345,11 @@ describe('OKR Server Actions', () => {
     it('should return not found for non-existent OKR', async () => {
       // Mock empty OKR check
       mockLimit.mockResolvedValueOnce([]);
-      
-      const result = await updateYearlyOkr('non-existent', { objective: 'Updated' });
-      
+
+      const result = await updateYearlyOkr('non-existent', {
+        objective: 'Updated',
+      });
+
       expect(result).toEqual({
         success: false,
         error: 'Yearly OKR not found',
@@ -312,9 +361,9 @@ describe('OKR Server Actions', () => {
     it('should delete a yearly OKR successfully', async () => {
       // Mock existing OKR check
       mockLimit.mockResolvedValueOnce([mockYearlyOkr]);
-      
+
       const result = await deleteYearlyOkr(mockYearlyOkrId);
-      
+
       expect(result).toEqual({
         success: true,
       });
@@ -323,9 +372,9 @@ describe('OKR Server Actions', () => {
     it('should return not found for non-existent OKR', async () => {
       // Mock empty OKR check
       mockLimit.mockResolvedValueOnce([]);
-      
+
       const result = await deleteYearlyOkr('non-existent');
-      
+
       expect(result).toEqual({
         success: false,
         error: 'Yearly OKR not found',

@@ -417,7 +417,8 @@ export async function toggleOKRCompletion(
     newStatus,
     data: {
       id: updateResult.data?.id || okrId,
-      progressPercentage: updateResult.data?.progressPercentage || progressPercentage,
+      progressPercentage:
+        updateResult.data?.progressPercentage || progressPercentage,
     },
   };
 }
