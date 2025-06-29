@@ -63,7 +63,7 @@ export interface CompletionToggleResult {
   newStatus: boolean;
   data: {
     id: string;
-    progressPercentage: string;
+    progressPercentage: string | null;
   };
 }
 
@@ -390,7 +390,7 @@ export async function toggleOKRCompletion(
     success: boolean;
     data?: {
       id: string;
-      progressPercentage: string;
+      progressPercentage: string | null;
       [key: string]: unknown;
     };
     error?: string;
@@ -415,6 +415,9 @@ export async function toggleOKRCompletion(
   return {
     success: true,
     newStatus,
-    data: updateResult.data || {},
+    data: {
+      id: updateResult.data?.id || okrId,
+      progressPercentage: updateResult.data?.progressPercentage || progressPercentage,
+    },
   };
 }

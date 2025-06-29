@@ -775,29 +775,32 @@ export default function PlanDetailPage({
                     <div className="flex items-center flex-1">
                       <div
                         className="flex-1 text-left cursor-pointer hover:bg-gray-50 transition-colors p-2 -m-2 rounded"
-                        onClick={() => toggleOKR(yearlyOKR.id)}
-                        role="button"
-                        tabIndex={0}
+                        onClick={() => {
+                          // 編集中は展開/折りたたみを無効にする
+                          if (editingOKR && editingOKR.id === yearlyOKR.id && editingOKR.type === 'yearly') {
+                            return;
+                          }
+                          toggleOKR(yearlyOKR.id);
+                        }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
+                            // 編集中は展開/折りたたみを無効にする
+                            if (editingOKR && editingOKR.id === yearlyOKR.id && editingOKR.type === 'yearly') {
+                              return;
+                            }
                             toggleOKR(yearlyOKR.id);
                           }
                         }}
+                        // biome-ignore lint/a11y/useSemanticElements: Using div to avoid nested button elements within edit area
+                        role="button"
+                        tabIndex={0}
                       >
                         {editingOKR &&
                         editingOKR.id === yearlyOKR.id &&
                         editingOKR.type === 'yearly' ? (
                           <div
                             className="flex flex-col gap-2 bg-blue-50 p-2 rounded border border-blue-200"
-                            role="button"
-                            tabIndex={0}
-                            onClick={(e) => e.stopPropagation()}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.stopPropagation();
-                              }
-                            }}
                           >
                             <Textarea
                               ref={okrObjectiveTextareaRef}
@@ -846,6 +849,17 @@ export default function PlanDetailPage({
                                 'yearly',
                                 yearlyOKR.objective,
                               );
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleStartOKREdit(
+                                  yearlyOKR.id,
+                                  'yearly',
+                                  yearlyOKR.objective,
+                                );
+                              }
                             }}
                             title="クリックして編集"
                           >
@@ -909,7 +923,6 @@ export default function PlanDetailPage({
                                     {editingKeyResultDesc === keyResult.id ? (
                                       <div
                                         className="flex flex-col gap-2 bg-blue-50 p-2 rounded border border-blue-200"
-                                        onClick={(e) => e.stopPropagation()}
                                       >
                                         <Textarea
                                           ref={keyResultDescTextareaRef}
@@ -969,7 +982,6 @@ export default function PlanDetailPage({
                                     {editingKeyResult === keyResult.id ? (
                                       <div
                                         className="flex flex-col gap-2 bg-white/80 p-3 rounded border border-neutral-200 min-w-[280px]"
-                                        onClick={(e) => e.stopPropagation()}
                                       >
                                         <div className="flex items-center gap-2">
                                           <Label className="text-xs font-medium text-neutral-700 w-12">
@@ -1156,7 +1168,6 @@ export default function PlanDetailPage({
                                     editingOKR.type === 'quarterly' ? (
                                       <div
                                         className="flex flex-col gap-1.5 bg-blue-50 p-2 rounded border border-blue-200"
-                                        onClick={(e) => e.stopPropagation()}
                                       >
                                         <Textarea
                                           ref={okrObjectiveTextareaRef}
@@ -1200,8 +1211,9 @@ export default function PlanDetailPage({
                                         </div>
                                       </div>
                                     ) : (
-                                      <p
-                                        className="font-medium text-gray-900 cursor-pointer hover:text-primary-sunrise transition-colors p-1 rounded hover:bg-primary-sunrise/10"
+                                      <button
+                                        type="button"
+                                        className="font-medium text-gray-900 cursor-pointer hover:text-primary-sunrise transition-colors p-1 rounded hover:bg-primary-sunrise/10 text-left"
                                         onClick={() =>
                                           handleStartOKREdit(
                                             quarterlyOKR.id,
@@ -1213,7 +1225,7 @@ export default function PlanDetailPage({
                                       >
                                         Q{quarterlyOKR.quarter} Objective:{' '}
                                         {quarterlyOKR.objective}
-                                      </p>
+                                      </button>
                                     )}
                                     <div className="mt-2 space-y-1">
                                       {quarterlyOKR.keyResults.length > 0 && (
@@ -1234,9 +1246,6 @@ export default function PlanDetailPage({
                                                   keyResult.id ? (
                                                     <div
                                                       className="flex flex-col gap-1.5 bg-blue-50 p-2 rounded border border-blue-200"
-                                                      onClick={(e) =>
-                                                        e.stopPropagation()
-                                                      }
                                                     >
                                                       <Textarea
                                                         ref={
@@ -1305,9 +1314,6 @@ export default function PlanDetailPage({
                                                   keyResult.id ? (
                                                     <div
                                                       className="flex flex-col gap-1.5 bg-white/80 p-2 rounded border border-neutral-200 min-w-[220px]"
-                                                      onClick={(e) =>
-                                                        e.stopPropagation()
-                                                      }
                                                     >
                                                       <div className="flex items-center gap-1">
                                                         <Label className="text-xs font-medium text-neutral-700 w-8">
