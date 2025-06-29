@@ -130,7 +130,7 @@ jobs:
           echo "Setting AUTH_URL to ${{ steps.deploy-url.outputs.url }}"
           gcloud run services update ${{ env.SERVICE_NAME }} \
             --region=${{ env.REGION }} \
-            --set-env-vars="AUTH_URL=${{ steps.deploy-url.outputs.url }}" \
+            --update-env-vars="AUTH_URL=${{ steps.deploy-url.outputs.url }}" \
             --quiet
 
 
