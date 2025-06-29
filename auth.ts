@@ -26,6 +26,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: {
     strategy: 'database', // セッション戦略を "database" に変更
   },
+  trustHost: true, // NextAuth v5でCloud Runなどの動的ホストを信頼
   callbacks: {
     // データベース戦略の場合、sessionコールバックの引数は session と user (DBから取得されたユーザー)
     async session({ session, user }) {
