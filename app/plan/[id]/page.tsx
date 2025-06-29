@@ -800,6 +800,11 @@ export default function PlanDetailPage({
                                         >
                                           {keyResult.targetValue}
                                         </button>
+                                        {keyResult.unit && (
+                                          <span className="text-sm font-medium text-neutral-600 ml-1">
+                                            {keyResult.unit}
+                                          </span>
+                                        )}
                                         <span className="text-sm bg-primary-sunrise/10 text-primary-sunrise px-2 py-1 rounded font-medium ml-2">
                                           {Math.round(
                                             (keyResult.currentValue /
@@ -984,6 +989,11 @@ export default function PlanDetailPage({
                                                       >
                                                         {keyResult.targetValue}
                                                       </button>
+                                                      {keyResult.unit && (
+                                                        <span className="text-xs font-medium text-gray-600 ml-1">
+                                                          {keyResult.unit}
+                                                        </span>
+                                                      )}
                                                       <span className="text-xs bg-primary-sunrise/10 text-primary-sunrise px-1.5 py-0.5 rounded font-medium ml-1">
                                                         {Math.round(
                                                           (keyResult.currentValue /
