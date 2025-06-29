@@ -21,7 +21,9 @@ describe('Chat UI Integration', () => {
         title: '5年後に1億円稼ぐ',
         description: 'Test goal',
         userId: 'user-1',
-        dueDate: new Date('2029-12-31'),
+        dueDate: '2029-12-31',
+        status: 'active',
+        progressPercentage: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -29,7 +31,6 @@ describe('Chat UI Integration', () => {
       const mockChatSession = {
         id: 'session-1',
         goalId: 'goal-1',
-        userId: 'user-1',
         status: 'active' as const,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -46,17 +47,18 @@ describe('Chat UI Integration', () => {
       });
 
       // Act
-      const goalResult = await getGoal('goal-1');
+      const goalResult = await getGoal('goal-1', 'user-1');
       const sessionResult = await createChatSession({
         goalId: 'goal-1',
-        userId: 'user-1',
         status: 'active',
       });
 
       // Assert
       expect(goalResult.success).toBe(true);
       expect(sessionResult.success).toBe(true);
-      expect(sessionResult.data?.id).toBe('session-1');
+      if (sessionResult.success) {
+        expect(sessionResult.data.id).toBe('session-1');
+      }
     });
 
     it('should generate first AI question after creating session', async () => {
@@ -65,6 +67,9 @@ describe('Chat UI Integration', () => {
         question: 'あなたがその夢を目指す、一番の「動機」は何ですか？',
         type: 'question',
         depth: 1,
+        reasoning: 'Initial question',
+        shouldComplete: false,
+        confidence: 0.8,
       };
 
       vi.mocked(generateNextQuestion).mockResolvedValue({
@@ -77,8 +82,12 @@ describe('Chat UI Integration', () => {
 
       // Assert
       expect(result.success).toBe(true);
-      expect(result.data?.question).toContain('動機');
-      expect(result.data?.depth).toBe(1);
+      if (result.success) {
+        expect(result.data.question).toContain('動機');
+      }
+      if (result.success) {
+        expect(result.data.depth).toBe(1);
+      }
     });
 
     it('should save AI and user messages to database', async () => {
@@ -108,7 +117,9 @@ describe('Chat UI Integration', () => {
 
       // Assert
       expect(result.success).toBe(true);
-      expect(result.data?.content).toBe('Test message');
+      if (result.success) {
+        expect(result.data.content).toBe('Test message');
+      }
     });
   });
 
@@ -124,6 +135,9 @@ describe('Chat UI Integration', () => {
         question: '現在のあなたのスキルや経験について教えてください',
         type: 'question',
         depth: 2,
+        reasoning: 'Follow-up question',
+        shouldComplete: false,
+        confidence: 0.9,
       };
 
       vi.mocked(generateNextQuestion).mockResolvedValue({
@@ -160,7 +174,9 @@ describe('Chat UI Integration', () => {
 
       // Assert
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Failed to generate question');
+      if (!result.success) {
+        expect(result.error).toBe('Failed to generate question');
+      }
     });
   });
 
@@ -175,13 +191,14 @@ describe('Chat UI Integration', () => {
       // Act
       const result = await createChatSession({
         goalId: 'goal-1',
-        userId: '', // Empty user ID
         status: 'active',
       });
 
       // Assert
       expect(result.success).toBe(false);
-      expect(result.error).toContain('authenticated');
+      if (!result.success) {
+        expect(result.error).toContain('authenticated');
+      }
     });
   });
 

@@ -45,7 +45,7 @@ jobs:
         id: repo-info
         run: |
           # Get Artifact Registry repository from Terraform outputs
-          REPO_URL="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/elevia-repo"
+          REPO_URL="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/app-repo"
           echo "repository_url=$REPO_URL" >> $GITHUB_OUTPUT
           echo "image_tag=$REPO_URL/${{ env.SERVICE_NAME }}:${{ github.sha }}" >> $GITHUB_OUTPUT
           echo "latest_tag=$REPO_URL/${{ env.SERVICE_NAME }}:latest" >> $GITHUB_OUTPUT
@@ -68,20 +68,40 @@ jobs:
           # Get Cloud SQL connection name from Terraform state
           cd terraform
           terraform init \
-            -backend-config="bucket=terraform-state-${{ vars.GOOGLE_CLOUD_PROJECT_ID }}" \
+            -backend-config="bucket=${{ vars.GOOGLE_CLOUD_PROJECT_ID }}-terraform-state" \
             -backend-config="prefix=terraform/state"
           
-          CLOUD_SQL_CONNECTION=$(terraform output -raw cloud_sql_connection_name)
-          echo "cloud_sql_connection=$CLOUD_SQL_CONNECTION" >> $GITHUB_OUTPUT
+          # Check if Cloud SQL output exists (infrastructure may not be deployed yet)
+          if terraform output cloud_sql_connection_name >/dev/null 2>&1; then
+            CLOUD_SQL_CONNECTION=$(terraform output -raw cloud_sql_connection_name)
+            echo "cloud_sql_connection=$CLOUD_SQL_CONNECTION" >> $GITHUB_OUTPUT
+            echo "infrastructure_ready=true" >> $GITHUB_OUTPUT
+          else
+            echo "infrastructure_ready=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Cloud SQL not deployed yet. Deploying without database connection."
+          fi
 
       - name: Deploy to Cloud Run
         run: |
-          gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image=${{ steps.repo-info.outputs.latest_tag }} \
-            --region=${{ env.REGION }} \
-            --platform=managed \
-            --allow-unauthenticated \
-            --quiet
+          # Use Terraform-created service account if infrastructure is ready
+          if [ "${{ steps.tf-outputs.outputs.infrastructure_ready }}" = "true" ]; then
+            echo "Deploying with Terraform-created service account..."
+            gcloud run deploy ${{ env.SERVICE_NAME }} \
+              --image=${{ steps.repo-info.outputs.latest_tag }} \
+              --region=${{ env.REGION }} \
+              --platform=managed \
+              --allow-unauthenticated \
+              --service-account=elevia-run-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+              --quiet
+          else
+            echo "Deploying without custom service account (infrastructure not ready)..."
+            gcloud run deploy ${{ env.SERVICE_NAME }} \
+              --image=${{ steps.repo-info.outputs.latest_tag }} \
+              --region=${{ env.REGION }} \
+              --platform=managed \
+              --allow-unauthenticated \
+              --quiet
+          fi
 
       - name: Get Cloud Run URL
         id: deploy-url
@@ -93,9 +113,11 @@ jobs:
           echo "::notice title=Deployment Complete::Application deployed to $URL"
 
       - name: Run database migrations
+        if: steps.tf-outputs.outputs.infrastructure_ready == 'true'
         run: |
           # Install pnpm and dependencies
           corepack enable pnpm
+          corepack prepare pnpm@10.12.4 --activate
           pnpm install --frozen-lockfile
           
           # Set environment variables for migration
@@ -107,6 +129,13 @@ jobs:
           # Run migrations
           pnpm run db:migrate
         continue-on-error: true
+
+      - name: Infrastructure Setup Notice
+        if: steps.tf-outputs.outputs.infrastructure_ready == 'false'
+        run: |
+          echo "::notice title=Infrastructure Setup Required::Cloud SQL not deployed yet. Please run Terraform deployment first."
+          echo "::notice title=Next Steps::1. Deploy infrastructure: terraform apply in terraform/ directory"
+          echo "::notice title=Next Steps::2. Re-run this deployment workflow after infrastructure is ready"
 
       - name: Add deployment summary
         run: |

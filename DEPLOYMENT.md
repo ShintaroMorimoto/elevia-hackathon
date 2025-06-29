@@ -440,11 +440,23 @@ DB_NAME=elevia_db
 
 **Issue**: "bucket doesn't exist" error during terraform init.
 
-**Root Cause**: Naming convention mismatch between init.sh and terraform.yml:
+**Root Cause**: Naming convention mismatch between init.sh and deploy.yml:
 - `init.sh` creates: `${PROJECT_ID}-terraform-state`
-- `terraform.yml` looks for: `terraform-state-${PROJECT_ID}`
+- `deploy.yml` initially expected: `terraform-state-${PROJECT_ID}`
 
-**Solution**: Fixed in terraform.yml to use consistent naming.
+**Solution**: Update deploy.yml to use consistent naming pattern.
+
+```yaml
+# ❌ Wrong - inconsistent with init.sh
+terraform init \
+  -backend-config="bucket=terraform-state-${{ vars.GOOGLE_CLOUD_PROJECT_ID }}" \
+
+# ✅ Correct - matches init.sh pattern
+terraform init \
+  -backend-config="bucket=${{ vars.GOOGLE_CLOUD_PROJECT_ID }}-terraform-state" \
+```
+
+**Prevention**: Always verify bucket naming consistency between init.sh and CI/CD workflows.
 
 #### 5. Terraform Format Issues with Generated Files
 
@@ -576,6 +588,62 @@ gh run view --log
    - Check service account permissions
    - Ensure GitHub variables/secrets are set correctly
 
+### CI/CD Troubleshooting Best Practices
+
+#### 7. Systematic CI/CD Debugging Approach
+
+When CI/CD fails, follow this systematic debugging approach:
+
+**Step 1: Identify the Failing Stage**
+```bash
+# Check recent workflow runs
+gh run list --limit 10
+
+# Get specific run details
+gh run view <run-id>
+
+# View logs for failed run
+gh run view <run-id> --log
+```
+
+**Step 2: Analyze Error Patterns**
+- **Authentication errors**: Check Workload Identity Federation setup
+- **Resource not found**: Verify resource naming consistency
+- **Permission denied**: Check IAM roles and bindings
+- **Timeout errors**: Verify timeout settings (especially for Cloud SQL)
+
+**Step 3: Common Debugging Commands**
+```bash
+# Check workflow file syntax
+cat .github/workflows/deploy.yml | grep -A5 -B5 "bucket"
+
+# Verify GitHub repository variables
+gh variable list
+
+# Verify GitHub repository secrets
+gh secret list
+
+# Check Google Cloud authentication
+gcloud auth list
+gcloud config get-value project
+
+# Verify init.sh setup
+ls -la gs://sandbox-morimoto-s1-terraform-state/
+```
+
+**Step 4: Fix and Test Cycle**
+1. Identify root cause from logs
+2. Fix configuration inconsistencies
+3. Commit changes with descriptive message
+4. Monitor new workflow execution
+5. Repeat if necessary
+
+**Step 5: Prevention Measures**
+- Verify naming conventions between init.sh and workflows
+- Test workflows in feature branches when possible
+- Use repository variables consistently
+- Document configuration dependencies
+
 ### Logs and Debugging
 
 ```bash
@@ -601,6 +669,12 @@ gcloud run jobs create test-connection \
 
 # View Terraform state
 terraform show
+
+# Monitor live workflow execution
+gh run watch <run-id>
+
+# Check workflow file differences
+git diff HEAD~1 .github/workflows/deploy.yml
 ```
 
 ## Security Considerations
@@ -717,3 +791,29 @@ This deployment uses a **CI/CD-first approach** where:
 4. **Access application** via automatically generated Cloud Run URL
 
 The entire infrastructure and application stack deploys automatically with a single git push.
+
+### 🔄 CI/CD Improvement Lessons
+
+Based on real deployment troubleshooting experience, the following improvements have been applied:
+
+#### Configuration Consistency
+- **Naming Convention Alignment**: Terraform state bucket naming now consistent between `init.sh` and `deploy.yml`
+- **Resource Naming Standards**: All Terraform resources use predictable naming patterns
+- **Variable Scope Clarity**: Clear distinction between repository variables and environment secrets
+
+#### Debugging Enhancement
+- **Systematic Error Analysis**: Step-by-step debugging approach for CI/CD failures
+- **Common Error Patterns**: Documented authentication, permission, and resource issues
+- **Prevention Measures**: Proactive checks to avoid common configuration mismatches
+
+#### Deployment Resilience
+- **Timeout Management**: 30-minute timeouts for Cloud SQL operations
+- **Dependency Management**: Explicit resource dependencies prevent race conditions
+- **Error Recovery**: Clear recovery procedures for common deployment failures
+
+#### Future Improvements
+Consider implementing these enhancements:
+- **Pre-deployment Validation**: Automated checks for configuration consistency
+- **Deployment Health Checks**: Post-deployment validation of service functionality
+- **Rollback Procedures**: Automated rollback for failed deployments
+- **Environment Parity**: Ensure staging environment matches production configuration

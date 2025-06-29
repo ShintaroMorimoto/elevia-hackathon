@@ -62,7 +62,7 @@ fi
   
 # 4. grant roles to workload identity pool
 log "checking roles for workload identity pool"
-for role in "roles/cloudsql.admin" "roles/run.admin" "roles/storage.admin" "roles/iam.serviceAccountUser" "roles/serviceusage.serviceUsageConsumer" "roles/serviceusage.serviceUsageAdmin"; do
+for role in "roles/cloudsql.admin" "roles/run.admin" "roles/storage.admin" "roles/iam.serviceAccountUser" "roles/iam.serviceAccountTokenCreator" "roles/serviceusage.serviceUsageConsumer" "roles/serviceusage.serviceUsageAdmin" "roles/compute.admin" "roles/iam.serviceAccountAdmin" "roles/secretmanager.admin" "roles/artifactregistry.admin"; do
     if ! gcloud projects get-iam-policy $PROJECT_ID --flatten="bindings[].members" --filter="bindings.members:principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/$WORKLOAD_IDENTITY_POOL/attribute.repository/$GITHUB_OWNER/$GITHUB_REPO AND bindings.role:$role" --format="value(bindings.role)" | grep "$role" >/dev/null 2>&1; then
         log "granting $role to workload identity pool: $WORKLOAD_IDENTITY_POOL"
         gcloud projects add-iam-policy-binding $PROJECT_ID \
@@ -73,7 +73,19 @@ for role in "roles/cloudsql.admin" "roles/run.admin" "roles/storage.admin" "role
     fi
 done
 
-# 5. verify GCS bucket exists for Terraform state
+# 5. grant permission to use elevia-run-sa service account
+ELEVIA_SA_EMAIL="elevia-run-sa@${PROJECT_ID}.iam.gserviceaccount.com"
+if gcloud iam service-accounts describe "$ELEVIA_SA_EMAIL" --project="$PROJECT_ID" >/dev/null 2>&1; then
+    log "granting actAs permission for elevia-run-sa service account"
+    gcloud projects add-iam-policy-binding $PROJECT_ID \
+        --member="principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/$WORKLOAD_IDENTITY_POOL/attribute.repository/$GITHUB_OWNER/$GITHUB_REPO" \
+        --role="roles/iam.serviceAccountUser" \
+        --condition="title=Elevia Service Account Access,description=Allow GitHub Actions to use elevia-run-sa,expression=resource.name=='projects/$PROJECT_ID/serviceAccounts/$ELEVIA_SA_EMAIL'"
+else
+    log "elevia-run-sa service account not found (will be created by Terraform)"
+fi
+
+# 6. verify GCS bucket exists for Terraform state
 BUCKET_NAME="${BUCKET_NAME:-${PROJECT_ID}-terraform-state}"
 if ! gsutil ls -b gs://$BUCKET_NAME >/dev/null 2>&1; then
     log "creating GCS bucket for Terraform state: $BUCKET_NAME"

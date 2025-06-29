@@ -1,4 +1,5 @@
 # Configure Terraform and required providers
+# Updated: Added import blocks to handle existing resources
 terraform {
   required_version = ">= 1.0"
   required_providers {
@@ -294,6 +295,12 @@ resource "google_service_account" "cloud_run_sa" {
   display_name = "Cloud Run service account for ${var.app_name}"
 }
 
+# Import existing service account if it exists
+import {
+  to = google_service_account.cloud_run_sa
+  id = "projects/${var.project_id}/serviceAccounts/${var.app_name}-run-sa@${var.project_id}.iam.gserviceaccount.com"
+}
+
 # Grant Cloud SQL client role to Cloud Run service account
 resource "google_project_iam_member" "cloud_sql_client" {
   project = var.project_id
@@ -319,6 +326,12 @@ resource "google_secret_manager_secret" "db_password" {
   depends_on = [google_project_service.apis]
 }
 
+# Import existing db password secret if it exists
+import {
+  to = google_secret_manager_secret.db_password
+  id = "projects/${var.project_id}/secrets/${var.app_name}-db-password"
+}
+
 resource "google_secret_manager_secret_version" "db_password" {
   secret      = google_secret_manager_secret.db_password.id
   secret_data = var.db_password
@@ -332,6 +345,12 @@ resource "google_secret_manager_secret" "nextauth_secret" {
   }
 
   depends_on = [google_project_service.apis]
+}
+
+# Import existing nextauth secret if it exists
+import {
+  to = google_secret_manager_secret.nextauth_secret
+  id = "projects/${var.project_id}/secrets/${var.app_name}-nextauth-secret"
 }
 
 resource "google_secret_manager_secret_version" "nextauth_secret" {
