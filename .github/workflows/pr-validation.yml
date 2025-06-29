@@ -42,7 +42,7 @@ jobs:
       - name: Build project
         run: pnpm run build
         env:
-          NODE_ENV: development
+          # NODE_ENV: development  # Next.js 15 canary Html import bug workaround - let Next.js set this automatically
           DATABASE_URL: postgresql://postgres:password@localhost:5432/test_db
           CI_BUILD: "true"
           DB_USER: postgres
