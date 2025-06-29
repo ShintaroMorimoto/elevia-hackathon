@@ -1,13 +1,4 @@
-# Cloud Run outputs
-output "cloud_run_url" {
-  description = "The URL of the deployed Cloud Run service"
-  value       = google_cloud_run_v2_service.app.uri
-}
-
-output "cloud_run_service_name" {
-  description = "The name of the Cloud Run service"
-  value       = google_cloud_run_v2_service.app.name
-}
+# Note: Cloud Run outputs removed since the service is managed by deployment workflow
 
 # Cloud SQL outputs
 output "cloud_sql_connection_name" {
