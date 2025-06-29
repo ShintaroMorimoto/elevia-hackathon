@@ -81,7 +81,7 @@ jobs:
             echo "⚠️ Cloud SQL not deployed yet. Deploying without database connection."
           fi
 
-      - name: Deploy to Cloud Run
+      - name: Deploy to Cloud Run (Initial)
         run: |
           # Use Terraform-created service account if infrastructure is ready
           if [ "${{ steps.tf-outputs.outputs.infrastructure_ready }}" = "true" ]; then
@@ -98,7 +98,6 @@ jobs:
               --set-env-vars="DB_USER=elevia_user" \
               --set-secrets="DB_PASS=elevia-db-password:latest" \
               --set-secrets="NEXTAUTH_SECRET=elevia-nextauth-secret:latest" \
-              --set-env-vars="NEXTAUTH_URL=https://elevia-207161571323.asia-northeast1.run.app" \
               --vpc-connector=elevia-connector-v2 \
               --vpc-egress=private-ranges-only \
               --timeout=300 \
@@ -124,6 +123,16 @@ jobs:
             --format='value(status.url)')
           echo "url=$URL" >> $GITHUB_OUTPUT
           echo "::notice title=Deployment Complete::Application deployed to $URL"
+
+      - name: Update NEXTAUTH_URL
+        if: steps.tf-outputs.outputs.infrastructure_ready == 'true'
+        run: |
+          # Update Cloud Run service with the correct NEXTAUTH_URL
+          echo "Updating NEXTAUTH_URL to ${{ steps.deploy-url.outputs.url }}"
+          gcloud run services update ${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --set-env-vars="NEXTAUTH_URL=${{ steps.deploy-url.outputs.url }}" \
+            --quiet
 
       - name: Run database migrations
         if: steps.tf-outputs.outputs.infrastructure_ready == 'true'

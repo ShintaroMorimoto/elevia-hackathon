@@ -1061,6 +1061,128 @@ If deployment fails on a fresh project:
 3. **Resource Conflicts**: Use `gcloud` commands to check for existing resources with same names
 4. **API Enablement**: Some organizations may require manual API enablement through Console
 
+#### ⚠️ Critical Post-Deployment Issues
+
+#### Cloud Run Service Environment Variable Configuration
+
+**Issue**: Cloud Run service deploys successfully but application fails to start with environment variable errors.
+
+**Symptoms**:
+```
+Error: DB_USER environment variable not set
+cloudSqlConnectionName: undefined
+```
+
+**Root Cause**: The deployment workflow creates a basic Cloud Run service but doesn't configure the necessary environment variables for database connectivity and application configuration.
+
+**Solution**: The deployment workflow must include comprehensive environment variable configuration:
+
+```bash
+gcloud run deploy $SERVICE_NAME \
+  --image=$IMAGE_TAG \
+  --region=$REGION \
+  --platform=managed \
+  --allow-unauthenticated \
+  --service-account=elevia-run-sa@$PROJECT_ID.iam.gserviceaccount.com \
+  --set-env-vars="NODE_ENV=production" \
+  --set-env-vars="CLOUD_SQL_CONNECTION_NAME=$CLOUD_SQL_CONNECTION" \
+  --set-env-vars="DB_NAME=elevia_db" \
+  --set-env-vars="DB_USER=elevia_user" \
+  --set-secrets="DB_PASS=elevia-db-password:latest" \
+  --set-secrets="NEXTAUTH_SECRET=elevia-nextauth-secret:latest" \
+  --set-env-vars="NEXTAUTH_URL=https://your-cloud-run-url" \
+  --vpc-connector=elevia-connector-v2 \
+  --vpc-egress=private-ranges-only \
+  --timeout=300 \
+  --memory=1Gi \
+  --cpu=1 \
+  --max-instances=10
+```
+
+**Prevention Checklist**:
+- ✅ Verify environment variables are set in Cloud Run service
+- ✅ Confirm VPC connector configuration for database access
+- ✅ Ensure Secret Manager secrets are properly injected
+- ✅ Check Cloud Run service account has required permissions
+
+**Verification Commands**:
+```bash
+# Check Cloud Run environment configuration
+gcloud run services describe elevia --region=asia-northeast1 --format="yaml" | grep -A 20 "env:"
+
+# Check recent Cloud Run logs for startup errors
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=elevia" --limit=10 --format="table(timestamp,severity,textPayload)" --freshness=10m
+
+# Verify VPC connector is in READY state
+gcloud compute networks vpc-access connectors list --region=asia-northeast1
+
+# Test Secret Manager access from Cloud Run service account
+gcloud secrets versions access latest --secret=elevia-db-password --impersonate-service-account=elevia-run-sa@$PROJECT_ID.iam.gserviceaccount.com
+```
+
+**Common Environment Variable Errors**:
+1. **Missing NODE_ENV=production**: Application may not detect Cloud Run environment properly
+2. **Missing CLOUD_SQL_CONNECTION_NAME**: Database connection attempts fail
+3. **Missing VPC connector configuration**: Cannot reach private Cloud SQL instance
+4. **Secret Manager injection failure**: DB_PASS and NEXTAUTH_SECRET remain empty
+5. **Incorrect NEXTAUTH_URL**: Authentication redirects fail
+
+**Quick Fix for Deployed Service**:
+If a service is already deployed with missing configuration, update it immediately:
+
+```bash
+# Get current Cloud SQL connection name
+CLOUD_SQL_CONNECTION=$(cd terraform && terraform output -raw cloud_sql_connection_name)
+
+# Update existing Cloud Run service with full configuration
+gcloud run services update elevia \
+  --region=asia-northeast1 \
+  --set-env-vars="NODE_ENV=production,CLOUD_SQL_CONNECTION_NAME=$CLOUD_SQL_CONNECTION,DB_NAME=elevia_db,DB_USER=elevia_user" \
+  --set-secrets="DB_PASS=elevia-db-password:latest,NEXTAUTH_SECRET=elevia-nextauth-secret:latest" \
+  --vpc-connector=elevia-connector-v2 \
+  --vpc-egress=private-ranges-only \
+  --service-account=elevia-run-sa@$PROJECT_ID.iam.gserviceaccount.com
+```
+
+#### Infrastructure vs Application Deployment Timing
+
+**Issue**: Race condition between infrastructure deployment and application deployment.
+
+**Symptoms**: 
+- Application deploys before infrastructure is ready
+- Missing Terraform outputs during deployment
+- Database connection failures
+
+**Solution**: The deployment workflow includes infrastructure readiness checks:
+
+```yaml
+- name: Get Terraform outputs for deployment
+  id: tf-outputs
+  run: |
+    if terraform output cloud_sql_connection_name >/dev/null 2>&1; then
+      echo "infrastructure_ready=true" >> $GITHUB_OUTPUT
+      CLOUD_SQL_CONNECTION=$(terraform output -raw cloud_sql_connection_name)
+      echo "cloud_sql_connection=$CLOUD_SQL_CONNECTION" >> $GITHUB_OUTPUT
+    else
+      echo "infrastructure_ready=false" >> $GITHUB_OUTPUT
+      echo "⚠️ Infrastructure not ready. Deploying without database configuration."
+    fi
+
+- name: Deploy to Cloud Run
+  run: |
+    if [ "${{ steps.tf-outputs.outputs.infrastructure_ready }}" = "true" ]; then
+      # Deploy with full configuration
+    else
+      # Deploy basic service only
+    fi
+```
+
+**Best Practices**:
+- Always check infrastructure readiness before full application deployment
+- Deploy basic service first, then update with full configuration
+- Use conditional deployment based on Terraform output availability
+- Monitor both infrastructure and application workflows for completion
+
 ### 🔄 CI/CD Improvement Lessons
 
 Based on real deployment troubleshooting experience, the following improvements have been applied:
