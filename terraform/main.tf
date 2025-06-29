@@ -1,5 +1,5 @@
 # Configure Terraform and required providers
-# Updated: Use new resource names to avoid conflicts with existing infrastructure
+# Updated: Added all necessary VPC and networking permissions to workload identity pools
 terraform {
   required_version = ">= 1.0"
   required_providers {
