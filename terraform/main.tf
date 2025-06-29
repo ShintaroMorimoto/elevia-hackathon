@@ -1,5 +1,5 @@
 # Configure Terraform and required providers
-# Updated: Added project IAM admin role to resolve permission errors
+# Updated: Added import blocks for existing network infrastructure
 terraform {
   required_version = ">= 1.0"
   required_providers {
@@ -66,12 +66,24 @@ resource "google_compute_network" "vpc_network" {
   depends_on              = [google_project_service.apis]
 }
 
+# Import existing VPC network if it exists
+import {
+  to = google_compute_network.vpc_network
+  id = "projects/${var.project_id}/global/networks/${var.app_name}-vpc"
+}
+
 # Create subnet for VPC connector
 resource "google_compute_subnetwork" "vpc_connector_subnet" {
   name          = "${var.app_name}-connector-subnet"
   ip_cidr_range = "10.8.0.0/28"
   region        = var.region
   network       = google_compute_network.vpc_network.id
+}
+
+# Import existing subnet if it exists
+import {
+  to = google_compute_subnetwork.vpc_connector_subnet
+  id = "projects/${var.project_id}/regions/${var.region}/subnetworks/${var.app_name}-connector-subnet"
 }
 
 # Allocate IP range for private service connection
@@ -82,6 +94,12 @@ resource "google_compute_global_address" "private_ip_range" {
   prefix_length = 24
   network       = google_compute_network.vpc_network.id
   depends_on    = [google_project_service.apis]
+}
+
+# Import existing global address if it exists
+import {
+  to = google_compute_global_address.private_ip_range
+  id = "projects/${var.project_id}/global/addresses/${var.app_name}-private-ip"
 }
 
 # Create private VPC connection for Cloud SQL
