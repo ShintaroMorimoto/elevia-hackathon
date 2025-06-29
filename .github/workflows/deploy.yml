@@ -71,8 +71,15 @@ jobs:
             -backend-config="bucket=${{ vars.GOOGLE_CLOUD_PROJECT_ID }}-terraform-state" \
             -backend-config="prefix=terraform/state"
           
-          CLOUD_SQL_CONNECTION=$(terraform output -raw cloud_sql_connection_name)
-          echo "cloud_sql_connection=$CLOUD_SQL_CONNECTION" >> $GITHUB_OUTPUT
+          # Check if Cloud SQL output exists (infrastructure may not be deployed yet)
+          if terraform output cloud_sql_connection_name >/dev/null 2>&1; then
+            CLOUD_SQL_CONNECTION=$(terraform output -raw cloud_sql_connection_name)
+            echo "cloud_sql_connection=$CLOUD_SQL_CONNECTION" >> $GITHUB_OUTPUT
+            echo "infrastructure_ready=true" >> $GITHUB_OUTPUT
+          else
+            echo "infrastructure_ready=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Cloud SQL not deployed yet. Deploying without database connection."
+          fi
 
       - name: Deploy to Cloud Run
         run: |
@@ -93,6 +100,7 @@ jobs:
           echo "::notice title=Deployment Complete::Application deployed to $URL"
 
       - name: Run database migrations
+        if: steps.tf-outputs.outputs.infrastructure_ready == 'true'
         run: |
           # Install pnpm and dependencies
           corepack enable pnpm
@@ -108,6 +116,13 @@ jobs:
           # Run migrations
           pnpm run db:migrate
         continue-on-error: true
+
+      - name: Infrastructure Setup Notice
+        if: steps.tf-outputs.outputs.infrastructure_ready == 'false'
+        run: |
+          echo "::notice title=Infrastructure Setup Required::Cloud SQL not deployed yet. Please run Terraform deployment first."
+          echo "::notice title=Next Steps::1. Deploy infrastructure: terraform apply in terraform/ directory"
+          echo "::notice title=Next Steps::2. Re-run this deployment workflow after infrastructure is ready"
 
       - name: Add deployment summary
         run: |
