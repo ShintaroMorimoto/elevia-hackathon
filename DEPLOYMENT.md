@@ -169,18 +169,31 @@ The deployment is fully automated through GitHub Actions using **Direct Workload
 
 ### 3.1 GitHub Actions Workflows Created
 
+**PR Validation Workflow (`.github/workflows/pr-validation.yml`)**:
+- ✅ **Early Feedback**: Fast quality checks on every pull request
+- ✅ **Comprehensive Testing**: Lint, type check, unit tests, application build
+- ✅ **Docker Build Validation**: Ensures Docker image builds successfully
+- ✅ **No Redundancy**: Single workflow for all PR validation needs
+
 **Infrastructure Workflow (`.github/workflows/terraform.yml`)**:
 - ✅ **Direct Workload Identity Federation**: No service account needed for GitHub Actions authentication
 - ✅ **Terraform Plan on PRs**: Automatic plan comments on pull requests  
 - ✅ **Terraform Apply on Main**: Automatic infrastructure deployment on merge
 - ✅ **30-minute timeout**: Handles Cloud SQL creation time
 
-**Application Workflow (`.github/workflows/deploy.yml`)**:
-- ✅ **Full CI Pipeline**: Lint, test, build, deploy
+**Deployment Workflow (`.github/workflows/deploy.yml`)**:
+- ✅ **Main Branch Only**: Triggers only on main branch push (no PR triggers)
+- ✅ **No Test Duplication**: Focuses solely on deployment activities
 - ✅ **Docker Build/Push**: Automatic container creation and push to Artifact Registry
 - ✅ **Cloud Run Deployment**: Zero-downtime rolling deployment
 - ✅ **Database Migration**: Automatic Drizzle migrations
 - ✅ **Direct WIF Authentication**: Secure authentication without service account keys
+
+**Workflow Optimization Benefits**:
+- ✅ **No Duplication**: Each workflow has clear, separate responsibilities
+- ✅ **Fast PR Feedback**: Quality checks complete quickly without heavy deployment steps
+- ✅ **Resource Efficient**: Eliminates redundant test execution
+- ✅ **Clear Separation**: Validation vs. deployment concerns properly separated
 
 ### 3.2 Terraform Configuration (Automated)
 
