@@ -21,56 +21,6 @@ const quarterlyOKRSchema = z.object({
 });
 
 /**
- * Infer appropriate unit from Key Result description
- */
-function inferUnitFromDescription(description: string): string {
-  // Common patterns for unit inference
-  if (
-    description.includes('達成率') ||
-    description.includes('進捗') ||
-    description.includes('完成度')
-  ) {
-    return '%';
-  }
-  if (
-    description.includes('件数') ||
-    description.includes('個数') ||
-    description.includes('回数') ||
-    description.includes('マイルストーン')
-  ) {
-    return '件';
-  }
-  if (description.includes('時間') || description.includes('期間')) {
-    return '時間';
-  }
-  if (
-    description.includes('人') ||
-    description.includes('チーム') ||
-    description.includes('メンバー')
-  ) {
-    return '人';
-  }
-  if (
-    description.includes('円') ||
-    description.includes('売上') ||
-    description.includes('収益') ||
-    description.includes('予算')
-  ) {
-    return '円';
-  }
-  if (
-    description.includes('ページ') ||
-    description.includes('記事') ||
-    description.includes('コンテンツ')
-  ) {
-    return 'ページ';
-  }
-
-  // Default fallback
-  return '個';
-}
-
-/**
  * Generates meaningful quarterly Key Results based on yearly KRs and quarterly milestones
  */
 function generateQuarterlyKeyResults(
@@ -83,55 +33,47 @@ function generateQuarterlyKeyResults(
     baselineValue?: number;
   }>,
   quarter: number,
-  quarterMilestones: Array<{ month: number; milestone: string }>,
+  quarterMilestones: Array<{ month: number; milestone: string }>
 ): Array<{ description: string; targetValue: number; currentValue: number }> {
   const quarterlyKeyResults = [];
-
+  
   // Generate Key Results based on yearly KRs, adapted for this quarter
   for (const yearlyKR of yearlyKeyResults) {
     // Calculate quarterly target (25% of yearly target, but ensure minimum of 1)
     const quarterlyTarget = Math.max(1, Math.ceil(yearlyKR.targetValue / 4));
-
+    
     // Create quarterly-specific description
     let quarterlyDescription = '';
-
+    
     // If the yearly KR mentions specific metrics, adapt them for the quarter
-    if (
-      yearlyKR.description.includes('年間') ||
-      yearlyKR.description.includes('年次')
-    ) {
+    if (yearlyKR.description.includes('年間') || yearlyKR.description.includes('年次')) {
       quarterlyDescription = yearlyKR.description
         .replace('年間', `Q${quarter}`)
         .replace('年次', `Q${quarter}`);
-    } else if (
-      yearlyKR.description.includes('達成') ||
-      yearlyKR.description.includes('完成')
-    ) {
+    } else if (yearlyKR.description.includes('達成') || yearlyKR.description.includes('完成')) {
       // For achievement-based KRs, focus on quarterly progress
       quarterlyDescription = `Q${quarter}: ${yearlyKR.description}の${quarter === 1 ? '基盤構築' : quarter === 2 ? '本格推進' : quarter === 3 ? '加速実行' : '完成・評価'}`;
     } else {
       // Default: add quarterly context to the description
       quarterlyDescription = `Q${quarter}: ${yearlyKR.description}の段階的推進`;
     }
-
+    
     quarterlyKeyResults.push({
       description: quarterlyDescription,
       targetValue: quarterlyTarget,
       currentValue: 0,
-      unit: yearlyKR.unit || inferUnitFromDescription(quarterlyDescription),
     });
   }
-
+  
   // Add milestone-specific Key Results if we have specific milestones
   if (quarterMilestones.length > 0) {
     quarterlyKeyResults.push({
       description: `Q${quarter}の重要マイルストーン達成: ${quarterMilestones.length}件`,
       targetValue: quarterMilestones.length,
       currentValue: 0,
-      unit: '件',
     });
   }
-
+  
   // Ensure we have at least 2-3 meaningful Key Results per quarter
   if (quarterlyKeyResults.length === 0) {
     // Fallback: create basic quarterly Key Results
@@ -139,10 +81,9 @@ function generateQuarterlyKeyResults(
       description: `Q${quarter}の目標達成率`,
       targetValue: 75, // 75% quarterly achievement target
       currentValue: 0,
-      unit: '%',
     });
   }
-
+  
   // Limit to maximum 4 Key Results per quarter for clarity
   return quarterlyKeyResults.slice(0, 4);
 }
@@ -195,38 +136,32 @@ export const generateOKRTool = createTool({
     try {
       console.log('🔍 DEBUG: AI期間計算結果:', period);
       console.log('🔍 DEBUG: yearlyBreakdown:', period.yearlyBreakdown);
-
+      
       // Generate AI-powered OKRs
       const aiResult = await generateAIOKRTool.execute({
         context: aiRequest,
         runtimeContext,
       });
-
+      
       console.log('🔍 DEBUG: AI生成成功:', aiResult);
-
+      
       // AI生成結果の年重複チェック
-      const aiYears = aiResult.yearlyOKRs.map((okr) => okr.year);
+      const aiYears = aiResult.yearlyOKRs.map(okr => okr.year);
       const aiUniqueYears = new Set(aiYears);
       if (aiYears.length !== aiUniqueYears.size) {
         console.warn('⚠️ AI生成結果に年の重複が検出されました:', aiYears);
-        console.warn(
-          '重複した年:',
-          aiYears.filter((year, index) => aiYears.indexOf(year) !== index),
-        );
-        throw new Error(
-          'AI生成結果に年の重複があるため、フォールバックに切り替えます',
-        );
+        console.warn('重複した年:', aiYears.filter((year, index) => aiYears.indexOf(year) !== index));
+        throw new Error('AI生成結果に年の重複があるため、フォールバックに切り替えます');
       }
 
       // Convert AI result to legacy format for backward compatibility
-      const yearlyOKRs = aiResult.yearlyOKRs.map((yearly) => ({
+      const yearlyOKRs = aiResult.yearlyOKRs.map(yearly => ({
         year: yearly.year,
         objective: yearly.objective,
-        keyResults: yearly.keyResults.map((kr) => ({
+        keyResults: yearly.keyResults.map(kr => ({
           description: kr.description,
           targetValue: kr.targetValue,
           currentValue: kr.baselineValue || 0,
-          unit: kr.unit,
         })),
         // Extended properties for new system
         rationale: yearly.rationale,
@@ -239,70 +174,50 @@ export const generateOKRTool = createTool({
         keyMilestones: yearly.keyMilestones,
       }));
 
-      // Generate quarterly OKRs from AI yearly data
+      // Generate quarterly OKRs from AI yearly data  
       const quarterlyOKRs = [];
-      console.log(
-        '🔍 DEBUG: 四半期OKR生成開始 - yearly OKRs数:',
-        aiResult.yearlyOKRs.length,
-      );
-
+      console.log('🔍 DEBUG: 四半期OKR生成開始 - yearly OKRs数:', aiResult.yearlyOKRs.length);
+      
       for (const yearly of aiResult.yearlyOKRs) {
         console.log('🔍 DEBUG: 四半期OKR生成中 - 年:', yearly.year);
         // Generate 4 quarters for each year (simplified for now)
         const milestonesPerQuarter = Math.ceil(yearly.keyMilestones.length / 4);
-
+        
         for (let quarter = 1; quarter <= 4; quarter++) {
           const quarterMilestones = yearly.keyMilestones.slice(
             (quarter - 1) * milestonesPerQuarter,
-            quarter * milestonesPerQuarter,
+            quarter * milestonesPerQuarter
           );
-
+          
           if (quarterMilestones.length > 0) {
             // Generate meaningful Key Results for this quarter
-            console.log(
-              `🔍 DEBUG: Q${quarter}用のKey Results生成中 - 年次Key Results数:`,
-              yearly.keyResults.length,
-            );
+            console.log(`🔍 DEBUG: Q${quarter}用のKey Results生成中 - 年次Key Results数:`, yearly.keyResults.length);
             const quarterlyKeyResults = generateQuarterlyKeyResults(
               yearly.keyResults,
               quarter,
-              quarterMilestones,
+              quarterMilestones
             );
-            console.log(
-              `🔍 DEBUG: Q${quarter}で生成されたKey Results:`,
-              quarterlyKeyResults,
-            );
-
+            console.log(`🔍 DEBUG: Q${quarter}で生成されたKey Results:`, quarterlyKeyResults);
+            
             quarterlyOKRs.push({
               year: yearly.year,
               quarter,
-              objective: quarterMilestones.map((m) => m.milestone).join(', '),
+              objective: `Q${quarter}: ${quarterMilestones.map(m => m.milestone).join(', ')}`,
               keyResults: quarterlyKeyResults,
             });
           }
         }
       }
-
+      
       // 四半期OKRの重複チェック
-      const quarterlyYearQuarters = quarterlyOKRs.map(
-        (q) => `${q.year}-Q${q.quarter}`,
-      );
+      const quarterlyYearQuarters = quarterlyOKRs.map(q => `${q.year}-Q${q.quarter}`);
       const uniqueQuarterlyYearQuarters = new Set(quarterlyYearQuarters);
       if (quarterlyYearQuarters.length !== uniqueQuarterlyYearQuarters.size) {
-        console.warn(
-          '⚠️ 四半期OKRに重複が検出されました:',
-          quarterlyYearQuarters,
-        );
+        console.warn('⚠️ 四半期OKRに重複が検出されました:', quarterlyYearQuarters);
       }
 
-      console.log(
-        '🔍 DEBUG: 最終的な yearly OKRs年一覧:',
-        yearlyOKRs.map((y) => y.year),
-      );
-      console.log(
-        '🔍 DEBUG: 最終的な quarterly OKRs年一覧:',
-        quarterlyOKRs.map((q) => `${q.year}-Q${q.quarter}`),
-      );
+      console.log('🔍 DEBUG: 最終的な yearly OKRs年一覧:', yearlyOKRs.map(y => y.year));
+      console.log('🔍 DEBUG: 最終的な quarterly OKRs年一覧:', quarterlyOKRs.map(q => `${q.year}-Q${q.quarter}`));
 
       return {
         yearly: yearlyOKRs,
@@ -315,40 +230,31 @@ export const generateOKRTool = createTool({
           keySuccessFactors: aiResult.keySuccessFactors,
         },
       };
-    } catch (error) {
-      console.error(
-        '❌ AI OKR generation failed, falling back to simple generation:',
-        error,
-      );
-      console.log(
-        '🔍 DEBUG: フォールバック実行 - period.yearlyBreakdown:',
-        period.yearlyBreakdown,
-      );
 
+    } catch (error) {
+      console.error('❌ AI OKR generation failed, falling back to simple generation:', error);
+      console.log('🔍 DEBUG: フォールバック実行 - period.yearlyBreakdown:', period.yearlyBreakdown);
+      
       // フォールバック用の年重複チェック
-      const fallbackYears = period.yearlyBreakdown.map((y) => y.year);
+      const fallbackYears = period.yearlyBreakdown.map(y => y.year);
       const fallbackUniqueYears = new Set(fallbackYears);
       if (fallbackYears.length !== fallbackUniqueYears.size) {
         console.error('🚨 期間計算でも年の重複が発生:', fallbackYears);
         // 重複を除去
         const uniqueBreakdown = period.yearlyBreakdown.filter(
-          (item, index, arr) =>
-            arr.findIndex((x) => x.year === item.year) === index,
+          (item, index, arr) => arr.findIndex(x => x.year === item.year) === index
         );
-        console.log(
-          '🔧 重複除去後:',
-          uniqueBreakdown.map((x) => x.year),
-        );
+        console.log('🔧 重複除去後:', uniqueBreakdown.map(x => x.year));
         period.yearlyBreakdown = uniqueBreakdown;
       }
-
+      
       // Fallback to simplified month-based generation
       const dueDate = new Date(goalDueDate);
       const currentDate = new Date();
-
-      const yearlyOKRs = period.yearlyBreakdown.map((yearInfo) => ({
+      
+      const yearlyOKRs = period.yearlyBreakdown.map(yearInfo => ({
         year: yearInfo.year,
-        objective: yearInfo.isPartialYear
+        objective: yearInfo.isPartialYear 
           ? `${goalTitle}の段階的実行（${yearInfo.monthsInYear}ヶ月間）`
           : `${goalTitle}の年次目標達成`,
         keyResults: [

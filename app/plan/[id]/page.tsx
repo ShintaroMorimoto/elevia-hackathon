@@ -612,7 +612,7 @@ export default function PlanDetailPage({
                         onClick={() => toggleOKR(yearlyOKR.id)}
                       >
                         <h3 className="font-semibold text-gray-900">
-                          {year}年次Object: {yearlyOKR.objective}
+                          {year}年: {yearlyOKR.objective}
                         </h3>
                         <p className="text-sm text-gray-600">
                           進捗: {yearProgress}%
@@ -800,11 +800,6 @@ export default function PlanDetailPage({
                                         >
                                           {keyResult.targetValue}
                                         </button>
-                                        {keyResult.unit && (
-                                          <span className="text-sm font-medium text-neutral-600 ml-1">
-                                            {keyResult.unit}
-                                          </span>
-                                        )}
                                         <span className="text-sm bg-primary-sunrise/10 text-primary-sunrise px-2 py-1 rounded font-medium ml-2">
                                           {Math.round(
                                             (keyResult.currentValue /
@@ -847,175 +842,163 @@ export default function PlanDetailPage({
                                   />
                                   <div>
                                     <p className="font-medium text-gray-900">
-                                      Q{quarterlyOKR.quarter} Object:{' '}
                                       {quarterlyOKR.objective}
+                                    </p>
+                                    <p className="text-sm text-gray-600">
+                                      Q{quarterlyOKR.quarter}
                                     </p>
                                     <div className="mt-2 space-y-1">
                                       {quarterlyOKR.keyResults.length > 0 ? (
-                                        <>
-                                          <h5 className="text-xs font-medium text-gray-700 mb-1">
-                                            Q{quarterlyOKR.quarter} Key Results:
-                                          </h5>
-                                          {quarterlyOKR.keyResults.map(
-                                            (keyResult) => (
-                                              <div
-                                                key={keyResult.id}
-                                                className="text-xs text-gray-500"
-                                              >
-                                                <div className="flex items-center justify-between">
-                                                  <div className="flex-1 text-xs">
-                                                    {keyResult.result}
-                                                  </div>
-                                                  <div className="flex items-center space-x-1">
-                                                    {editingKeyResult ===
-                                                    keyResult.id ? (
-                                                      <div className="flex flex-col gap-1.5 bg-white/80 p-2 rounded border border-neutral-200 min-w-[220px]">
-                                                        <div className="flex items-center gap-1">
-                                                          <Label className="text-xs font-medium text-neutral-700 w-8">
-                                                            実績:
-                                                          </Label>
-                                                          <Input
-                                                            type="number"
-                                                            value={tempValue}
-                                                            onChange={(e) =>
-                                                              setTempValue(
-                                                                e.target.value,
-                                                              )
-                                                            }
-                                                            onKeyDown={(e) =>
-                                                              handleKeyDown(
-                                                                e,
-                                                                keyResult.id,
-                                                                keyResult.targetValue,
-                                                              )
-                                                            }
-                                                            className="w-16 h-6 text-xs border-neutral-300 focus:border-primary-sunrise"
-                                                            min="0"
-                                                            step="1"
-                                                            placeholder="実績"
-                                                            autoFocus
-                                                          />
-                                                        </div>
-                                                        <div className="flex items-center gap-1">
-                                                          <Label className="text-xs font-medium text-neutral-700 w-8">
-                                                            目標:
-                                                          </Label>
-                                                          <Input
-                                                            type="number"
-                                                            value={
-                                                              tempTargetValue
-                                                            }
-                                                            onChange={(e) =>
-                                                              setTempTargetValue(
-                                                                e.target.value,
-                                                              )
-                                                            }
-                                                            onKeyDown={(e) =>
-                                                              handleKeyDown(
-                                                                e,
-                                                                keyResult.id,
-                                                                keyResult.targetValue,
-                                                              )
-                                                            }
-                                                            className="w-16 h-6 text-xs border-neutral-300 focus:border-primary-sunrise"
-                                                            min="1"
-                                                            step="1"
-                                                            placeholder="目標"
-                                                          />
-                                                        </div>
-                                                        <div className="flex items-center gap-1">
-                                                          <Button
-                                                            size="sm"
-                                                            variant="default"
-                                                            className="h-6 px-2 text-xs"
-                                                            onClick={() =>
-                                                              handleSaveEdit(
-                                                                keyResult.id,
-                                                                keyResult.targetValue,
-                                                              )
-                                                            }
-                                                            disabled={
-                                                              loadingStates[
-                                                                keyResult.id
-                                                              ]
-                                                            }
-                                                          >
-                                                            {loadingStates[
-                                                              keyResult.id
-                                                            ] ? (
-                                                              <Loader2 className="w-3 h-3 animate-spin" />
-                                                            ) : (
-                                                              <Save className="w-3 h-3" />
-                                                            )}
-                                                          </Button>
-                                                          <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            className="h-6 px-2 text-xs"
-                                                            onClick={
-                                                              handleCancelEdit
-                                                            }
-                                                          >
-                                                            <X className="w-3 h-3" />
-                                                          </Button>
-                                                        </div>
+                                        quarterlyOKR.keyResults.map(
+                                          (keyResult) => (
+                                            <div
+                                              key={keyResult.id}
+                                              className="text-xs text-gray-500"
+                                            >
+                                              <div className="flex items-center justify-between">
+                                                <div className="flex-1 text-xs">
+                                                  {keyResult.result}
+                                                </div>
+                                                <div className="flex items-center space-x-1">
+                                                  {editingKeyResult ===
+                                                  keyResult.id ? (
+                                                    <div className="flex flex-col gap-1.5 bg-white/80 p-2 rounded border border-neutral-200 min-w-[220px]">
+                                                      <div className="flex items-center gap-1">
+                                                        <Label className="text-xs font-medium text-neutral-700 w-8">
+                                                          実績:
+                                                        </Label>
+                                                        <Input
+                                                          type="number"
+                                                          value={tempValue}
+                                                          onChange={(e) =>
+                                                            setTempValue(
+                                                              e.target.value,
+                                                            )
+                                                          }
+                                                          onKeyDown={(e) =>
+                                                            handleKeyDown(
+                                                              e,
+                                                              keyResult.id,
+                                                              keyResult.targetValue,
+                                                            )
+                                                          }
+                                                          className="w-16 h-6 text-xs border-neutral-300 focus:border-primary-sunrise"
+                                                          min="0"
+                                                          step="1"
+                                                          placeholder="実績"
+                                                          autoFocus
+                                                        />
                                                       </div>
-                                                    ) : (
-                                                      <>
-                                                        <button
-                                                          onClick={() =>
-                                                            handleStartEdit(
+                                                      <div className="flex items-center gap-1">
+                                                        <Label className="text-xs font-medium text-neutral-700 w-8">
+                                                          目標:
+                                                        </Label>
+                                                        <Input
+                                                          type="number"
+                                                          value={
+                                                            tempTargetValue
+                                                          }
+                                                          onChange={(e) =>
+                                                            setTempTargetValue(
+                                                              e.target.value,
+                                                            )
+                                                          }
+                                                          onKeyDown={(e) =>
+                                                            handleKeyDown(
+                                                              e,
                                                               keyResult.id,
-                                                              keyResult.currentValue,
                                                               keyResult.targetValue,
                                                             )
                                                           }
-                                                          className="text-primary-sunrise hover:text-primary-daylight font-semibold text-sm px-1.5 py-0.5 rounded hover:bg-primary-sunrise/10 transition-colors border border-dashed border-primary-sunrise/30 hover:border-primary-sunrise/60"
-                                                          title="クリックして実績値・目標値を編集"
-                                                        >
-                                                          {
-                                                            keyResult.currentValue
-                                                          }
-                                                        </button>
-                                                        <span className="text-xs font-medium text-gray-600">
-                                                          /{' '}
-                                                        </span>
-                                                        <button
+                                                          className="w-16 h-6 text-xs border-neutral-300 focus:border-primary-sunrise"
+                                                          min="1"
+                                                          step="1"
+                                                          placeholder="目標"
+                                                        />
+                                                      </div>
+                                                      <div className="flex items-center gap-1">
+                                                        <Button
+                                                          size="sm"
+                                                          variant="default"
+                                                          className="h-6 px-2 text-xs"
                                                           onClick={() =>
-                                                            handleStartEdit(
+                                                            handleSaveEdit(
                                                               keyResult.id,
-                                                              keyResult.currentValue,
                                                               keyResult.targetValue,
                                                             )
                                                           }
-                                                          className="text-primary-sunrise hover:text-primary-daylight font-semibold text-sm px-1.5 py-0.5 rounded hover:bg-primary-sunrise/10 transition-colors border border-dashed border-primary-sunrise/30 hover:border-primary-sunrise/60"
-                                                          title="クリックして実績値・目標値を編集"
-                                                        >
-                                                          {
-                                                            keyResult.targetValue
+                                                          disabled={
+                                                            loadingStates[
+                                                              keyResult.id
+                                                            ]
                                                           }
-                                                        </button>
-                                                        {keyResult.unit && (
-                                                          <span className="text-xs font-medium text-gray-600 ml-1">
-                                                            {keyResult.unit}
-                                                          </span>
-                                                        )}
-                                                        <span className="text-xs bg-primary-sunrise/10 text-primary-sunrise px-1.5 py-0.5 rounded font-medium ml-1">
-                                                          {Math.round(
-                                                            (keyResult.currentValue /
-                                                              keyResult.targetValue) *
-                                                              100,
+                                                        >
+                                                          {loadingStates[
+                                                            keyResult.id
+                                                          ] ? (
+                                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                                          ) : (
+                                                            <Save className="w-3 h-3" />
                                                           )}
-                                                          %
-                                                        </span>
-                                                      </>
-                                                    )}
-                                                  </div>
+                                                        </Button>
+                                                        <Button
+                                                          size="sm"
+                                                          variant="outline"
+                                                          className="h-6 px-2 text-xs"
+                                                          onClick={
+                                                            handleCancelEdit
+                                                          }
+                                                        >
+                                                          <X className="w-3 h-3" />
+                                                        </Button>
+                                                      </div>
+                                                    </div>
+                                                  ) : (
+                                                    <>
+                                                      <button
+                                                        onClick={() =>
+                                                          handleStartEdit(
+                                                            keyResult.id,
+                                                            keyResult.currentValue,
+                                                            keyResult.targetValue,
+                                                          )
+                                                        }
+                                                        className="text-primary-sunrise hover:text-primary-daylight font-semibold text-sm px-1.5 py-0.5 rounded hover:bg-primary-sunrise/10 transition-colors border border-dashed border-primary-sunrise/30 hover:border-primary-sunrise/60"
+                                                        title="クリックして実績値・目標値を編集"
+                                                      >
+                                                        {keyResult.currentValue}
+                                                      </button>
+                                                      <span className="text-xs font-medium text-gray-600">
+                                                        /{' '}
+                                                      </span>
+                                                      <button
+                                                        onClick={() =>
+                                                          handleStartEdit(
+                                                            keyResult.id,
+                                                            keyResult.currentValue,
+                                                            keyResult.targetValue,
+                                                          )
+                                                        }
+                                                        className="text-primary-sunrise hover:text-primary-daylight font-semibold text-sm px-1.5 py-0.5 rounded hover:bg-primary-sunrise/10 transition-colors border border-dashed border-primary-sunrise/30 hover:border-primary-sunrise/60"
+                                                        title="クリックして実績値・目標値を編集"
+                                                      >
+                                                        {keyResult.targetValue}
+                                                      </button>
+                                                      <span className="text-xs bg-primary-sunrise/10 text-primary-sunrise px-1.5 py-0.5 rounded font-medium ml-1">
+                                                        {Math.round(
+                                                          (keyResult.currentValue /
+                                                            keyResult.targetValue) *
+                                                            100,
+                                                        )}
+                                                        %
+                                                      </span>
+                                                    </>
+                                                  )}
                                                 </div>
                                               </div>
-                                            ),
-                                          )}
-                                        </>
+                                            </div>
+                                          ),
+                                        )
                                       ) : (
                                         <div className="text-xs text-gray-400 italic">
                                           Key Resultsが設定されていません
