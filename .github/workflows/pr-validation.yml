@@ -27,6 +27,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
         
+      - name: Fix Biome permissions
+        run: chmod +x node_modules/.pnpm/@biomejs+cli-linux-x64@*/node_modules/@biomejs/cli-linux-x64/biome
+        
       - name: Run linter
         run: pnpm run lint
         
