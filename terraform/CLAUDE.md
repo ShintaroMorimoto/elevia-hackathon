@@ -211,6 +211,131 @@ module "module_a" {
 - Be cautious with `google_*_iam_policy` and `google_*_iam_binding`, as they will overwrite all existing permissions during Terraform runs
 - Consider using "Google's IAM modules" for more flexible permission management
 
+### Cloud SQL Best Practices
+
+Cloud SQL instances require special attention in Terraform due to their long creation times and complex dependencies.
+
+#### 1. Timeout Configuration
+Cloud SQL instances can take 15-20 minutes to create. Always set appropriate timeouts:
+
+```hcl
+resource "google_sql_database_instance" "postgres" {
+  # ... other configuration ...
+  
+  timeouts {
+    create = "30m"
+    update = "30m"
+    delete = "30m"
+  }
+}
+```
+
+#### 2. Dependency Management
+Explicitly declare dependencies to prevent race conditions:
+
+```hcl
+resource "google_sql_database_instance" "postgres" {
+  # ... other configuration ...
+  
+  depends_on = [
+    google_service_networking_connection.private_vpc_connection,
+    google_compute_global_address.private_ip_range,
+    google_project_service.apis
+  ]
+}
+```
+
+#### 3. Lifecycle Management
+Protect production databases and handle automatic changes:
+
+```hcl
+resource "google_sql_database_instance" "postgres" {
+  # ... other configuration ...
+  
+  lifecycle {
+    prevent_destroy = true  # Prevent accidental deletion
+    ignore_changes = [
+      settings[0].disk_size,  # Allow automatic disk expansion
+      settings[0].maintenance_version  # Allow automatic minor version updates
+    ]
+  }
+}
+```
+
+#### 4. Environment-Specific Configuration
+Use variables to customize settings by environment:
+
+```hcl
+resource "google_sql_database_instance" "postgres" {
+  deletion_protection = var.environment == "production" ? true : false
+  
+  settings {
+    tier = var.environment == "production" ? "db-custom-2-4096" : "db-f1-micro"
+    deletion_protection_enabled = var.environment == "production" ? true : false
+    
+    backup_configuration {
+      enabled = var.environment == "production" ? true : false
+      # ... other backup settings ...
+    }
+  }
+}
+```
+
+#### 5. Network Configuration Best Practices
+For private IP configurations (recommended for production):
+
+```hcl
+# 1. Create global address for VPC peering
+resource "google_compute_global_address" "private_ip_range" {
+  name          = "private-ip-range"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  prefix_length = 24
+  network       = google_compute_network.vpc_network.id
+}
+
+# 2. Establish service networking connection
+resource "google_service_networking_connection" "private_vpc_connection" {
+  network                 = google_compute_network.vpc_network.id
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.private_ip_range.name]
+}
+
+# 3. Configure Cloud SQL with private IP
+resource "google_sql_database_instance" "postgres" {
+  settings {
+    ip_configuration {
+      ipv4_enabled                                  = false
+      private_network                               = google_compute_network.vpc_network.id
+      enable_private_path_for_google_cloud_services = true
+    }
+  }
+  
+  depends_on = [google_service_networking_connection.private_vpc_connection]
+}
+```
+
+#### 6. Common Pitfalls to Avoid
+- **Never** apply Cloud SQL changes without planning first
+- **Don't** use short timeouts (< 20 minutes) for Cloud SQL operations
+- **Avoid** creating Cloud SQL instances without proper VPC setup when using private IP
+- **Don't** ignore the `deletion_protection` setting in production
+- **Never** store database passwords in plain text in Terraform files
+
+#### 7. Staged Deployment Strategy
+For complex deployments, consider a staged approach:
+
+1. **Stage 1**: VPC, Networking, Service connections
+2. **Stage 2**: Cloud SQL instance (longest operation)
+3. **Stage 3**: Application layer (Cloud Run, etc.)
+
+```bash
+# Deploy in stages
+terraform apply -target=google_compute_network.vpc_network
+terraform apply -target=google_sql_database_instance.postgres
+terraform apply  # Deploy remaining resources
+```
+
 ### General Resource Management
 - Leverage the [Cloud Foundation Toolkit](https://cloud.google.com/foundation-toolkit) modules, which integrate best practices
 - Understand that Terraform can serve as the "single source of truth" for resource configurations

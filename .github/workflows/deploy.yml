@@ -1,0 +1,184 @@
+name: Build and Deploy to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  PROJECT_ID: ${{ vars.GOOGLE_CLOUD_PROJECT_ID }}
+  REGION: asia-northeast1
+  SERVICE_NAME: elevia
+
+jobs:
+  test:
+    name: Test Application
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable pnpm
+        run: corepack enable pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run linting
+        run: pnpm run lint
+
+      - name: Run tests
+        run: pnpm run test
+
+      - name: Build application
+        run: pnpm run build
+
+  build-and-deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (Direct Workload Identity Federation)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/${{ vars.GOOGLE_CLOUD_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ vars.WORKLOAD_IDENTITY_POOL }}/providers/${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
+          project_id: ${{ vars.GOOGLE_CLOUD_PROJECT_ID }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.9.0'
+
+      - name: Configure Docker to use gcloud as credential helper
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Get repository information
+        id: repo-info
+        run: |
+          # Get Artifact Registry repository from Terraform outputs
+          REPO_URL="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/elevia-repo"
+          echo "repository_url=$REPO_URL" >> $GITHUB_OUTPUT
+          echo "image_tag=$REPO_URL/${{ env.SERVICE_NAME }}:${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "latest_tag=$REPO_URL/${{ env.SERVICE_NAME }}:latest" >> $GITHUB_OUTPUT
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --tag ${{ steps.repo-info.outputs.image_tag }} \
+            --tag ${{ steps.repo-info.outputs.latest_tag }} \
+            .
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ steps.repo-info.outputs.image_tag }}
+          docker push ${{ steps.repo-info.outputs.latest_tag }}
+
+      - name: Get Terraform outputs for deployment
+        id: tf-outputs
+        run: |
+          # Get Cloud SQL connection name from Terraform state
+          cd terraform
+          terraform init \
+            -backend-config="bucket=terraform-state-${{ vars.GOOGLE_CLOUD_PROJECT_ID }}" \
+            -backend-config="prefix=terraform/state"
+          
+          CLOUD_SQL_CONNECTION=$(terraform output -raw cloud_sql_connection_name)
+          echo "cloud_sql_connection=$CLOUD_SQL_CONNECTION" >> $GITHUB_OUTPUT
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image=${{ steps.repo-info.outputs.latest_tag }} \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --quiet
+
+      - name: Get Cloud Run URL
+        id: deploy-url
+        run: |
+          URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)')
+          echo "url=$URL" >> $GITHUB_OUTPUT
+          echo "::notice title=Deployment Complete::Application deployed to $URL"
+
+      - name: Run database migrations
+        run: |
+          # Install pnpm and dependencies
+          corepack enable pnpm
+          pnpm install --frozen-lockfile
+          
+          # Set environment variables for migration
+          export CLOUD_SQL_CONNECTION_NAME="${{ steps.tf-outputs.outputs.cloud_sql_connection }}"
+          export DB_USER="${{ secrets.DB_USER }}"
+          export DB_PASS="${{ secrets.DB_PASS }}"
+          export DB_NAME="${{ secrets.DB_NAME }}"
+          
+          # Run migrations
+          pnpm run db:migrate
+        continue-on-error: true
+
+      - name: Add deployment summary
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Service**: ${{ env.SERVICE_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region**: ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: ${{ steps.repo-info.outputs.latest_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: ${{ steps.deploy-url.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployed at**: $(date)" >> $GITHUB_STEP_SUMMARY
+
+  preview-build:
+    name: Preview Build
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable pnpm
+        run: corepack enable pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Docker image for validation
+        run: |
+          docker build --tag preview-build:${{ github.sha }} .
+
+      - name: Add build summary
+        run: |
+          echo "## 🔍 Preview Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ✅ Build successful" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **PR**: #${{ github.event.number }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Built at**: $(date)" >> $GITHUB_STEP_SUMMARY

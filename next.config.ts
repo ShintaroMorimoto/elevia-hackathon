@@ -1,10 +1,11 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   experimental: {
     nodeMiddleware: true,
   },
-  serverExternalPackages: ['@libsql/client', 'libsql'],
+  serverExternalPackages: ['@libsql/client', 'libsql', '@google-cloud/cloud-sql-connector', 'pg'],
   webpack: (config, { isServer }) => {
     if (isServer) {
       // Externalize libsql packages on server side
