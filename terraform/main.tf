@@ -1,5 +1,5 @@
 # Configure Terraform and required providers
-# Updated: Added import blocks to handle existing resources
+# Updated: Added project IAM admin role to resolve permission errors
 terraform {
   required_version = ">= 1.0"
   required_providers {
