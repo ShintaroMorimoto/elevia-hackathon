@@ -26,9 +26,12 @@ let connector: Connector | undefined;
 // 環境判定
 const isProduction = process.env.NODE_ENV === 'production';
 const isCloudRun = process.env.K_SERVICE !== undefined;
-const isLocal = !isProduction && !process.env.CLOUD_SQL_CONNECTION_NAME;
+const isCIBuild = process.env.CI_BUILD === 'true';
+const isLocal =
+  (!isProduction && !process.env.CLOUD_SQL_CONNECTION_NAME) || isCIBuild;
 
 console.log('🔍 Database connection mode:', {
+  isCIBuild,
   isProduction,
   isCloudRun,
   isLocal,
