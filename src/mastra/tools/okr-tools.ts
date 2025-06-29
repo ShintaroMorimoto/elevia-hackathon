@@ -52,17 +52,17 @@ function generateQuarterlyKeyResults(
       yearlyKR.description.includes('年次')
     ) {
       quarterlyDescription = yearlyKR.description
-        .replace('年間', `Q${quarter}`)
-        .replace('年次', `Q${quarter}`);
+        .replace('年間', '')
+        .replace('年次', '');
     } else if (
       yearlyKR.description.includes('達成') ||
       yearlyKR.description.includes('完成')
     ) {
       // For achievement-based KRs, focus on quarterly progress
-      quarterlyDescription = `Q${quarter}: ${yearlyKR.description}の${quarter === 1 ? '基盤構築' : quarter === 2 ? '本格推進' : quarter === 3 ? '加速実行' : '完成・評価'}`;
+      quarterlyDescription = `${yearlyKR.description}の${quarter === 1 ? '基盤構築' : quarter === 2 ? '本格推進' : quarter === 3 ? '加速実行' : '完成・評価'}`;
     } else {
       // Default: add quarterly context to the description
-      quarterlyDescription = `Q${quarter}: ${yearlyKR.description}の段階的推進`;
+      quarterlyDescription = `${yearlyKR.description}の段階的推進`;
     }
 
     quarterlyKeyResults.push({
@@ -76,7 +76,7 @@ function generateQuarterlyKeyResults(
   // Add milestone-specific Key Results if we have specific milestones
   if (quarterMilestones.length > 0) {
     quarterlyKeyResults.push({
-      description: `Q${quarter}の重要マイルストーン達成: ${quarterMilestones.length}件`,
+      description: `重要マイルストーン達成: ${quarterMilestones.length}件`,
       targetValue: quarterMilestones.length,
       currentValue: 0,
       unit: '件', // Milestone count unit
@@ -87,7 +87,7 @@ function generateQuarterlyKeyResults(
   if (quarterlyKeyResults.length === 0) {
     // Fallback: create basic quarterly Key Results
     quarterlyKeyResults.push({
-      description: `Q${quarter}の目標達成率`,
+      description: `目標達成率`,
       targetValue: 75, // 75% quarterly achievement target
       currentValue: 0,
       unit: '%', // Percentage unit for achievement rate
