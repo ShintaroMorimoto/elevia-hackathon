@@ -38,25 +38,6 @@ jobs:
         with:
           terraform_version: '1.9.0'
 
-      - name: Ensure required permissions for deployment
-        run: |
-          # Verify and add missing permissions for Cloud Run deployment
-          PROJECT_NUMBER="${{ vars.GOOGLE_CLOUD_PROJECT_NUMBER }}"
-          POOL_MEMBER="principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/${{ vars.WORKLOAD_IDENTITY_POOL }}/attribute.repository/${{ github.repository }}"
-          
-          # Check and add Service Account Token Creator role if missing
-          if ! gcloud projects get-iam-policy ${{ vars.GOOGLE_CLOUD_PROJECT_ID }} \
-            --flatten="bindings[].members" \
-            --filter="bindings.members:$POOL_MEMBER AND bindings.role:roles/iam.serviceAccountTokenCreator" \
-            --format="value(bindings.role)" | grep "roles/iam.serviceAccountTokenCreator" >/dev/null 2>&1; then
-            echo "Adding Service Account Token Creator role..."
-            gcloud projects add-iam-policy-binding ${{ vars.GOOGLE_CLOUD_PROJECT_ID }} \
-              --member="$POOL_MEMBER" \
-              --role="roles/iam.serviceAccountTokenCreator"
-          else
-            echo "Service Account Token Creator role already granted"
-          fi
-
       - name: Configure Docker to use gcloud as credential helper
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
 
