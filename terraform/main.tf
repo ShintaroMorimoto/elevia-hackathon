@@ -1,5 +1,6 @@
 # Configure Terraform and required providers
 # Updated: Changed VPC connector CIDR range to 10.9.0.0/28 to avoid subnet conflicts
+# Trigger: VPC connector deleted and ready for deployment
 terraform {
   required_version = ">= 1.0"
   required_providers {
