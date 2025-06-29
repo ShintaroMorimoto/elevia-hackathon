@@ -13,19 +13,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10.12.4
+          
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'pnpm'
           
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8
-          
       - name: Install dependencies
         run: pnpm install
+        
+      - name: Fix Biome permissions
+        run: chmod +x node_modules/.pnpm/@biomejs+cli-linux-x64@*/node_modules/@biomejs/cli-linux-x64/biome
         
       - name: Run linter
         run: pnpm run lint
@@ -38,6 +41,14 @@ jobs:
         
       - name: Build project
         run: pnpm run build
+        env:
+          # NODE_ENV: development  # Next.js 15 canary Html import bug workaround - let Next.js set this automatically
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/test_db
+          CI_BUILD: "true"
+          DB_USER: postgres
+          DB_PASS: password
+          DB_NAME: test_db
+          DB_HOST: localhost
         
       - name: Build Docker image for validation
         run: |

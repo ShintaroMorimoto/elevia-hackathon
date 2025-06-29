@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { initializeChatWithMastra, handleUserMessage, isConversationComplete } from '@/app/utils/chat-helpers';
+import {
+  initializeChatWithMastra,
+  handleUserMessage,
+  isConversationComplete,
+} from '@/app/utils/chat-helpers';
 
 // Mock Server Actions for isolated testing
 vi.mock('@/actions/chat', () => ({
@@ -26,21 +30,46 @@ describe('Chat Helpers with Mastra Integration', () => {
       // Arrange
       const { getGoal } = await import('@/actions/goals');
       const { createChatSession } = await import('@/actions/chat');
-      const { generateNextQuestion } = await import('@/actions/ai-conversation');
+      const { generateNextQuestion } = await import(
+        '@/actions/ai-conversation'
+      );
 
       vi.mocked(getGoal).mockResolvedValue({
         success: true,
-        data: { id: 'goal-1', title: '5年後に1億円稼ぐ', userId: 'user-1' }
+        data: {
+          id: 'goal-1',
+          title: '5年後に1億円稼ぐ',
+          userId: 'user-1',
+          description: null,
+          dueDate: '2029-12-31',
+          status: 'active',
+          progressPercentage: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
       });
 
       vi.mocked(createChatSession).mockResolvedValue({
         success: true,
-        data: { id: 'session-1', goalId: 'goal-1', userId: 'user-1' }
+        data: {
+          id: 'session-1',
+          goalId: 'goal-1',
+          status: 'active',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
       });
 
       vi.mocked(generateNextQuestion).mockResolvedValue({
         success: true,
-        data: { question: 'あなたがその夢を目指す、一番の「動機」は何ですか？', type: 'question', depth: 1 }
+        data: {
+          question: 'あなたがその夢を目指す、一番の「動機」は何ですか？',
+          type: 'question',
+          depth: 1,
+          reasoning: 'Initial motivation assessment',
+          shouldComplete: false,
+          confidence: 0.8,
+        },
       });
 
       const goalId = 'goal-1';
@@ -52,18 +81,18 @@ describe('Chat Helpers with Mastra Integration', () => {
       };
 
       // Act & Assert
-      await expect(
-        initializeChatWithMastra(goalId, userId)
-      ).resolves.toEqual(expectedResult);
+      await expect(initializeChatWithMastra(goalId, userId)).resolves.toEqual(
+        expectedResult,
+      );
     });
 
     it('should handle goal not found error', async () => {
       // Arrange
       const { getGoal } = await import('@/actions/goals');
-      
+
       vi.mocked(getGoal).mockResolvedValue({
         success: false,
-        error: 'Goal not found'
+        error: 'Goal not found',
       });
 
       const invalidGoalId = 'invalid-goal';
@@ -71,7 +100,7 @@ describe('Chat Helpers with Mastra Integration', () => {
 
       // Act & Assert
       await expect(
-        initializeChatWithMastra(invalidGoalId, userId)
+        initializeChatWithMastra(invalidGoalId, userId),
       ).rejects.toThrow('Goal not found');
     });
   });
@@ -80,33 +109,56 @@ describe('Chat Helpers with Mastra Integration', () => {
     it('should process user message and generate AI response using Mastra', async () => {
       // Arrange
       const { addChatMessage } = await import('@/actions/chat');
-      const { generateNextQuestion, analyzeConversationDepth } = await import('@/actions/ai-conversation');
+      const { generateNextQuestion, analyzeConversationDepth } = await import(
+        '@/actions/ai-conversation'
+      );
 
       vi.mocked(addChatMessage).mockResolvedValue({
         success: true,
-        data: { id: 'msg-1', content: 'message saved' }
+        data: {
+          id: 'msg-1',
+          content: 'message saved',
+          sessionId: 'session-1',
+          senderType: 'user',
+          messageOrder: 1,
+          createdAt: new Date(),
+        },
       });
 
       vi.mocked(generateNextQuestion).mockResolvedValue({
         success: true,
-        data: { question: 'なるほど、素晴らしい動機ですね', type: 'question', depth: 1 }
+        data: {
+          question: 'なるほど、素晴らしい動機ですね',
+          type: 'question',
+          depth: 1,
+          reasoning: 'Follow-up question',
+          shouldComplete: false,
+          confidence: 0.8,
+        },
       });
 
       vi.mocked(analyzeConversationDepth).mockResolvedValue({
         success: true,
-        data: { 
+        data: {
           isReadyToProceed: false,
           currentDepth: 2,
           maxDepth: 5,
-          completionPercentage: 40
-        }
+          completionPercentage: 40,
+          isComplete: false,
+          missingAspects: [],
+          informationSufficiency: 0.4,
+          missingCriticalInfo: [],
+          conversationQuality: 'medium',
+          suggestedNextAction: 'continue_conversation',
+          reasoning: 'Need more information',
+        },
       });
 
       const sessionId = 'session-1';
       const goalId = 'goal-1';
       const userId = 'user-1';
       const userMessage = '自由な時間が欲しいです';
-      const chatHistory = [];
+      const chatHistory: Array<{ role: string; content: string }> = [];
 
       const expectedResult = {
         aiResponse: expect.stringContaining('なるほど'),
@@ -120,44 +172,67 @@ describe('Chat Helpers with Mastra Integration', () => {
 
       // Act & Assert
       await expect(
-        handleUserMessage(sessionId, goalId, userId, userMessage, chatHistory)
+        handleUserMessage(sessionId, goalId, userId, userMessage, chatHistory),
       ).resolves.toEqual(expectedResult);
     });
 
     it('should save both user and AI messages to database', async () => {
       // Arrange
       const { addChatMessage } = await import('@/actions/chat');
-      const { generateNextQuestion, analyzeConversationDepth } = await import('@/actions/ai-conversation');
+      const { generateNextQuestion, analyzeConversationDepth } = await import(
+        '@/actions/ai-conversation'
+      );
 
       vi.mocked(addChatMessage).mockResolvedValue({
         success: true,
-        data: { id: 'msg-1', content: 'message saved' }
+        data: {
+          id: 'msg-1',
+          content: 'message saved',
+          sessionId: 'session-1',
+          senderType: 'user',
+          messageOrder: 1,
+          createdAt: new Date(),
+        },
       });
 
       vi.mocked(generateNextQuestion).mockResolvedValue({
         success: true,
-        data: { question: 'AIからの質問', type: 'question', depth: 1 }
+        data: {
+          question: 'AIからの質問',
+          type: 'question',
+          depth: 1,
+          reasoning: 'AI question generation',
+          shouldComplete: false,
+          confidence: 0.8,
+        },
       });
 
       vi.mocked(analyzeConversationDepth).mockResolvedValue({
         success: true,
-        data: { 
+        data: {
           isReadyToProceed: false,
           currentDepth: 2,
           maxDepth: 5,
-          completionPercentage: 40
-        }
+          completionPercentage: 40,
+          isComplete: false,
+          missingAspects: [],
+          informationSufficiency: 0.4,
+          missingCriticalInfo: [],
+          conversationQuality: 'medium',
+          suggestedNextAction: 'continue_conversation',
+          reasoning: 'Need more information',
+        },
       });
 
       const sessionId = 'session-1';
       const goalId = 'goal-1';
       const userId = 'user-1';
       const userMessage = 'テストメッセージ';
-      const chatHistory = [];
+      const chatHistory: Array<{ role: string; content: string }> = [];
 
       // Act & Assert
       await expect(
-        handleUserMessage(sessionId, goalId, userId, userMessage, chatHistory)
+        handleUserMessage(sessionId, goalId, userId, userMessage, chatHistory),
       ).resolves.toBeDefined();
     });
   });
@@ -179,9 +254,7 @@ describe('Chat Helpers with Mastra Integration', () => {
       };
 
       // Act & Assert
-      await expect(
-        isConversationComplete(chatHistory, goal)
-      ).resolves.toEqual({
+      await expect(isConversationComplete(chatHistory, goal)).resolves.toEqual({
         isComplete: false,
         currentDepth: 2, // 5 messages / 2 = 2 (rounded down)
         maxDepth: 5,
@@ -203,11 +276,11 @@ describe('Chat Helpers with Mastra Integration', () => {
       };
 
       await expect(
-        isConversationComplete(deepChatHistory, goal)
+        isConversationComplete(deepChatHistory, goal),
       ).resolves.toEqual(
         expect.objectContaining({
           isComplete: true,
-        })
+        }),
       );
     });
   });

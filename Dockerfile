@@ -9,7 +9,7 @@ WORKDIR /app
 
 # Install dependencies based on the preferred package manager
 COPY package.json pnpm-lock.yaml* ./
-RUN corepack enable pnpm && pnpm install --frozen-lockfile
+RUN corepack enable pnpm && corepack prepare pnpm@10.12.4 --activate && pnpm install --frozen-lockfile
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -26,7 +26,14 @@ ENV NEXT_TELEMETRY_DISABLED 1
 # RUN npx prisma generate
 
 # Build the application
-RUN corepack enable pnpm && pnpm run build
+ENV CI_BUILD=true
+ENV DATABASE_URL=postgresql://postgres:password@localhost:5432/test_db
+ENV CLOUD_SQL_CONNECTION_NAME=dummy-build-value
+ENV DB_USER=postgres
+ENV DB_PASS=password
+ENV DB_NAME=test_db
+ENV DB_HOST=localhost
+RUN corepack enable pnpm && corepack prepare pnpm@10.12.4 --activate && pnpm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner
