@@ -75,6 +75,9 @@ jobs:
           echo "max_instances = 10"
           echo "db_tier = \"db-f1-micro\""
         } > terraform.tfvars
+        
+        # Format the generated terraform.tfvars file
+        terraform fmt terraform.tfvars
 
     - name: Debug terraform.tfvars
       run: |
