@@ -42,8 +42,12 @@ jobs:
       - name: Build project
         run: pnpm run build
         env:
-          NODE_ENV: development
           DATABASE_URL: postgresql://postgres:password@localhost:5432/test_db
+          CI_BUILD: "true"
+          DB_USER: postgres
+          DB_PASS: password
+          DB_NAME: test_db
+          DB_HOST: localhost
         
       - name: Build Docker image for validation
         run: |
