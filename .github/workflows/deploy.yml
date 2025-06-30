@@ -74,7 +74,9 @@ jobs:
           # Check if Cloud SQL output exists (infrastructure may not be deployed yet)
           if terraform output cloud_sql_connection_name >/dev/null 2>&1; then
             CLOUD_SQL_CONNECTION=$(terraform output -raw cloud_sql_connection_name)
+            CLOUD_SQL_PRIVATE_IP=$(terraform output -raw cloud_sql_private_ip)
             echo "cloud_sql_connection=$CLOUD_SQL_CONNECTION" >> $GITHUB_OUTPUT
+            echo "cloud_sql_private_ip=$CLOUD_SQL_PRIVATE_IP" >> $GITHUB_OUTPUT
             echo "infrastructure_ready=true" >> $GITHUB_OUTPUT
           else
             echo "infrastructure_ready=false" >> $GITHUB_OUTPUT
@@ -96,10 +98,13 @@ jobs:
               --set-env-vars="CLOUD_SQL_CONNECTION_NAME=${{ steps.tf-outputs.outputs.cloud_sql_connection }}" \
               --set-env-vars="DB_NAME=elevia_db" \
               --set-env-vars="DB_USER=elevia_user" \
-              --set-env-vars="GOOGLE_VERTEX_PROJECT_ID=${{ env.PROJECT_ID }}" \
-              --set-env-vars="GOOGLE_VERTEX_LOCATION=${{ env.REGION }}" \
+              --set-env-vars="DB_HOST=${{ steps.tf-outputs.outputs.cloud_sql_private_ip }}" \
+              --set-env-vars="GOOGLE_VERTEX_PROJECT=${{ env.PROJECT_ID }}" \
+              --set-env-vars="GOOGLE_VERTEX_LOCATION=us-central1" \
               --set-secrets="DB_PASS=elevia-db-password:latest" \
               --set-secrets="AUTH_SECRET=elevia-nextauth-secret:latest" \
+              --set-secrets="AUTH_GOOGLE_ID=elevia-google-oauth-client-id:latest" \
+              --set-secrets="AUTH_GOOGLE_SECRET=elevia-google-oauth-client-secret:latest" \
               --vpc-connector=elevia-connector-v2 \
               --vpc-egress=private-ranges-only \
               --timeout=300 \

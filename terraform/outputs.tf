@@ -60,6 +60,16 @@ output "nextauth_secret_name" {
   value       = google_secret_manager_secret.nextauth_secret.secret_id
 }
 
+output "google_oauth_client_id_secret_name" {
+  description = "The name of the Google OAuth client ID secret"
+  value       = google_secret_manager_secret.google_oauth_client_id.secret_id
+}
+
+output "google_oauth_client_secret_secret_name" {
+  description = "The name of the Google OAuth client secret secret"
+  value       = google_secret_manager_secret.google_oauth_client_secret.secret_id
+}
+
 # Service Account outputs
 output "cloud_run_service_account_email" {
   description = "The email of the Cloud Run service account"

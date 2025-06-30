@@ -77,8 +77,8 @@ DB_NAME=elevia_db
 AUTH_SECRET=your-32-char-secret-key
 
 # AI Configuration (Vertex AI)
-GOOGLE_VERTEX_PROJECT_ID=your-project-id
-GOOGLE_VERTEX_LOCATION=asia-northeast1
+GOOGLE_VERTEX_PROJECT=your-project-id
+GOOGLE_VERTEX_LOCATION=us-central1
 ```
 
 ### 1.3 Initialize Google Cloud Workload Identity (One-time Setup)
@@ -124,6 +124,8 @@ AUTH_SECRET=your-nextauth-secret-here    # NextAuth v5 secret for session encryp
 DB_USER=elevia_user
 DB_PASS=your-secure-database-password
 DB_NAME=elevia_db
+AUTH_GOOGLE_ID=your-google-oauth-client-id    # Google OAuth client ID
+AUTH_GOOGLE_SECRET=your-google-oauth-client-secret    # Google OAuth client secret
 ```
 
 **Critical Notes**:
@@ -566,6 +568,8 @@ AUTH_SECRET=your-nextauth-secret-here  # NextAuth v5 secret
 DB_USER=elevia_user
 DB_PASS=your-secure-password
 DB_NAME=elevia_db
+AUTH_GOOGLE_ID=your-google-oauth-client-id  # Google OAuth client ID
+AUTH_GOOGLE_SECRET=your-google-oauth-client-secret  # Google OAuth client secret
 ```
 
 **Avoid Special Characters in Secrets**:
@@ -851,12 +855,14 @@ DB_USER=elevia_user
 AUTH_URL=https://your-cloud-run-url  # Updated automatically by deployment workflow
 
 # Vertex AI Configuration
-GOOGLE_VERTEX_PROJECT_ID=your-project-id  # For AI-powered OKR generation
-GOOGLE_VERTEX_LOCATION=asia-northeast1
+GOOGLE_VERTEX_PROJECT=your-project-id  # For AI-powered OKR generation
+GOOGLE_VERTEX_LOCATION=us-central1
 
 # Injected from Secret Manager
 DB_PASS=***  # From Secret Manager secret: elevia-db-password
 AUTH_SECRET=***  # From Secret Manager secret: elevia-nextauth-secret
+AUTH_GOOGLE_ID=***  # From Secret Manager secret: elevia-google-oauth-client-id
+AUTH_GOOGLE_SECRET=***  # From Secret Manager secret: elevia-google-oauth-client-secret
 
 # Cloud Run specific
 K_SERVICE=elevia  # Automatically set by Cloud Run
@@ -1106,8 +1112,8 @@ gcloud run services update ${{ env.SERVICE_NAME }} \
 **Environment Variables Required**:
 ```bash
 # Add to deployment workflow
---set-env-vars="GOOGLE_VERTEX_PROJECT_ID=${{ env.PROJECT_ID }}" \
---set-env-vars="GOOGLE_VERTEX_LOCATION=asia-northeast1" \
+--set-env-vars="GOOGLE_VERTEX_PROJECT=${{ env.PROJECT_ID }}" \
+--set-env-vars="GOOGLE_VERTEX_LOCATION=us-central1" \
 ```
 
 **Service Account Permissions Required**:

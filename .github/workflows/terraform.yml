@@ -70,6 +70,8 @@ jobs:
           echo "db_password = \"${{ secrets.DB_PASS }}\""
           echo "db_name = \"${{ secrets.DB_NAME }}\""
           echo "nextauth_secret = \"${{ secrets.AUTH_SECRET }}\""
+          echo "google_oauth_client_id = \"${{ secrets.AUTH_GOOGLE_ID }}\""
+          echo "google_oauth_client_secret = \"${{ secrets.AUTH_GOOGLE_SECRET }}\""
           echo "custom_domain = \"\""
           echo "deletion_protection = true"
           echo "max_instances = 10"

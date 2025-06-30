@@ -67,6 +67,19 @@ variable "nextauth_secret" {
   }
 }
 
+# Google OAuth configuration
+variable "google_oauth_client_id" {
+  description = "Google OAuth client ID for authentication"
+  type        = string
+  sensitive   = true
+}
+
+variable "google_oauth_client_secret" {
+  description = "Google OAuth client secret for authentication"
+  type        = string
+  sensitive   = true
+}
+
 # Cloud Run configuration
 variable "max_instances" {
   description = "Maximum number of Cloud Run instances"

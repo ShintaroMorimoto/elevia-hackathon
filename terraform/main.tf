@@ -263,3 +263,35 @@ resource "google_secret_manager_secret_version" "nextauth_secret" {
   secret      = google_secret_manager_secret.nextauth_secret.id
   secret_data = var.nextauth_secret
 }
+
+# Google OAuth Client ID Secret
+resource "google_secret_manager_secret" "google_oauth_client_id" {
+  secret_id = "${var.app_name}-google-oauth-client-id"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_version" "google_oauth_client_id" {
+  secret      = google_secret_manager_secret.google_oauth_client_id.id
+  secret_data = var.google_oauth_client_id
+}
+
+# Google OAuth Client Secret
+resource "google_secret_manager_secret" "google_oauth_client_secret" {
+  secret_id = "${var.app_name}-google-oauth-client-secret"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_version" "google_oauth_client_secret" {
+  secret      = google_secret_manager_secret.google_oauth_client_secret.id
+  secret_data = var.google_oauth_client_secret
+}
