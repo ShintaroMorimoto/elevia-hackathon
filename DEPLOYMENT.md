@@ -95,6 +95,7 @@ This script configures:
 - Required Google Cloud APIs
 - Service accounts and IAM permissions  
 - GCS bucket for Terraform state management
+- **Uniform Bucket Level Access (UBLA)** for Terraform state bucket
 
 **The script is idempotent** - running it multiple times is safe.
 
@@ -576,16 +577,19 @@ AUTH_GOOGLE_SECRET=your-google-oauth-client-secret  # Google OAuth client secret
 - Don't use `/`, `"`, `'`, `\` in AUTH_SECRET values
 - Use base64 encoded values if needed: `openssl rand -base64 32`
 
-#### 4. Terraform State Bucket Naming Inconsistency
+#### 4. Terraform State Bucket Configuration Issues
 
-**Issue**: "bucket doesn't exist" error during terraform init.
+**Issue**: "bucket doesn't exist" or "Uniform Bucket Level Access be enabled" errors during terraform init.
 
-**Root Cause**: Naming convention mismatch between init.sh and deploy.yml:
-- `init.sh` creates: `${PROJECT_ID}-terraform-state`
-- `deploy.yml` initially expected: `terraform-state-${PROJECT_ID}`
+**Root Causes**: 
+1. **Naming convention mismatch** between init.sh and deploy.yml:
+   - `init.sh` creates: `${PROJECT_ID}-terraform-state`
+   - `deploy.yml` initially expected: `terraform-state-${PROJECT_ID}`
+2. **Missing Uniform Bucket Level Access (UBLA)** requirement for Workload Identity Federation
 
-**Solution**: Update deploy.yml to use consistent naming pattern.
+**Solutions**:
 
+**Fix Bucket Naming**:
 ```yaml
 # ❌ Wrong - inconsistent with init.sh
 terraform init \
@@ -596,7 +600,13 @@ terraform init \
   -backend-config="bucket=${{ vars.GOOGLE_CLOUD_PROJECT_ID }}-terraform-state" \
 ```
 
-**Prevention**: Always verify bucket naming consistency between init.sh and CI/CD workflows.
+**Enable UBLA for Workload Identity Federation**:
+```bash
+# Required for Workload Identity Federation authentication
+gsutil uniformbucketlevelaccess set on gs://${PROJECT_ID}-terraform-state
+```
+
+**Prevention**: Always verify bucket naming consistency and UBLA configuration between init.sh and CI/CD workflows.
 
 #### 5. Terraform Format Issues with Generated Files
 

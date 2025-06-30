@@ -25,13 +25,21 @@ log_error() {
     echo "[ERROR] $1" >&2
 }
   
-# 1. enable IAM Credential API
-if ! gcloud services list --enabled --filter="name:iamcredentials.googleapis.com" --format="value(name)" | grep "iamcredentials.googleapis.com" >/dev/null 2>&1; then
-    log "enabling IAM Credential API..."
-    gcloud services enable iamcredentials.googleapis.com --project="$PROJECT_ID"
-else
-    log "IAM Credential API is already enabled"
-fi
+# 1. enable minimal required APIs for init.sh (Terraform will enable the rest)
+MINIMAL_APIS=(
+    "iamcredentials.googleapis.com"
+    "cloudresourcemanager.googleapis.com"
+)
+
+log "enabling minimal APIs required for init.sh..."
+for api in "${MINIMAL_APIS[@]}"; do
+    if ! gcloud services list --enabled --filter="name:$api" --format="value(name)" | grep "$api" >/dev/null 2>&1; then
+        log "enabling $api..."
+        gcloud services enable "$api" --project="$PROJECT_ID"
+    else
+        log "$api is already enabled"
+    fi
+done
   
 # 2. create workload identity pool
 if ! gcloud iam workload-identity-pools describe $WORKLOAD_IDENTITY_POOL --location="global" --project="$PROJECT_ID" >/dev/null 2>&1; then
