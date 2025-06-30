@@ -46,7 +46,7 @@ jobs:
         run: |
           echo "Checking if Artifact Registry repository exists..."
           for i in {1..10}; do
-            if gcloud artifacts repositories describe app-repo --location=${{ env.REGION }} 2>/dev/null; then
+            if gcloud artifacts repositories describe elevia-repo --location=${{ env.REGION }} 2>/dev/null; then
               echo "✅ Artifact Registry repository is ready"
               echo "ready=true" >> $GITHUB_OUTPUT
               break
@@ -65,7 +65,7 @@ jobs:
         id: repo-info
         run: |
           # Get Artifact Registry repository from Terraform outputs
-          REPO_URL="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/app-repo"
+          REPO_URL="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/elevia-repo"
           echo "repository_url=$REPO_URL" >> $GITHUB_OUTPUT
           echo "image_tag=$REPO_URL/${{ env.SERVICE_NAME }}:${{ github.sha }}" >> $GITHUB_OUTPUT
           echo "latest_tag=$REPO_URL/${{ env.SERVICE_NAME }}:latest" >> $GITHUB_OUTPUT

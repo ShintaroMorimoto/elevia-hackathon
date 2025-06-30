@@ -92,12 +92,14 @@ chmod +x ./scripts/init.sh && ./scripts/init.sh
 
 This script configures:
 - Workload Identity Federation for GitHub Actions
-- Required Google Cloud APIs
+- **Minimal required APIs only** (Terraform will enable the rest to avoid permission conflicts)
 - Service accounts and IAM permissions  
-- GCS bucket for Terraform state management
-- **Uniform Bucket Level Access (UBLA)** for Terraform state bucket
+- GCS bucket for Terraform state management with versioning and lifecycle rules
+- **Uniform Bucket Level Access (UBLA)** for Terraform state bucket (required for Terraform backend)
 
 **The script is idempotent** - running it multiple times is safe.
+
+**For fresh project deployments**: Ensure you have Project Owner or Editor permissions for the initial setup, as API enablement and Workload Identity Federation require elevated privileges.
 
 ## Step 2: Configure GitHub Repository
 
@@ -141,14 +143,19 @@ AUTH_GOOGLE_SECRET=your-google-oauth-client-secret    # Google OAuth client secr
 
 Before running workflows, verify these critical settings:
 
-**GitHub Environment "Terraform" Variables** ✅
+**GitHub Repository Variables** ✅
 ```bash
-# Verify with: gh api repos/:owner/:repo/environments/Terraform/variables
+# Verify with: gh api repos/:owner/:repo/actions/variables
 GOOGLE_CLOUD_PROJECT_ID=your-project-id
 GOOGLE_CLOUD_PROJECT_NUMBER=123456789012  
-WORKLOAD_IDENTITY_POOL=github-test
+WORKLOAD_IDENTITY_POOL=github-actions
 WORKLOAD_IDENTITY_PROVIDER=github
 ```
+
+**⚠️ Common Configuration Pitfalls**:
+- Ensure `WORKLOAD_IDENTITY_POOL=github-actions` (not `github-test`)
+- Variable values must not contain leading/trailing spaces
+- Use Repository Variables (not Environment Variables) for these settings
 
 **GitHub Environment "Terraform" Secrets** ✅
 ```bash
@@ -461,6 +468,22 @@ Permission 'secretmanager.secrets.create' denied
 "roles/resourcemanager.projectIamAdmin"
 "roles/iam.serviceAccountUser"
 "roles/iam.serviceAccountTokenCreator"
+
+# API enablement roles
+"roles/serviceusage.serviceUsageAdmin"
+"roles/serviceusage.serviceUsageConsumer"
+```
+
+**Fresh Project Deployment Strategy**:
+```bash
+# init.sh enables minimal APIs to avoid permission conflicts
+MINIMAL_APIS=(
+    "iamcredentials.googleapis.com"
+    "cloudresourcemanager.googleapis.com"
+)
+
+# Terraform handles remaining API enablement
+# This prevents permission errors when init.sh lacks API enablement permissions
 ```
 
 **Multiple Pool Management**:
@@ -606,9 +629,52 @@ terraform init \
 gsutil uniformbucketlevelaccess set on gs://${PROJECT_ID}-terraform-state
 ```
 
+**Critical for Fresh Projects**: UBLA (Uniform Bucket Level Access) is **mandatory** for Terraform backends with Workload Identity Federation. The error "Uniform Bucket Level Access be enabled" indicates this is missing.
+
+**Fresh Project Deployment Notes**:
+- init.sh automatically enables UBLA during bucket creation
+- For existing buckets without UBLA, enable it manually before running Terraform workflows
+- UBLA cannot be disabled once enabled (irreversible change)
+
 **Prevention**: Always verify bucket naming consistency and UBLA configuration between init.sh and CI/CD workflows.
 
-#### 5. Terraform Format Issues with Generated Files
+#### 5. Terraform Import Blocks for Fresh Projects
+
+**Issue**: Terraform fails with "Cannot import non-existent remote object" errors during fresh project deployment.
+
+**Error Pattern**:
+```
+Error: Cannot import non-existent remote object
+│   with google_service_account.cloud_run_sa,
+│   on main.tf line 205, in import:
+│   205: import {
+│   206:   to = google_service_account.cloud_run_sa
+│   207:   id = "projects/${var.project_id}/serviceAccounts/${var.app_name}-run-sa@${var.project_id}.iam.gserviceaccount.com"
+│   208: }
+```
+
+**Root Cause**: Import blocks are designed for importing existing resources into Terraform state. For completely fresh project deployments, these resources don't exist yet.
+
+**Solution for Fresh Projects**:
+The Terraform configuration includes commented-out import blocks for fresh deployments:
+```hcl
+# Import existing service account if it exists (commented out for new projects)
+# import {
+#   to = google_service_account.cloud_run_sa
+#   id = "projects/${var.project_id}/serviceAccounts/${var.app_name}-run-sa@${var.project_id}.iam.gserviceaccount.com"
+# }
+```
+
+**When to Use Import Blocks**:
+- ✅ **Existing Projects**: When migrating existing Google Cloud resources to Terraform management
+- ❌ **Fresh Projects**: When deploying to a completely new project for the first time
+
+**Prevention Strategy**:
+- Keep import blocks commented out by default
+- Only uncomment when specifically importing existing resources
+- Document which import blocks are for migration vs fresh deployment scenarios
+
+#### 6. Terraform Format Issues with Generated Files
 
 **Issue**: `terraform fmt -check` fails with "Missing newline after argument".
 
@@ -666,6 +732,31 @@ gh run list --branch=your-pr-branch
 # Check workflow status
 gh run view --log
 ```
+
+### 🚀 Fresh Project Deployment Checklist
+
+Based on lessons learned from deploying to completely new Google Cloud projects:
+
+#### Pre-Deployment Verification
+- ✅ **Project Owner/Editor permissions** for initial setup
+- ✅ **BUCKET_NAME in .env.local** matches project-specific naming convention
+- ✅ **GitHub Repository Variables** set correctly (no spaces, correct pool name)
+- ✅ **Terraform import blocks commented out** for fresh deployments
+- ✅ **init.sh API strategy** (minimal APIs only, let Terraform handle the rest)
+
+#### Common Fresh Project Pitfalls
+- ❌ **UBLA not enabled** → Terraform backend authentication fails
+- ❌ **Import blocks active** → "Cannot import non-existent remote object" errors
+- ❌ **API enablement conflicts** → Permission denied errors in init.sh
+- ❌ **GitHub Variable spaces** → Empty variable values in workflows
+- ❌ **Wrong WORKLOAD_IDENTITY_POOL name** → "github-test" vs "github-actions" mismatch
+
+#### Successful Fresh Deployment Flow
+1. **Configure .env.local** with project-specific values
+2. **Run init.sh** (enables minimal APIs + WIF setup)
+3. **Set GitHub Repository Variables** (verify no spaces)
+4. **Commit/push to trigger CI/CD** (Terraform applies automatically)
+5. **Monitor workflows** for UBLA, import blocks, API enablement issues
 
 ### Common Issues
 
