@@ -41,6 +41,26 @@ jobs:
       - name: Configure Docker to use gcloud as credential helper
         run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
 
+      - name: Wait for Artifact Registry readiness
+        id: artifact-registry-check
+        run: |
+          echo "Checking if Artifact Registry repository exists..."
+          for i in {1..10}; do
+            if gcloud artifacts repositories describe app-repo --location=${{ env.REGION }} 2>/dev/null; then
+              echo "✅ Artifact Registry repository is ready"
+              echo "ready=true" >> $GITHUB_OUTPUT
+              break
+            else
+              echo "⏳ Waiting for Artifact Registry... (attempt $i/10)"
+              if [ $i -eq 10 ]; then
+                echo "❌ Artifact Registry repository not found after 10 attempts"
+                echo "ready=false" >> $GITHUB_OUTPUT
+                exit 1
+              fi
+              sleep 30
+            fi
+          done
+
       - name: Get repository information
         id: repo-info
         run: |
