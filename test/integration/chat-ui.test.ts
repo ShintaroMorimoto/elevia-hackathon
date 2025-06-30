@@ -159,7 +159,9 @@ describe('Chat UI Integration', () => {
 
       // Assert
       expect(result.success).toBe(true);
-      expect(result.data?.depth).toBe(2);
+      if (result.success) {
+        expect(result.data.depth).toBe(2);
+      }
       expect(generateNextQuestion).toHaveBeenCalledWith(
         'goal-1',
         'user-1',

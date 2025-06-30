@@ -70,7 +70,9 @@ describe('Goals Server Actions - Authentication', () => {
       title: 'Test Goal',
       description: 'Test Description',
       userId: 'user-123',
-      dueDate: new Date(Date.now() + 6 * 365 * 24 * 60 * 60 * 1000), // 6 years from now to meet minimum requirement
+      dueDate: new Date(
+        Date.now() + 6 * 365 * 24 * 60 * 60 * 1000,
+      ).toISOString(), // 6 years from now to meet minimum requirement
       status: 'active',
     };
 

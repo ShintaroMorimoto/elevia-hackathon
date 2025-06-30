@@ -40,7 +40,8 @@ ${request.yearlyBreakdown
 7. リスク要因と対策を考慮する
 8. 月次マイルストーンを設定
 9. targetValueは99,999,999以下の数値に制限する（データベース制約のため）
-10. 【重要】Objectiveには「2025年:」「Q1:」などの時期表記を含めない。内容のみを記載する
+10. 【重要】frequencyフィールドには必ず以下の値のみ使用: "daily", "weekly", "monthly", "quarterly", "annually", "once"
+11. 【重要】Objectiveには「2025年:」「Q1:」などの時期表記を含めない。内容のみを記載する
 
 【出力形式】
 以下のJSON形式で回答してください：
@@ -68,6 +69,14 @@ ${request.yearlyBreakdown
           "unit": "個",
           "measurementMethod": "具体的な測定方法",
           "frequency": "monthly",
+          "baselineValue": 0
+        },
+        {
+          "description": "年次評価指標",
+          "targetValue": 1,
+          "unit": "回",
+          "measurementMethod": "年度末評価",
+          "frequency": "annually",
           "baselineValue": 0
         }
       ],

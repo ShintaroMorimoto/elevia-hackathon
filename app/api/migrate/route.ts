@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import pg from 'pg';
-import * as path from 'path';
+import * as path from 'node:path';
 
 /**
  * 環境変数を取得します。変数が設定されていない場合はエラーをスローします。

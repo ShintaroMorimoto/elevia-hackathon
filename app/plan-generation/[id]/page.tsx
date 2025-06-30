@@ -20,7 +20,7 @@ export default function PlanGenerationPage({
   const router = useRouter();
   const { data: session, status } = useSession();
   const [goalId, setGoalId] = useState<string>('');
-  const [currentStep, setCurrentStep] = useState(0);
+  const [_currentStep, setCurrentStep] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
