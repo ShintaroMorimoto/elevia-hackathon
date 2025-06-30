@@ -2,7 +2,7 @@
 
 This document provides comprehensive best practices for developing with Terraform on Google Cloud Platform, based on official Google Cloud documentation.
 
-<!-- Deployment trigger for CI/CD workflow - space issue fixed -->
+<!-- Deployment trigger for CI/CD workflow - bucket created -->
 
 ## Table of Contents
 
