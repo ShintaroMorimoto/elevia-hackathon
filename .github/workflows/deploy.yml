@@ -164,19 +164,30 @@ jobs:
       - name: Run database migrations
         if: steps.tf-outputs.outputs.infrastructure_ready == 'true'
         run: |
-          # Install pnpm and dependencies
-          corepack enable pnpm
-          corepack prepare pnpm@10.12.4 --activate
-          pnpm install --frozen-lockfile
+          echo "🚀 Running database migrations via Cloud Run..."
           
-          # Set environment variables for migration
-          export CLOUD_SQL_CONNECTION_NAME="${{ steps.tf-outputs.outputs.cloud_sql_connection }}"
-          export DB_USER="${{ secrets.DB_USER }}"
-          export DB_PASS="${{ secrets.DB_PASS }}"
-          export DB_NAME="${{ secrets.DB_NAME }}"
-          
-          # Run database schema push (more reliable than migrate for initial setup)
-          pnpm run db:push
+          # Run migration script on Cloud Run (has VPC access to Cloud SQL)
+          gcloud run jobs create elevia-migrate \
+            --image=${{ steps.repo-info.outputs.latest_tag }} \
+            --region=${{ env.REGION }} \
+            --service-account=elevia-run-sa@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+            --set-env-vars="NODE_ENV=production" \
+            --set-env-vars="DB_HOST=${{ steps.tf-outputs.outputs.cloud_sql_private_ip }}" \
+            --set-env-vars="DB_USER=${{ secrets.DB_USER }}" \
+            --set-env-vars="DB_NAME=${{ secrets.DB_NAME }}" \
+            --set-secrets="DB_PASS=elevia-db-password:latest" \
+            --vpc-connector=elevia-connector-v2 \
+            --vpc-egress=private-ranges-only \
+            --task-timeout=300 \
+            --max-retries=1 \
+            --command="node" \
+            --args="scripts/migrate.js" \
+            --quiet || echo "Job might already exist, continuing..."
+            
+          # Execute the migration job
+          gcloud run jobs execute elevia-migrate \
+            --region=${{ env.REGION }} \
+            --wait
         continue-on-error: false
 
       - name: Infrastructure Setup Notice
