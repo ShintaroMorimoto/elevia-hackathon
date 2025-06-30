@@ -1,6 +1,5 @@
-# Next.js Template
+# Elevia
 
-A modern Next.js template with TypeScript and essential development tools.
 
 ## Tech Stack
 
